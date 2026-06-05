@@ -23,7 +23,6 @@
 	import X from '@lucide/svelte/icons/x';
 	import type { PreviewKind } from '$lib/artifacts';
 	import { formatBytes, previewKindFor } from '$lib/artifacts';
-	import PreviewSafetyNotice from '$lib/components/PreviewSafetyNotice.svelte';
 	import { buildPreviewDoc, toPreviewHtmlDocument } from '$lib/preview-doc';
 	import { sanitizePreviewHtml } from '$lib/preview-sanitize';
 	import {
@@ -592,8 +591,7 @@
 						</Button>
 					</div>
 				</div>
-				<div class="space-y-3 px-4 pb-4 sm:px-6">
-					<PreviewSafetyNotice />
+				<div class="px-4 pb-4 sm:px-6">
 					<iframe
 						srcdoc={buildPreviewContent(inline.kind, inline.doc, darkMode)}
 						title={inline.filename}
@@ -712,11 +710,6 @@
 					class="h-full w-full border-0 bg-white dark:bg-slate-950"
 				></iframe>
 			{:else if (previewKind === 'html' || previewKind === 'markdown' || previewKind === 'text') && previewDoc}
-				{#if previewKind === 'html' || previewKind === 'markdown'}
-					<div class="shrink-0 px-3 pt-3 pr-14">
-						<PreviewSafetyNotice />
-					</div>
-				{/if}
 				<iframe
 					srcdoc={previewDoc}
 					title={previewFilename}
