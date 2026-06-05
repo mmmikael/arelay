@@ -185,6 +185,49 @@
 		return previewKindFor(meta.filename, meta.contentType);
 	}
 
+	async function resolveEncryptedArtifactMeta(
+		artifact: PageData['artifacts'][number]
+	): Promise<{ filename: string; contentType: string; kind: PreviewKind } | null> {
+		if (artifact.encryption_version !== 'e2ee-v1') return null;
+
+		const cached = decryptedArtifacts[artifact.id];
+		if (cached) {
+			return {
+				filename: cached.filename,
+				contentType: cached.contentType,
+				kind: previewKindFor(cached.filename, cached.contentType)
+			};
+		}
+
+		const privateKey = $e2eePrivateKey;
+		if (!privateKey || !artifact.encrypted_filename || !artifact.encrypted_content_type) {
+			return null;
+		}
+
+		try {
+			const filename = await decryptString(
+				artifact.encrypted_filename as unknown as EncryptedEnvelope,
+				privateKey
+			);
+			const contentType = await decryptString(
+				artifact.encrypted_content_type as unknown as EncryptedEnvelope,
+				privateKey
+			);
+			decryptedArtifacts = {
+				...decryptedArtifacts,
+				[artifact.id]: { filename, contentType }
+			};
+			return {
+				filename,
+				contentType,
+				kind: previewKindFor(filename, contentType)
+			};
+		} catch (err) {
+			console.error('[e2ee] artifact metadata resolve failed:', err);
+			return null;
+		}
+	}
+
 	onMount(() => {
 		const updateTheme = () => {
 			darkMode = document.documentElement.classList.contains('dark');
@@ -251,8 +294,9 @@
 		if (!(await ensureUnlockedForEncrypted())) return;
 
 		try {
-			const filename = artifactFilename(artifact);
-			const contentType = artifactContentType(artifact);
+			const meta = await resolveEncryptedArtifactMeta(artifact);
+			const filename = meta?.filename ?? artifactFilename(artifact);
+			const contentType = meta?.contentType ?? artifactContentType(artifact);
 			const plaintext = await decryptArtifactBytes(artifact);
 			const url = URL.createObjectURL(new Blob([bytesToArrayBuffer(plaintext)], { type: contentType }));
 			const link = document.createElement('a');
@@ -306,9 +350,25 @@
 			return;
 		}
 
-		const filename = artifactFilename(artifact);
-		const contentType = artifactContentType(artifact);
-		const kind = artifactPreviewKind(artifact);
+		let filename: string;
+		let contentType: string;
+		let kind: PreviewKind;
+
+		if (artifact.encryption_version === 'e2ee-v1') {
+			const meta = await resolveEncryptedArtifactMeta(artifact);
+			if (!meta) {
+				previewError = 'Could not decrypt artifact metadata.';
+				previewOpen = true;
+				return;
+			}
+			filename = meta.filename;
+			contentType = meta.contentType;
+			kind = meta.kind;
+		} else {
+			filename = artifact.filename;
+			contentType = artifact.content_type;
+			kind = artifact.previewKind;
+		}
 
 		if (kind === 'none') {
 			await downloadArtifactRecord(artifact);
