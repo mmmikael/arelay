@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+	import { withPasskeyPrfExtension } from '$lib/passkey-prf';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
@@ -109,7 +110,9 @@
 			});
 			const optionsJSON = await optionsRes.json();
 			if (!optionsRes.ok) throw new Error(optionsJSON.error || 'Could not start account setup');
-			const response = await startRegistration({ optionsJSON });
+			const response = await startRegistration({
+				optionsJSON: withPasskeyPrfExtension(optionsJSON)
+			});
 			const verifyRes = await fetch('/api/auth/passkeys/signup/verify', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },

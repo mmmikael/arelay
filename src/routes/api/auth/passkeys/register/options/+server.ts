@@ -17,6 +17,9 @@ export const POST: RequestHandler = async ({ cookies, locals, url }) => {
 	const user = locals.user;
 
 	const credentials = await listCredentialsForUser(user.id);
+	if (credentials.length > 0) {
+		return json({ error: 'This account already has a passkey.' }, { status: 409 });
+	}
 	const { rpName, rpID } = getWebAuthnSettings(url);
 	const options = await generateRegistrationOptions({
 		rpName,
