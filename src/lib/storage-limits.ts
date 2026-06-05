@@ -1,0 +1,35 @@
+import { formatBytes } from '$lib/artifacts';
+
+export const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
+export const MAX_ACCOUNT_STORAGE_BYTES = 500 * 1024 * 1024;
+
+export type StorageLimitErrorCode = 'artifact_too_large' | 'account_quota_exceeded';
+
+export type StorageLimitCheckResult =
+	| { ok: true }
+	| { ok: false; code: StorageLimitErrorCode; message: string };
+
+export function checkArtifactStorageLimits(
+	incomingBytes: number,
+	usedBytes: number
+): StorageLimitCheckResult {
+	if (incomingBytes > MAX_ARTIFACT_BYTES) {
+		return {
+			ok: false,
+			code: 'artifact_too_large',
+			message: `Each file must be ${formatBytes(MAX_ARTIFACT_BYTES)} or smaller.`
+		};
+	}
+	if (usedBytes + incomingBytes > MAX_ACCOUNT_STORAGE_BYTES) {
+		const remaining = Math.max(0, MAX_ACCOUNT_STORAGE_BYTES - usedBytes);
+		return {
+			ok: false,
+			code: 'account_quota_exceeded',
+			message:
+				remaining === 0
+					? `Account storage limit of ${formatBytes(MAX_ACCOUNT_STORAGE_BYTES)} is full.`
+					: `Upload would exceed the ${formatBytes(MAX_ACCOUNT_STORAGE_BYTES)} account storage limit (${formatBytes(remaining)} remaining).`
+		};
+	}
+	return { ok: true };
+}

@@ -279,13 +279,23 @@ with open("diagram.png", "rb") as f:
 
 ---
 
+## Storage limits
+
+Each account has a **500 MB** total storage cap across all sessions. Each artifact (plaintext or encrypted) must be **25 MB** or smaller.
+
+When a limit is exceeded, artifact upload returns `413` (per-file too large) or `507` (account quota full) with `{ "error": "..." }`.
+
+---
+
 ## Errors
 
 | Status | Meaning |
 |--------|---------|
 | `401` | Missing, wrong, or revoked `AGENT_API_TOKEN` |
 | `404` | Unknown `session_id` |
+| `413` | Single artifact exceeds 25 MB |
 | `415` | Artifact POST must be `application/json` or `multipart/form-data` |
+| `507` | Account storage quota (500 MB) exceeded |
 | `503` | S3 storage not configured on server |
 
 On failure, read the JSON body `{ "error": "..." }` and retry or report to the human.

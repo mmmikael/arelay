@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getSession, listArtifacts } from '$lib/server/db';
 import { previewKindFor } from '$lib/artifacts';
+import { sanitizePreviewHtml } from '$lib/preview-sanitize';
 import { getObjectText } from '$lib/server/s3';
 import { marked } from 'marked';
 
@@ -21,8 +22,8 @@ async function loadInlinePreview(
 	const text = await getObjectText(storageKey);
 	const doc =
 		kind === 'markdown'
-			? await marked.parse(text, { gfm: true, breaks: true })
-			: text;
+			? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
+			: sanitizePreviewHtml(text);
 	return { artifactId, filename, kind, doc };
 }
 

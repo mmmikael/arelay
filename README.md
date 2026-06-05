@@ -52,7 +52,8 @@ In practice:
   can also store an encrypted copy of a token so the user can reveal it later after
   unlocking encryption.
 - Recovery-key unlock is always available. Passkey PRF unlock is used where browser and
-  authenticator support it.
+  authenticator support it. If the account passkey cannot provide PRF (for example some
+  synced passkeys on Chromium), the app can register a separate encryption passkey.
 
 For sensitive workflows, configure encryption before connecting agents and have agents use
 the encrypted upload mode described in [AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md).
@@ -102,10 +103,11 @@ user, not by the hosted service.
 - Full-screen message view on mobile
 - Read/unread message state
 - Artifact preview and download
-- Fullscreen preview for text, Markdown, and HTML files
+- Sandboxed preview for text, Markdown, and HTML (external links and media stripped)
 - End-to-end encrypted delivery mode
 - Passkey account creation and sign-in
-- Multiple passkeys per account
+- One passkey per account for sign-in
+- Per-account storage limits (25 MB per artifact, 500 MB total) with usage in the account dialog
 - Named agent API tokens per account
 - Per-token revoke flow for compromised or retired agents
 - Email verification before account creation
@@ -212,7 +214,7 @@ Create one named token per agent or integration. If one agent is compromised, re
 that token and the other agents keep working.
 
 See [AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md) for the agent-facing API guide,
-including encrypted delivery mode.
+including encrypted delivery mode and storage limits.
 
 ### Create a session
 
@@ -257,6 +259,9 @@ filename=optional-name.png
   browser and shown to the user.
 - Optional encrypted token reveal stores only an E2EE-encrypted copy of the token.
 - Encrypted delivery mode uses P-256 ECDH and AES-256-GCM envelopes.
+- HTML and Markdown previews render in sandboxed iframes; agent-authored external URLs are
+  stripped before display.
+- Artifact uploads are capped at 25 MB per file and 500 MB per account.
 - Download and preview URLs are short-lived.
 
 Report security issues privately as described in [SECURITY.md](./SECURITY.md).

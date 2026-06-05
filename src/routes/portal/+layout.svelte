@@ -38,6 +38,7 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import UserRound from '@lucide/svelte/icons/user-round';
+	import { formatBytes } from '$lib/artifacts';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import { onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -297,6 +298,11 @@
 
 	function formatPasskeyLastUsed(value: string | Date | null | undefined): string {
 		return value ? `Last used ${formatAccountDate(value)}` : 'Not used for sign-in yet';
+	}
+
+	function storageUsedPercent(usedBytes: number, limitBytes: number): number {
+		if (limitBytes <= 0) return 0;
+		return Math.min(100, (usedBytes / limitBytes) * 100);
 	}
 
 	function confirmDeleteSession(id: string, event: MouseEvent) {
@@ -610,7 +616,7 @@
 				body: JSON.stringify({ is_read: isRead })
 			});
 			if (!res.ok) throw new Error(isRead ? 'Mark read failed' : 'Mark unread failed');
-			await invalidate('inbox:sessions');
+			await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
 		} catch (err) {
 			alert(err instanceof Error ? err.message : 'Could not update read state');
 		} finally {
@@ -629,7 +635,7 @@
 			if (wasActive) {
 				await goto('/portal', { replaceState: true });
 			}
-			await invalidate('inbox:sessions');
+			await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
 		} catch (err) {
 			alert(err instanceof Error ? err.message : 'Delete failed');
 		} finally {
@@ -761,7 +767,7 @@
 
 		const refresh = () => {
 			if (document.hidden) return;
-			void invalidate('inbox:sessions');
+			void Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
 		};
 
 		const start = () => {
@@ -1114,6 +1120,36 @@
 					</p>
 					<p class="text-xs text-slate-500 dark:text-slate-400">Personal inbox account</p>
 				</div>
+			</div>
+
+			<div class="mt-5 space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Storage</h3>
+					<p class="text-xs font-medium text-slate-600 dark:text-slate-300">
+						{formatBytes(data.storage.usedBytes)} / {formatBytes(data.storage.limitBytes)}
+					</p>
+				</div>
+				<div
+					class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+					role="progressbar"
+					aria-valuenow={data.storage.usedBytes}
+					aria-valuemin={0}
+					aria-valuemax={data.storage.limitBytes}
+					aria-label="Account storage used"
+				>
+					<div
+						class="h-full rounded-full transition-[width] duration-300 {storageUsedPercent(
+							data.storage.usedBytes,
+							data.storage.limitBytes
+						) >= 90
+							? 'bg-amber-500'
+							: 'bg-blue-500'}"
+						style="width: {storageUsedPercent(data.storage.usedBytes, data.storage.limitBytes)}%"
+					></div>
+				</div>
+				<p class="text-xs text-slate-500 dark:text-slate-400">
+					Up to {formatBytes(data.storage.artifactLimitBytes)} per message. Deleting sessions frees space.
+				</p>
 			</div>
 
 			<div class="mt-5 space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">

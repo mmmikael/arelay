@@ -23,7 +23,14 @@
 	import X from '@lucide/svelte/icons/x';
 	import type { PreviewKind } from '$lib/artifacts';
 	import { formatBytes, previewKindFor } from '$lib/artifacts';
-	import { buildPreviewDoc } from '$lib/preview-doc';
+	import PreviewSafetyNotice from '$lib/components/PreviewSafetyNotice.svelte';
+	import { buildPreviewDoc, toPreviewHtmlDocument } from '$lib/preview-doc';
+	import { sanitizePreviewHtml } from '$lib/preview-sanitize';
+	import {
+		PDF_PREVIEW_SANDBOX,
+		PREVIEW_REFERRER_POLICY,
+		STRICT_PREVIEW_SANDBOX
+	} from '$lib/preview-sandbox';
 	import { getContext, onMount } from 'svelte';
 	import type { Component } from 'svelte';
 	import type { IconProps } from '@lucide/svelte';
@@ -64,8 +71,16 @@
 
 	$effect(() => {
 		if (!previewSourceDoc) return;
-		previewDoc = buildPreviewDoc(previewSourceDoc, darkMode);
+		previewDoc =
+			previewKind === 'html'
+				? toPreviewHtmlDocument(previewSourceDoc, darkMode)
+				: buildPreviewDoc(previewSourceDoc, darkMode);
 	});
+
+	function buildPreviewContent(kind: PreviewKind, content: string, dark: boolean): string {
+		if (kind === 'html') return toPreviewHtmlDocument(content, dark);
+		return buildPreviewDoc(content, dark);
+	}
 
 	$effect(() => {
 		if (!previewOpen) return;
@@ -324,8 +339,8 @@
 		previewFilename = inline.filename;
 		previewKind = inline.kind;
 		previewUrl = '';
-		previewSourceDoc = inline.kind === 'markdown' ? inline.doc : '';
-		previewDoc = inline.kind === 'markdown' ? buildPreviewDoc(inline.doc, darkMode) : inline.doc;
+		previewSourceDoc = inline.doc;
+		previewDoc = buildPreviewContent(inline.kind, inline.doc, darkMode);
 		previewError = '';
 		previewLoading = false;
 		previewOpen = true;
@@ -392,12 +407,12 @@
 					const text = new TextDecoder().decode(bytes);
 					const content =
 						kind === 'markdown'
-							? await marked.parse(text, { gfm: true, breaks: true })
+							? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
 							: kind === 'text'
 								? `<pre>${escapeHtml(text)}</pre>`
-								: text;
+								: sanitizePreviewHtml(text);
 					previewSourceDoc = content;
-					previewDoc = buildPreviewDoc(content, darkMode);
+					previewDoc = buildPreviewContent(kind, content, darkMode);
 				} else {
 					previewObjectUrl = URL.createObjectURL(new Blob([bytesToArrayBuffer(bytes)], { type: contentType }));
 					previewUrl = previewObjectUrl;
@@ -418,7 +433,7 @@
 
 			if (typeof json.content === 'string') {
 				previewSourceDoc = json.content;
-				previewDoc = buildPreviewDoc(json.content, darkMode);
+				previewDoc = buildPreviewContent(json.kind ?? previewKind, json.content, darkMode);
 			} else if (json.previewUrl) {
 				previewUrl = json.previewUrl;
 			} else {
@@ -541,13 +556,16 @@
 						</Button>
 					</div>
 				</div>
-				<iframe
-					srcdoc={inline.kind === 'markdown' ? buildPreviewDoc(inline.doc, darkMode) : inline.doc}
-					title={inline.filename}
-					sandbox=""
-					referrerpolicy="no-referrer"
-					class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full border-0 bg-white dark:bg-slate-950 sm:h-[72vh] sm:min-h-[32rem]"
-				></iframe>
+				<div class="space-y-3 px-4 pb-4 sm:px-6">
+					<PreviewSafetyNotice />
+					<iframe
+						srcdoc={buildPreviewContent(inline.kind, inline.doc, darkMode)}
+						title={inline.filename}
+						sandbox={STRICT_PREVIEW_SANDBOX}
+						referrerpolicy={PREVIEW_REFERRER_POLICY}
+						class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full border-0 bg-white dark:bg-slate-950 sm:h-[72vh] sm:min-h-[32rem]"
+					></iframe>
+				</div>
 			</div>
 		{:catch err}
 			<div
@@ -634,7 +652,7 @@
 			<X class="h-4 w-4" />
 		</button>
 
-		<div class="h-full min-h-0 bg-slate-50 dark:bg-slate-950">
+		<div class="flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950">
 			{#if previewLoading}
 				<div class="h-full w-full flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
 					Loading preview…
@@ -650,23 +668,25 @@
 					<img src={previewUrl} alt={previewFilename} class="max-h-full max-w-full object-contain" />
 				</div>
 			{:else if previewKind === 'pdf' && previewUrl}
-				<iframe src={previewUrl} title={previewFilename} class="h-full w-full border-0 bg-white dark:bg-slate-950"
-				></iframe>
-			{:else if previewKind === 'html' && previewUrl}
 				<iframe
 					src={previewUrl}
 					title={previewFilename}
-					sandbox=""
-					referrerpolicy="no-referrer"
+					sandbox={PDF_PREVIEW_SANDBOX}
+					referrerpolicy={PREVIEW_REFERRER_POLICY}
 					class="h-full w-full border-0 bg-white dark:bg-slate-950"
 				></iframe>
 			{:else if (previewKind === 'html' || previewKind === 'markdown' || previewKind === 'text') && previewDoc}
+				{#if previewKind === 'html' || previewKind === 'markdown'}
+					<div class="shrink-0 px-3 pt-3 pr-14">
+						<PreviewSafetyNotice />
+					</div>
+				{/if}
 				<iframe
 					srcdoc={previewDoc}
 					title={previewFilename}
-					sandbox=""
-					referrerpolicy="no-referrer"
-					class="h-full w-full border-0 bg-white dark:bg-slate-950"
+					sandbox={STRICT_PREVIEW_SANDBOX}
+					referrerpolicy={PREVIEW_REFERRER_POLICY}
+					class="min-h-0 flex-1 w-full border-0 bg-white dark:bg-slate-950"
 				></iframe>
 			{/if}
 		</div>
