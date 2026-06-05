@@ -80,8 +80,10 @@ hermes skills install mmmikael/arelay-skills/agent-relay-e2ee
 | [agent-relay-e2ee](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-e2ee) | Send sensitive content with end-to-end encryption |
 | [agent-relay-railway](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-railway) | Deploy or operate a self-hosted instance on Railway |
 
-Browse on [skills.sh](https://skills.sh/mmmikael/arelay-skills). More install options are
-in the [arelay-skills README](https://github.com/mmmikael/arelay-skills).
+More install options are in the
+[arelay-skills README](https://github.com/mmmikael/arelay-skills). The skills are also
+submitted for curated discovery in
+[vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills/pull/284).
 
 Set these on the machine where your agent runs — **never commit tokens**:
 
