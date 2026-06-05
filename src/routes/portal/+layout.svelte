@@ -4,6 +4,7 @@
 	import {
 		canAttemptPasskeyPrf,
 		createE2eeKeyring,
+		createEncryptionPasskeyPrivateKey,
 		wrapPrivateKeyWithPasskey,
 		decryptString,
 		encryptString,
@@ -13,6 +14,13 @@
 		type EncryptedPrivateKey,
 		type PasskeyEncryptedPrivateKey
 	} from '$lib/e2ee';
+	import {
+		ENCRYPTION_PASSKEY_FALLBACK_NOTICE,
+		PASSKEY_STORAGE_HINT,
+		isPasskeyPrfError,
+		shouldShowPasskeyStorageHint,
+		withPasskeyPrfFailureHint
+	} from '$lib/passkey-hints';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -86,6 +94,8 @@
 	let tokenActionId = $state<string | null>(null);
 	let recoveryKeyInput = $state('');
 	let generatedRecoveryKey = $state('');
+	let usedDedicatedEncryptionPasskey = $state(false);
+	let e2eeOfferDedicatedPasskey = $state(false);
 	let decryptedSessions = $state<Record<string, { title: string; summary: string | null }>>({});
 	let sidebarCollapsed = $state(false);
 	let sidebarWidth = $state(SIDEBAR_DEFAULT_WIDTH);
@@ -336,8 +346,40 @@
 		e2eeError = '';
 		e2eeNotice = '';
 		generatedRecoveryKey = '';
+		usedDedicatedEncryptionPasskey = false;
+		e2eeOfferDedicatedPasskey = false;
 		recoveryKeyInput = '';
 		e2eeDialog = $e2eeConfig.configured ? 'unlock' : 'setup';
+	}
+
+	async function saveE2eeSetup(
+		keyring: Awaited<ReturnType<typeof createE2eeKeyring>>,
+		passkeyEncryptedPrivateKey: PasskeyEncryptedPrivateKey
+	) {
+		const res = await fetch('/api/e2ee/config', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				publicKeyJwk: keyring.publicKeyJwk,
+				encryptedPrivateKey: keyring.encryptedPrivateKey,
+				passkeyCredentialId: passkeyEncryptedPrivateKey.credentialId,
+				passkeyEncryptedPrivateKey,
+				recoveryHint: 'Recovery key created in this browser'
+			})
+		});
+		if (!res.ok) throw new Error('Could not save encryption setup');
+		const config = await res.json();
+		e2eeConfig.set({
+			configured: true,
+			publicKeyJwk: config.publicKeyJwk,
+			encryptedPrivateKey: config.encryptedPrivateKey,
+			passkeyCredentialId: config.passkeyCredentialId ?? null,
+			passkeyEncryptedPrivateKey: config.passkeyEncryptedPrivateKey ?? null,
+			recoveryHint: config.recoveryHint ?? null
+		});
+		e2eePrivateKey.set(keyring.privateKey);
+		generatedRecoveryKey = keyring.recoveryKey;
+		e2eeOfferDedicatedPasskey = false;
 	}
 
 	async function setupE2ee() {
@@ -345,6 +387,7 @@
 		e2eeBusy = true;
 		e2eeError = '';
 		e2eeNotice = '';
+		e2eeOfferDedicatedPasskey = false;
 		try {
 			const credentialId = accountPasskeyId();
 			if (!credentialId) {
@@ -359,31 +402,40 @@
 				credentialId,
 				keyring.privateKey
 			);
-			const res = await fetch('/api/e2ee/config', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					publicKeyJwk: keyring.publicKeyJwk,
-					encryptedPrivateKey: keyring.encryptedPrivateKey,
-					passkeyCredentialId: passkeyEncryptedPrivateKey?.credentialId ?? null,
-					passkeyEncryptedPrivateKey,
-					recoveryHint: 'Recovery key created in this browser'
-				})
-			});
-			if (!res.ok) throw new Error('Could not save encryption setup');
-			const config = await res.json();
-			e2eeConfig.set({
-				configured: true,
-				publicKeyJwk: config.publicKeyJwk,
-				encryptedPrivateKey: config.encryptedPrivateKey,
-				passkeyCredentialId: config.passkeyCredentialId ?? null,
-				passkeyEncryptedPrivateKey: config.passkeyEncryptedPrivateKey ?? null,
-				recoveryHint: config.recoveryHint ?? null
-			});
-			e2eePrivateKey.set(keyring.privateKey);
-			generatedRecoveryKey = keyring.recoveryKey;
+			usedDedicatedEncryptionPasskey = false;
+			await saveE2eeSetup(keyring, passkeyEncryptedPrivateKey);
 		} catch (err) {
-			e2eeError = err instanceof Error ? err.message : 'Could not set up encryption';
+			const message = err instanceof Error ? err.message : 'Could not set up encryption';
+			if (isPasskeyPrfError(message)) {
+				e2eeOfferDedicatedPasskey = true;
+				e2eeNotice = ENCRYPTION_PASSKEY_FALLBACK_NOTICE;
+			} else {
+				e2eeError = message;
+			}
+		} finally {
+			e2eeBusy = false;
+		}
+	}
+
+	async function setupE2eeWithDedicatedPasskey() {
+		if (e2eeBusy) return;
+		e2eeBusy = true;
+		e2eeError = '';
+		e2eeNotice = '';
+		try {
+			if (!canAttemptPasskeyPrf()) {
+				throw new Error('Passkey PRF is not available in this browser.');
+			}
+
+			const keyring = await createE2eeKeyring();
+			const passkeyEncryptedPrivateKey = await createEncryptionPasskeyPrivateKey(
+				keyring.privateKey
+			);
+			usedDedicatedEncryptionPasskey = true;
+			await saveE2eeSetup(keyring, passkeyEncryptedPrivateKey);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Could not set up encryption';
+			e2eeError = withPasskeyPrfFailureHint(message);
 		} finally {
 			e2eeBusy = false;
 		}
@@ -421,7 +473,8 @@
 			e2eeDialog = null;
 			recoveryKeyInput = '';
 		} catch (err) {
-			e2eeError = err instanceof Error ? err.message : 'Passkey could not unlock this relay.';
+			const message = err instanceof Error ? err.message : 'Passkey could not unlock this relay.';
+			e2eeError = withPasskeyPrfFailureHint(message);
 		} finally {
 			e2eeBusy = false;
 		}
@@ -1024,7 +1077,7 @@
 					<div class="min-w-0">
 						<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Passkey</h3>
 						<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-							Your account passkey signs you in and unlocks encryption.
+							Your account passkey signs you in. Encryption may use the same passkey or a separate one.
 						</p>
 					</div>
 				</div>
@@ -1196,8 +1249,8 @@
 					</h2>
 					<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
 						{e2eeDialog === 'setup'
-							? 'Create an encryption key secured by your account passkey, and save a recovery key fallback.'
-							: 'Use your account passkey or recovery key to decrypt encrypted deliveries in this browser.'}
+							? 'Create an encryption key secured by your account passkey when possible, and save a recovery key fallback.'
+							: 'Use your encryption passkey or recovery key to decrypt encrypted deliveries in this browser.'}
 					</p>
 				</div>
 				<button
@@ -1230,7 +1283,9 @@
 				{#if generatedRecoveryKey}
 					<div class="mt-4 space-y-3">
 						<p class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
-							Your account passkey can unlock encrypted deliveries in this browser.
+							{usedDedicatedEncryptionPasskey
+								? 'A separate encryption passkey unlocks encrypted deliveries in this browser. Your account passkey still signs you in.'
+								: 'Your account passkey unlocks encrypted deliveries in this browser.'}
 						</p>
 						<p class="text-sm font-medium text-slate-900 dark:text-slate-100">
 							Save this recovery key now. It cannot be shown again.
@@ -1252,11 +1307,38 @@
 						</div>
 					</div>
 				{:else}
-					<div class="mt-5 flex justify-end gap-2">
-						<Button variant="outline" size="sm" onclick={() => (e2eeDialog = null)}>Cancel</Button>
-						<Button size="sm" onclick={setupE2ee} disabled={e2eeBusy}>
-							{e2eeBusy ? 'Creating…' : 'Create encrypted relay'}
-						</Button>
+					{#if shouldShowPasskeyStorageHint()}
+						<p
+							class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
+						>
+							{PASSKEY_STORAGE_HINT}
+						</p>
+					{/if}
+					<div class="mt-5 flex flex-col gap-3">
+						{#if e2eeOfferDedicatedPasskey}
+							<Button
+								class="w-full"
+								onclick={setupE2eeWithDedicatedPasskey}
+								disabled={e2eeBusy}
+							>
+								{e2eeBusy ? 'Creating…' : 'Create encryption passkey'}
+							</Button>
+						{/if}
+						<div class="flex justify-end gap-2">
+							<Button variant="outline" size="sm" onclick={() => (e2eeDialog = null)}>Cancel</Button>
+							<Button
+								size="sm"
+								variant={e2eeOfferDedicatedPasskey ? 'outline' : 'default'}
+								onclick={setupE2ee}
+								disabled={e2eeBusy}
+							>
+								{e2eeBusy
+									? 'Creating…'
+									: e2eeOfferDedicatedPasskey
+										? 'Try account passkey again'
+										: 'Create encrypted relay'}
+							</Button>
+						</div>
 					</div>
 				{/if}
 			{:else}
