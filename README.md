@@ -7,125 +7,122 @@
 [![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](https://svelte.dev/)
 [![Website](https://img.shields.io/badge/website-arelay.app-blue)](https://arelay.app)
 
-Agent Relay is an open-source, end-to-end encrypted inbox for AI agents.
+Agent Relay is an open-source, end-to-end encrypted inbox for AI agents. Agents deliver
+files, reports, HTML, Markdown, PDFs, and images through a small HTTP API; you review them
+in a private web inbox with preview, download, and read/unread state.
 
-It gives agents a simple API for delivering files, reports, HTML previews, Markdown notes,
-PDFs, images, and other artifacts to a human user. Instead of sending attachments through
-email or leaving files scattered across chat threads, each agent delivery becomes a private
-inbox message with preview, download, read/unread state, and artifact history.
+**Two ways to use it:**
 
-Agent Relay is designed for people who want ownership of their workflow data. You can
-self-host it under the MIT license from [github.com/mmmikael/arelay](https://github.com/mmmikael/arelay),
-or use the commercial hosted version at [arelay.app](https://arelay.app) if you do not want to operate
-the database, storage, deployment, updates, and backups yourself.
+- **[arelay.app](https://arelay.app)** — hosted service; sign up and connect your agents
+  (no deployment).
+- **Self-host** — run this repo on your own infrastructure under the MIT license.
 
-## Why Agent Relay?
+## Contents
 
-- **End-to-end encrypted by design**: encrypted deliveries are decrypted in the browser,
-  not on the server.
-- **Built for AI agents**: agents authenticate with named API tokens and post sessions
-  plus artifacts through a small HTTP API.
-- **Passkey-only human login**: no passwords to remember, reset, leak, or store.
-- **No social-login dependency**: passkeys use the browser's WebAuthn standard. Agent Relay
-  does not require Google Login, Apple Login, Microsoft Login, or any other identity
-  provider.
-- **Self-hostable**: run it with PostgreSQL and S3-compatible object storage.
-- **Hosted option**: use [arelay.app](https://arelay.app) if you prefer a managed service.
+### Using [arelay.app](https://arelay.app)
 
-## End-to-end encryption
+- [Get started](#get-started)
+- [Connect your AI agent](#connect-your-ai-agent)
+- [Encryption (optional)](#encryption-optional)
+- [Features](#features)
 
-Agent Relay is built around end-to-end encryption for sensitive agent deliveries.
+### Self-hosting
 
-When encryption is set up, the browser creates an encryption key pair. The server stores
-the public key and encrypted private-key wraps, but it does not receive the plaintext
-private key. Agents can fetch the public key, encrypt message metadata and artifacts
-locally, then upload only ciphertext. The web app decrypts the content locally in the
-user's browser after the user unlocks their encryption key.
+- [Development setup](#development-setup)
+- [Environment variables](#environment-variables)
+- [Deploy to production](#deploy-to-production)
+- [Tech stack](#tech-stack)
 
-In practice:
+### Reference
 
-- The server stores encrypted titles, summaries, filenames, content types, and file bytes.
-- The server can route, store, and serve encrypted objects, but it cannot read encrypted
-  delivery content.
-- Decryption happens in the browser.
-- Agent API tokens are hashed in the database. If encryption is configured, the dashboard
-  can also store an encrypted copy of a token so the user can reveal it later after
-  unlocking encryption.
-- Recovery-key unlock is always available. Passkey PRF unlock is used where browser and
-  authenticator support it. If the account passkey cannot provide PRF (for example some
-  synced passkeys on Chromium), the app can register a separate encryption passkey.
+- [Security model](#security-model)
+- [License](#license)
 
-For sensitive workflows, configure encryption before connecting agents and have agents use
-the encrypted upload mode described in [AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md).
+---
 
-## Why passkeys?
+## Using [arelay.app](https://arelay.app)
 
-Agent Relay uses passkeys for human sign-in instead of passwords.
+The hosted service at [arelay.app](https://arelay.app) handles deployment, database,
+storage, backups, TLS, and updates. The security model is the same as self-hosting:
+encrypted deliveries are decrypted in your browser, not on the server.
 
-A passkey is a WebAuthn/FIDO credential based on public-key cryptography. The private key
-stays in the user's authenticator, such as a device secure enclave, password manager, or
-hardware security key. The server stores only the public key. To sign in, the user unlocks
-the passkey locally with a device PIN, biometric prompt, password manager, phone approval,
-or security key gesture.
+### Get started
 
-This is a good fit for Agent Relay because:
+1. Open **[arelay.app](https://arelay.app)** and create an account with a passkey.
+2. In the portal, open **Account → Agent tokens** and create a named token for each agent
+   or integration.
+3. Copy the token once — it is shown only at creation time.
+4. Your inbox updates automatically when agents send deliveries (refresh every few seconds).
 
-- There is no password database for attackers to steal.
-- There are no password reset flows to secure.
-- Passkeys are phishing-resistant because the browser binds credentials to the relying
-  party origin.
-- Users can choose where their passkeys live: built-in device authenticators, synced
-  password managers, or hardware security keys.
-- It is not an OAuth/social-login system. Agent Relay does not depend on Google, Apple,
-  Microsoft, GitHub, or any other account provider to authenticate users.
+Sign-in uses passkeys (WebAuthn), not passwords or social login. No Google, Apple, or
+Microsoft account is required.
 
-Useful passkey resources:
+### Connect your AI agent
 
-- [What are passkeys? - passkeys.dev](https://passkeys.dev/docs/intro/what-are-passkeys/)
-- [Passkeys - MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Security/Authentication/Passkeys)
-- [Passkeys - FIDO Alliance](https://fidoalliance.org/passkeys-2/)
-- [Create a passkey for passwordless logins - web.dev](https://web.dev/articles/passkey-registration)
+Install the official [Agent Skills](https://agentskills.io/) from
+[mmmikael/arelay-skills](https://github.com/mmmikael/arelay-skills):
 
-## Hosted version
+```bash
+npx skills add mmmikael/arelay-skills --all -g -y
+```
 
-This repository is open source and self-hostable. A commercial hosted version is also
-available at [arelay.app](https://arelay.app) for users who do not want to manage
-infrastructure.
+Hermes Agent:
 
-The hosted version is intended for convenience: managed deployment, database, object
-storage, backups, upgrades, TLS, and operational monitoring. The security model remains
-the same: encrypted deliveries are designed so content is decrypted client-side by the
-user, not by the hosted service.
+```bash
+hermes skills tap add mmmikael/arelay-skills
+hermes skills install mmmikael/arelay-skills/agent-relay-api
+hermes skills install mmmikael/arelay-skills/agent-relay-e2ee
+```
 
-## Features
+| Skill | Use when |
+| --- | --- |
+| [agent-relay-api](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-api) | Deliver Markdown, HTML, images, PDFs, and other artifacts |
+| [agent-relay-e2ee](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-e2ee) | Send sensitive content with end-to-end encryption |
+| [agent-relay-railway](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-railway) | Deploy or operate a self-hosted instance on Railway |
 
-- Mobile-friendly email-style inbox UI
-- Full-screen message view on mobile
-- Read/unread message state
-- Artifact preview and download
-- Sandboxed preview for text, Markdown, and HTML (external links and media stripped)
+Browse on [skills.sh](https://skills.sh/mmmikael/arelay-skills). More install options are
+in the [arelay-skills README](https://github.com/mmmikael/arelay-skills).
+
+Set these on the machine where your agent runs — **never commit tokens**:
+
+| Variable | Value for hosted |
+| --- | --- |
+| `AGENT_RELAY_URL` | `https://arelay.app` |
+| `AGENT_API_TOKEN` | Token from Account → Agent tokens |
+
+Every agent request uses `Authorization: Bearer <AGENT_API_TOKEN>`. Revoke one token if
+an agent is compromised; other tokens keep working.
+
+### Encryption (optional)
+
+For sensitive deliveries, set up encryption in the portal before connecting agents:
+
+1. Open **Account → Encryption** and create a recovery key (store it safely).
+2. Unlock encryption when viewing encrypted sessions.
+3. Install the **agent-relay-e2ee** skill so agents encrypt locally before upload.
+
+The server stores only ciphertext. Your browser decrypts titles, filenames, and file
+content after you unlock. Agents fetch your public key from `GET /api/agent/e2ee/config`
+and upload encrypted sessions and artifacts.
+
+### Features
+
+- Mobile-friendly email-style inbox
+- Artifact preview and download (text, Markdown, HTML, PDF, images)
+- Sandboxed HTML/Markdown preview (external links and media stripped)
 - End-to-end encrypted delivery mode
-- Passkey account creation and sign-in
-- One passkey per account for sign-in
-- Per-account storage limits (25 MB per artifact, 500 MB total) with usage in the account dialog
-- Named agent API tokens per account
-- Per-token revoke flow for compromised or retired agents
-- Email verification before account creation
-- PostgreSQL metadata storage
-- S3-compatible artifact storage
-- Railway-friendly deployment
+- Passkey sign-in (one passkey per account)
+- Named agent API tokens with per-token revoke
+- Storage limits: 25 MB per artifact, 500 MB per account
 
-## Tech stack
+---
 
-- SvelteKit 2
-- Svelte 5
-- TypeScript
-- Tailwind CSS
-- PostgreSQL
-- S3-compatible object storage
-- WebAuthn/passkeys
+## Self-hosting
 
-## Quick start
+Run Agent Relay on your own PostgreSQL and S3-compatible storage. Useful when you need full
+data residency control or a private deployment.
+
+### Development setup
 
 ```bash
 npm install
@@ -134,16 +131,12 @@ npm run db:setup
 npm run dev
 ```
 
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and create an account with a passkey. Without Cloudflare or SMTP configured, verification codes are printed to the server console.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and create an account with a passkey.
+Without Cloudflare or SMTP configured, verification codes are printed to the server
+console.
 
-The database setup command applies the current clean schema directly. This repository does not keep historical app migrations.
-
-For production:
-
-```bash
-npm run build
-npm start
-```
+The database setup command applies the current clean schema directly. This repository does
+not keep historical app migrations.
 
 Run unit tests:
 
@@ -151,7 +144,7 @@ Run unit tests:
 npm test
 ```
 
-## Environment variables
+### Environment variables
 
 | Variable | Description |
 | --- | --- |
@@ -180,17 +173,24 @@ npm test
 
 When both Cloudflare Email Sending and SMTP are configured, Cloudflare is used.
 
-## Self-hosting notes
+### Deploy to production
 
-Agent Relay needs:
+**Requirements:**
 
 - PostgreSQL
-- S3-compatible object storage (see `scripts/iam-agent-relay-s3-policy.json` for a minimal AWS IAM policy scoped to the `agent-relay/` prefix)
-- Email delivery for production account verification ([Cloudflare Email Sending](https://developers.cloudflare.com/email-service/) or SMTP)
-- A stable HTTPS origin for passkeys in production
-- Correct WebAuthn RP settings for that origin
+- S3-compatible object storage (see `scripts/iam-agent-relay-s3-policy.json` for a minimal
+  AWS IAM policy scoped to the `agent-relay/` prefix)
+- Email delivery for account verification ([Cloudflare Email Sending](https://developers.cloudflare.com/email-service/) or SMTP)
+- A stable HTTPS origin with correct WebAuthn RP settings
 
-Railway works well:
+**Build and run:**
+
+```bash
+npm run build
+npm start
+```
+
+**Railway** (or use the **agent-relay-railway** skill):
 
 1. Create a new service from [github.com/mmmikael/arelay](https://github.com/mmmikael/arelay).
 2. Add PostgreSQL and link `DATABASE_URL`.
@@ -199,68 +199,25 @@ Railway works well:
 5. Set `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN` for your domain.
 6. Configure email delivery: Cloudflare Email Sending (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `EMAIL_FROM`) or SMTP.
 7. Set `NODE_ENV=production`.
-8. Use `npm run build` as the build command.
-9. Use `npm start` as the start command.
+8. Use `npm run build` as the build command and `npm start` as the start command.
 
-## Agent API
+Point agents at your deployment URL: `AGENT_RELAY_URL=https://your-domain.example`.
 
-Agents authenticate with account-scoped bearer tokens:
+### Tech stack
 
-```http
-Authorization: Bearer <AGENT_API_TOKEN>
-```
+- SvelteKit 2, Svelte 5, TypeScript, Tailwind CSS
+- PostgreSQL, S3-compatible object storage
+- WebAuthn/passkeys
 
-Create one named token per agent or integration. If one agent is compromised, revoke only
-that token and the other agents keep working.
-
-See [AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md) for the agent-facing API guide,
-including encrypted delivery mode and storage limits.
-
-### Create a session
-
-```http
-POST /api/agent/sessions
-Content-Type: application/json
-
-{
-  "title": "Weekly agent report",
-  "summary": "Metrics and files for review"
-}
-```
-
-### Upload a text artifact
-
-```http
-POST /api/agent/sessions/<session_id>/artifacts
-Content-Type: application/json
-
-{
-  "filename": "report.md",
-  "content_type": "text/markdown",
-  "content": "# Weekly report\n\nAll good."
-}
-```
-
-### Upload a file artifact
-
-```http
-POST /api/agent/sessions/<session_id>/artifacts
-Content-Type: multipart/form-data
-
-file=<binary>
-filename=optional-name.png
-```
+---
 
 ## Security model
 
 - Human login uses passkeys and signed session cookies.
-- Agent access uses named bearer tokens.
-- Agent token hashes are stored in PostgreSQL; plaintext token values are generated in the
-  browser and shown to the user.
-- Optional encrypted token reveal stores only an E2EE-encrypted copy of the token.
-- Encrypted delivery mode uses P-256 ECDH and AES-256-GCM envelopes.
-- HTML and Markdown previews render in sandboxed iframes; agent-authored external URLs are
-  stripped before display.
+- Agent access uses named bearer tokens; only hashes are stored server-side.
+- Optional encrypted token reveal stores an E2EE-encrypted copy of the token in the browser.
+- Encrypted delivery uses P-256 ECDH and AES-256-GCM envelopes; decryption happens client-side.
+- HTML and Markdown previews render in sandboxed iframes; external URLs are stripped.
 - Artifact uploads are capped at 25 MB per file and 500 MB per account.
 - Download and preview URLs are short-lived.
 
