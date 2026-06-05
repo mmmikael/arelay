@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+	import { PASSKEY_STORAGE_HINT, shouldShowPasskeyStorageHint } from '$lib/passkey-hints';
 	import { withPasskeyPrfExtension } from '$lib/passkey-prf';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
@@ -195,6 +196,13 @@
 							/>
 						</div>
 						{#if emailVerificationSent}
+							{#if shouldShowPasskeyStorageHint()}
+								<p
+									class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
+								>
+									{PASSKEY_STORAGE_HINT}
+								</p>
+							{/if}
 							<div class="space-y-2">
 								<Label for="signup-code" class={labelClass}>Verification code</Label>
 								<Input
