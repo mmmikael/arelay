@@ -8,7 +8,8 @@
 		type EncryptedEnvelope,
 		type EncryptedPayload
 	} from '$lib/e2ee';
-	import { e2eePrivateKey } from '$lib/e2ee-store';
+	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
+	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Archive from '@lucide/svelte/icons/archive';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -23,7 +24,7 @@
 	import type { PreviewKind } from '$lib/artifacts';
 	import { formatBytes, previewKindFor } from '$lib/artifacts';
 	import { buildPreviewDoc } from '$lib/preview-doc';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import type { Component } from 'svelte';
 	import type { IconProps } from '@lucide/svelte';
 	import type { PageData } from './$types';
@@ -32,6 +33,14 @@
 	import { marked } from 'marked';
 
 	let { data }: { data: PageData } = $props();
+
+	const ensureE2eeUnlocked = getContext<EnsureE2eeUnlock>(ENSURE_E2EE_UNLOCK_KEY);
+
+	async function ensureUnlockedForEncrypted(): Promise<boolean> {
+		if ($e2eePrivateKey || data.session.encryption_version !== 'e2ee-v1') return true;
+		if (!$e2eeConfig.configured) return false;
+		return ensureE2eeUnlocked();
+	}
 
 	const isSwitchingSession = $derived(
 		Boolean($navigating?.to?.params?.sessionId) &&
@@ -239,6 +248,8 @@
 			return;
 		}
 
+		if (!(await ensureUnlockedForEncrypted())) return;
+
 		try {
 			const filename = artifactFilename(artifact);
 			const contentType = artifactContentType(artifact);
@@ -291,6 +302,10 @@
 	}
 
 	async function previewArtifact(artifact: PageData['artifacts'][number]) {
+		if (artifact.encryption_version === 'e2ee-v1' && !(await ensureUnlockedForEncrypted())) {
+			return;
+		}
+
 		const filename = artifactFilename(artifact);
 		const contentType = artifactContentType(artifact);
 		const kind = artifactPreviewKind(artifact);
