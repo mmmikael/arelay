@@ -38,7 +38,8 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import UserRound from '@lucide/svelte/icons/user-round';
-	import { onMount } from 'svelte';
+	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
+	import { onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	const POLL_MS = 5000;
@@ -311,6 +312,39 @@
 		pendingSessionId = id;
 	}
 
+	async function unlockWithPasskeySilent(): Promise<boolean> {
+		if ($e2eePrivateKey) return true;
+		const encryptedPrivateKey = $e2eeConfig.passkeyEncryptedPrivateKey;
+		if (!encryptedPrivateKey || e2eeBusy) return false;
+
+		e2eeBusy = true;
+		try {
+			const privateKey = await unlockPrivateKeyWithPasskey(encryptedPrivateKey);
+			e2eePrivateKey.set(privateKey);
+			return true;
+		} catch {
+			return false;
+		} finally {
+			e2eeBusy = false;
+		}
+	}
+
+	const ensureE2eeUnlocked: EnsureE2eeUnlock = async () => {
+		if ($e2eePrivateKey) return true;
+		if (!$e2eeConfig.configured) {
+			openE2eeDialog();
+			return false;
+		}
+		if ($e2eeConfig.passkeyEncryptedPrivateKey) {
+			const unlocked = await unlockWithPasskeySilent();
+			if (unlocked) return true;
+		}
+		openE2eeDialog();
+		return false;
+	};
+
+	setContext(ENSURE_E2EE_UNLOCK_KEY, ensureE2eeUnlocked);
+
 	function isEncryptedSession(session: LayoutData['sessions'][number]): boolean {
 		return session.encryption_version === 'e2ee-v1';
 	}
@@ -461,23 +495,15 @@
 	}
 
 	async function unlockE2eeWithPasskey() {
-		const encryptedPrivateKey = $e2eeConfig.passkeyEncryptedPrivateKey;
-		if (!encryptedPrivateKey || e2eeBusy) return;
-
-		e2eeBusy = true;
 		e2eeError = '';
 		e2eeNotice = '';
-		try {
-			const privateKey = await unlockPrivateKeyWithPasskey(encryptedPrivateKey);
-			e2eePrivateKey.set(privateKey);
+		const unlocked = await unlockWithPasskeySilent();
+		if (unlocked) {
 			e2eeDialog = null;
 			recoveryKeyInput = '';
-		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Passkey could not unlock this relay.';
-			e2eeError = withPasskeyPrfFailureHint(message);
-		} finally {
-			e2eeBusy = false;
+			return;
 		}
+		e2eeError = withPasskeyPrfFailureHint('Passkey could not unlock this relay.');
 	}
 
 	function applyTheme(isDark: boolean) {
@@ -540,7 +566,7 @@
 		sessionPointer = null;
 	}
 
-	function handleSessionClick(id: string, event: MouseEvent) {
+	async function handleSessionClick(id: string, event: MouseEvent) {
 		if (suppressedSessionClick) {
 			if (suppressedSessionClick.until < Date.now()) {
 				suppressedSessionClick = null;
@@ -548,6 +574,24 @@
 				suppressedSessionClick = null;
 				return;
 			}
+		}
+
+		const session = data.sessions.find((entry) => entry.id === id);
+		const needsUnlock =
+			session &&
+			isEncryptedSession(session) &&
+			!$e2eePrivateKey &&
+			$e2eeConfig.configured;
+
+		if (needsUnlock) {
+			event.preventDefault();
+			const unlocked = await ensureE2eeUnlocked();
+			if (!unlocked) return;
+			if (activeSessionId !== id) {
+				pendingSessionId = id;
+				await goto(`/portal/${id}`);
+			}
+			return;
 		}
 
 		beginSessionNavigation(id, event);
