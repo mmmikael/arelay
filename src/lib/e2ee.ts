@@ -119,10 +119,19 @@ async function deriveWrappingKey(
 	);
 }
 
+function normalizeEphemeralPublicKeyJwk(publicKeyJwk: JsonWebKey): JsonWebKeyEnvelope {
+	return {
+		kty: publicKeyJwk.kty ?? 'EC',
+		crv: publicKeyJwk.crv ?? 'P-256',
+		x: publicKeyJwk.x ?? '',
+		y: publicKeyJwk.y ?? ''
+	};
+}
+
 async function importPublicKey(publicKeyJwk: JsonWebKey): Promise<CryptoKey> {
 	return crypto.subtle.importKey(
 		'jwk',
-		publicKeyJwk,
+		normalizeEphemeralPublicKeyJwk(publicKeyJwk),
 		{ name: 'ECDH', namedCurve: 'P-256' },
 		true,
 		[]
@@ -393,15 +402,12 @@ export async function encryptBytes(
 		contentKey,
 		toArrayBuffer(plaintext)
 	);
-	const epk = (await crypto.subtle.exportKey(
-		'jwk',
-		ephemeralKeyPair.publicKey
-	)) as JsonWebKeyEnvelope;
+	const exportedEpk = await crypto.subtle.exportKey('jwk', ephemeralKeyPair.publicKey);
 
 	return {
 		v: 1,
 		alg: 'P-256-ECDH-A256GCM',
-		epk,
+		epk: normalizeEphemeralPublicKeyJwk(exportedEpk),
 		iv: bytesToBase64Url(iv),
 		ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
 	};

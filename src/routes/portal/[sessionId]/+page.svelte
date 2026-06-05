@@ -43,8 +43,18 @@
 
 	const ensureE2eeUnlocked = getContext<EnsureE2eeUnlock>(ENSURE_E2EE_UNLOCK_KEY);
 
-	async function ensureUnlockedForEncrypted(): Promise<boolean> {
-		if ($e2eePrivateKey || data.session.encryption_version !== 'e2ee-v1') return true;
+	function deliveryNeedsUnlock(
+		session: PageData['session'],
+		artifact?: PageData['artifacts'][number]
+	): boolean {
+		if (session.encryption_version === 'e2ee-v1') return true;
+		return artifact?.encryption_version === 'e2ee-v1';
+	}
+
+	async function ensureUnlockedForEncrypted(
+		artifact?: PageData['artifacts'][number]
+	): Promise<boolean> {
+		if ($e2eePrivateKey || !deliveryNeedsUnlock(data.session, artifact)) return true;
 		if (!$e2eeConfig.configured) return false;
 		return ensureE2eeUnlocked();
 	}
@@ -200,14 +210,21 @@
 		return previewKindFor(meta.filename, meta.contentType);
 	}
 
+	type EncryptedArtifactMetaResult =
+		| { ok: true; filename: string; contentType: string; kind: PreviewKind }
+		| { ok: false; reason: 'locked' | 'missing' | 'decrypt' };
+
 	async function resolveEncryptedArtifactMeta(
 		artifact: PageData['artifacts'][number]
-	): Promise<{ filename: string; contentType: string; kind: PreviewKind } | null> {
-		if (artifact.encryption_version !== 'e2ee-v1') return null;
+	): Promise<EncryptedArtifactMetaResult> {
+		if (artifact.encryption_version !== 'e2ee-v1') {
+			return { ok: false, reason: 'missing' };
+		}
 
 		const cached = decryptedArtifacts[artifact.id];
 		if (cached) {
 			return {
+				ok: true,
 				filename: cached.filename,
 				contentType: cached.contentType,
 				kind: previewKindFor(cached.filename, cached.contentType)
@@ -215,8 +232,9 @@
 		}
 
 		const privateKey = $e2eePrivateKey;
-		if (!privateKey || !artifact.encrypted_filename || !artifact.encrypted_content_type) {
-			return null;
+		if (!privateKey) return { ok: false, reason: 'locked' };
+		if (!artifact.encrypted_filename || !artifact.encrypted_content_type) {
+			return { ok: false, reason: 'missing' };
 		}
 
 		try {
@@ -233,13 +251,27 @@
 				[artifact.id]: { filename, contentType }
 			};
 			return {
+				ok: true,
 				filename,
 				contentType,
 				kind: previewKindFor(filename, contentType)
 			};
 		} catch (err) {
 			console.error('[e2ee] artifact metadata resolve failed:', err);
-			return null;
+			return { ok: false, reason: 'decrypt' };
+		}
+	}
+
+	function encryptedArtifactMetaError(
+		result: Extract<EncryptedArtifactMetaResult, { ok: false }>
+	): string {
+		switch (result.reason) {
+			case 'locked':
+				return 'Unlock encryption to view this artifact.';
+			case 'missing':
+				return 'Encrypted artifact metadata is incomplete. Ask the agent to resend using the reference upload script.';
+			case 'decrypt':
+				return 'Could not decrypt artifact metadata. The agent may have used an incompatible encryption implementation — resend with scripts/e2ee-agent-upload.mjs.';
 		}
 	}
 
@@ -306,12 +338,16 @@
 			return;
 		}
 
-		if (!(await ensureUnlockedForEncrypted())) return;
+		if (!(await ensureUnlockedForEncrypted(artifact))) return;
 
 		try {
 			const meta = await resolveEncryptedArtifactMeta(artifact);
-			const filename = meta?.filename ?? artifactFilename(artifact);
-			const contentType = meta?.contentType ?? artifactContentType(artifact);
+			if (!meta.ok) {
+				alert(encryptedArtifactMetaError(meta));
+				return;
+			}
+			const filename = meta.filename;
+			const contentType = meta.contentType;
 			const plaintext = await decryptArtifactBytes(artifact);
 			const url = URL.createObjectURL(new Blob([bytesToArrayBuffer(plaintext)], { type: contentType }));
 			const link = document.createElement('a');
@@ -361,7 +397,7 @@
 	}
 
 	async function previewArtifact(artifact: PageData['artifacts'][number]) {
-		if (artifact.encryption_version === 'e2ee-v1' && !(await ensureUnlockedForEncrypted())) {
+		if (artifact.encryption_version === 'e2ee-v1' && !(await ensureUnlockedForEncrypted(artifact))) {
 			return;
 		}
 
@@ -371,8 +407,8 @@
 
 		if (artifact.encryption_version === 'e2ee-v1') {
 			const meta = await resolveEncryptedArtifactMeta(artifact);
-			if (!meta) {
-				previewError = 'Could not decrypt artifact metadata.';
+			if (!meta.ok) {
+				previewError = encryptedArtifactMetaError(meta);
 				previewOpen = true;
 				return;
 			}
