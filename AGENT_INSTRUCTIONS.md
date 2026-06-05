@@ -78,6 +78,13 @@ Envelope format for encrypted strings and files:
 
 Use P-256 ECDH with the relay `publicKeyJwk`, derive an AES-256-GCM key, then encrypt each field/file with a fresh ephemeral key and IV.
 
+**Agent implementers:** Web Crypto derives AES-GCM keys via `subtle.deriveKey({ name: 'ECDH' }, …)`. Custom Python ECDH/HKDF implementations are often incompatible with browser decryption. Use the reference uploader:
+
+```bash
+AGENT_RELAY_URL=https://arelay.app AGENT_API_TOKEN=ar_... \
+  node scripts/e2ee-agent-upload.mjs "Title" "report.md"
+```
+
 Create an encrypted session:
 
 ```http
