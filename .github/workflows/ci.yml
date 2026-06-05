@@ -1,4 +1,4 @@
-Kedun abattık.name: CI
+name: CI
 
 on:
   push:
