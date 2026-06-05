@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createArtifact, getSession, type JsonObject } from '$lib/server/db';
+import { validateArtifactStorageUpload } from '$lib/server/storage-quota';
 import { buildStorageKey, isS3Configured, putObject } from '$lib/server/s3';
 import { sanitizeFilename } from '$lib/artifacts';
 
@@ -37,6 +38,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 		const filename = sanitizeFilename(
 			(formData.get('filename') as string | null) || file.name || 'artifact.bin'
 		);
+		const quota = await validateArtifactStorageUpload(locals.agentUser!.id, file.size);
+		if (!quota.ok) {
+			return json({ error: quota.error }, { status: quota.status });
+		}
 		const bytes = new Uint8Array(await file.arrayBuffer());
 		const artifactId = crypto.randomUUID();
 		const storageKey = buildStorageKey(sessionId, artifactId, filename);
@@ -84,6 +89,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 			}
 
 			const bytes = base64UrlToBytes(body.ciphertext_base64);
+			const quota = await validateArtifactStorageUpload(locals.agentUser!.id, bytes.byteLength);
+			if (!quota.ok) {
+				return json({ error: quota.error }, { status: quota.status });
+			}
 			const artifactId = crypto.randomUUID();
 			const storageKey = buildStorageKey(sessionId, artifactId, `${artifactId}.encrypted`);
 
@@ -111,6 +120,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 		const filename = sanitizeFilename(body.filename || 'artifact.txt');
 		const resolvedType = body.content_type || 'text/plain';
 		const bytes = new TextEncoder().encode(body.content);
+		const quota = await validateArtifactStorageUpload(locals.agentUser!.id, bytes.byteLength);
+		if (!quota.ok) {
+			return json({ error: quota.error }, { status: quota.status });
+		}
 		const artifactId = crypto.randomUUID();
 		const storageKey = buildStorageKey(sessionId, artifactId, filename);
 

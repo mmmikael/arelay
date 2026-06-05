@@ -486,6 +486,18 @@ export async function getArtifact(id: string, ownerUserId?: string): Promise<Inb
 	return rows[0] ?? null;
 }
 
+export async function getAccountStorageUsedBytes(ownerUserId: string): Promise<number> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<{ total: string | number | null }[]>`
+		SELECT COALESCE(SUM(a.size_bytes), 0) AS total
+		FROM inbox_artifacts a
+		JOIN inbox_sessions s ON s.id = a.session_id
+		WHERE s.owner_user_id = ${ownerUserId}
+	`;
+	return Number(rows[0]?.total ?? 0);
+}
+
 export async function createArtifact(input: {
 	id: string;
 	sessionId: string;

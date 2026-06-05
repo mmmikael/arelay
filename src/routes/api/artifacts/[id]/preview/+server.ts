@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getArtifact } from '$lib/server/db';
 import { generateDownloadUrl, getObjectText } from '$lib/server/s3';
 import { previewKindFor } from '$lib/artifacts';
+import { sanitizePreviewHtml } from '$lib/preview-sanitize';
 import { marked } from 'marked';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
@@ -13,12 +14,14 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 	const kind = previewKindFor(artifact.filename, artifact.content_type);
 
-	if (kind === 'markdown' || kind === 'text') {
+	if (kind === 'markdown' || kind === 'text' || kind === 'html') {
 		const text = await getObjectText(artifact.storage_key);
 		const content =
 			kind === 'markdown'
-				? await marked.parse(text, { gfm: true, breaks: true })
-				: `<pre>${escapeHtml(text)}</pre>`;
+				? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
+				: kind === 'html'
+					? sanitizePreviewHtml(text)
+					: `<pre>${escapeHtml(text)}</pre>`;
 		return json({
 			kind,
 			filename: artifact.filename,

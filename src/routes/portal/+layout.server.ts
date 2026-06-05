@@ -1,17 +1,31 @@
 import type { LayoutServerLoad } from './$types';
-import { listAgentApiTokensForUser, listPasskeysForUser, listSessions } from '$lib/server/db';
+import {
+	getAccountStorageUsedBytes,
+	listAgentApiTokensForUser,
+	listPasskeysForUser,
+	listSessions
+} from '$lib/server/db';
+import { MAX_ACCOUNT_STORAGE_BYTES, MAX_ARTIFACT_BYTES } from '$lib/storage-limits';
 
 export const load: LayoutServerLoad = async ({ depends, locals }) => {
 	depends('inbox:sessions');
 	depends('account:passkeys');
 	depends('account:agent-tokens');
-	const [sessions, passkeys, agentTokens] = await Promise.all([
-		listSessions(locals.user!.id),
-		listPasskeysForUser(locals.user!.id),
-		listAgentApiTokensForUser(locals.user!.id)
+	depends('account:storage');
+	const userId = locals.user!.id;
+	const [sessions, passkeys, agentTokens, usedBytes] = await Promise.all([
+		listSessions(userId),
+		listPasskeysForUser(userId),
+		listAgentApiTokensForUser(userId),
+		getAccountStorageUsedBytes(userId)
 	]);
 	return {
 		sessions,
+		storage: {
+			usedBytes,
+			limitBytes: MAX_ACCOUNT_STORAGE_BYTES,
+			artifactLimitBytes: MAX_ARTIFACT_BYTES
+		},
 		currentUser: locals.user
 			? {
 					id: locals.user.id,

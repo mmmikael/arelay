@@ -1,3 +1,5 @@
+import { sanitizePreviewHtml } from '$lib/preview-sanitize';
+
 const PREVIEW_STYLES = `
 	:root { color-scheme: light; }
 	:root.dark { color-scheme: dark; }
@@ -36,12 +38,25 @@ const PREVIEW_STYLES = `
 	}
 `;
 
+export function isFullHtmlDocument(html: string): boolean {
+	const trimmed = html.trimStart();
+	return /^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed);
+}
+
 /**
- * Wrap server-rendered HTML in a styled, script-free document for a sandboxed iframe.
- * The iframe uses `sandbox=""`, so any scripts in `innerHtml` are inert.
+ * Wrap server-rendered HTML in a styled document for a sandboxed iframe.
+ * Content is sanitized before rendering; scripts remain inert via `sandbox=""`.
  */
 export function buildPreviewDoc(innerHtml: string, dark = false): string {
+	const sanitized = sanitizePreviewHtml(innerHtml);
 	const styleTag = `<style>${PREVIEW_STYLES}</style>`;
 	const className = dark ? ' class="dark"' : '';
-	return `<!doctype html><html${className}><head><meta charset="utf-8">${styleTag}</head><body><div class="wrap">${innerHtml}</div></body></html>`;
+	return `<!doctype html><html${className}><head><meta charset="utf-8">${styleTag}</head><body><div class="wrap">${sanitized}</div></body></html>`;
+}
+
+/** Sanitize agent HTML and preserve full documents; wrap fragments for preview styling. */
+export function toPreviewHtmlDocument(html: string, dark = false): string {
+	const sanitized = sanitizePreviewHtml(html);
+	if (isFullHtmlDocument(sanitized)) return sanitized;
+	return buildPreviewDoc(sanitized, dark);
 }
