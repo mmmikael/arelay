@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { afterNavigate, goto, invalidate } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { startRegistration } from '@simplewebauthn/browser';
 	import {
 		canAttemptPasskeyPrf,
 		createE2eeKeyring,
-		createPasskeyEncryptedPrivateKey,
+		wrapPrivateKeyWithPasskey,
 		decryptString,
 		encryptString,
 		unlockPrivateKey,
@@ -87,7 +86,6 @@
 	let tokenActionId = $state<string | null>(null);
 	let recoveryKeyInput = $state('');
 	let generatedRecoveryKey = $state('');
-	let generatedPasskey = $state(false);
 	let decryptedSessions = $state<Record<string, { title: string; summary: string | null }>>({});
 	let sidebarCollapsed = $state(false);
 	let sidebarWidth = $state(SIDEBAR_DEFAULT_WIDTH);
@@ -124,33 +122,8 @@
 		generatedAgentToken = null;
 	}
 
-	async function registerPasskey() {
-		if (accountBusy) return;
-		accountBusy = true;
-		accountError = '';
-		accountNotice = '';
-		generatedAgentToken = null;
-		try {
-			const optionsRes = await fetch('/api/auth/passkeys/register/options', {
-				method: 'POST'
-			});
-			const optionsJSON = await optionsRes.json();
-			if (!optionsRes.ok) throw new Error(optionsJSON.error || 'Could not start passkey setup');
-			const response = await startRegistration({ optionsJSON });
-			const verifyRes = await fetch('/api/auth/passkeys/register/verify', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(response)
-			});
-			const verifyJson = await verifyRes.json();
-			if (!verifyRes.ok) throw new Error(verifyJson.error || 'Could not save passkey');
-			accountNotice = 'Passkey added.';
-			await invalidate('account:passkeys');
-		} catch (err) {
-			accountError = err instanceof Error ? err.message : 'Passkey setup failed';
-		} finally {
-			accountBusy = false;
-		}
+	function accountPasskeyId(): string | null {
+		return data.passkeys.find((passkey) => passkey.isCurrent)?.id ?? data.passkeys[0]?.id ?? null;
 	}
 
 	function bytesToBase64Url(bytes: Uint8Array): string {
@@ -363,7 +336,6 @@
 		e2eeError = '';
 		e2eeNotice = '';
 		generatedRecoveryKey = '';
-		generatedPasskey = false;
 		recoveryKeyInput = '';
 		e2eeDialog = $e2eeConfig.configured ? 'unlock' : 'setup';
 	}
@@ -374,21 +346,19 @@
 		e2eeError = '';
 		e2eeNotice = '';
 		try {
-			const keyring = await createE2eeKeyring();
-			let passkeyEncryptedPrivateKey: PasskeyEncryptedPrivateKey | null = null;
-			if (canAttemptPasskeyPrf()) {
-				try {
-					passkeyEncryptedPrivateKey = await createPasskeyEncryptedPrivateKey(keyring.privateKey);
-				} catch (err) {
-					e2eeNotice =
-						err instanceof Error
-							? `Passkey PRF was not available: ${err.message}. Recovery-key unlock is enabled.`
-							: 'Passkey PRF was not available. Recovery-key unlock is enabled.';
-				}
-			} else {
-				e2eeNotice =
-					'Passkey PRF is not available in this browser context. Recovery-key unlock is enabled.';
+			const credentialId = accountPasskeyId();
+			if (!credentialId) {
+				throw new Error('Sign in with your passkey before enabling encryption.');
 			}
+			if (!canAttemptPasskeyPrf()) {
+				throw new Error('Passkey PRF is not available in this browser.');
+			}
+
+			const keyring = await createE2eeKeyring();
+			const passkeyEncryptedPrivateKey = await wrapPrivateKeyWithPasskey(
+				credentialId,
+				keyring.privateKey
+			);
 			const res = await fetch('/api/e2ee/config', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -412,7 +382,6 @@
 			});
 			e2eePrivateKey.set(keyring.privateKey);
 			generatedRecoveryKey = keyring.recoveryKey;
-			generatedPasskey = Boolean(passkeyEncryptedPrivateKey);
 		} catch (err) {
 			e2eeError = err instanceof Error ? err.message : 'Could not set up encryption';
 		} finally {
@@ -1053,14 +1022,11 @@
 			<div class="mt-5 space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div class="min-w-0">
-						<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Passkeys</h3>
+						<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Passkey</h3>
 						<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-							Manage the passkeys that can sign in to this account.
+							Your account passkey signs you in and unlocks encryption.
 						</p>
 					</div>
-					<Button variant="outline" size="sm" onclick={registerPasskey} disabled={accountBusy}>
-						{accountBusy ? 'Saving…' : 'Add another'}
-					</Button>
 				</div>
 
 				<div class="max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
@@ -1230,8 +1196,8 @@
 					</h2>
 					<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
 						{e2eeDialog === 'setup'
-							? 'Create a browser key pair, add a passkey when PRF is supported, and save a recovery key fallback.'
-							: 'Use your passkey or recovery key to decrypt encrypted deliveries in this browser.'}
+							? 'Create an encryption key secured by your account passkey, and save a recovery key fallback.'
+							: 'Use your account passkey or recovery key to decrypt encrypted deliveries in this browser.'}
 					</p>
 				</div>
 				<button
@@ -1264,9 +1230,7 @@
 				{#if generatedRecoveryKey}
 					<div class="mt-4 space-y-3">
 						<p class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
-							{generatedPasskey
-								? 'Passkey unlock is enabled for this browser.'
-								: 'Recovery-key unlock is enabled for this browser.'}
+							Your account passkey can unlock encrypted deliveries in this browser.
 						</p>
 						<p class="text-sm font-medium text-slate-900 dark:text-slate-100">
 							Save this recovery key now. It cannot be shown again.

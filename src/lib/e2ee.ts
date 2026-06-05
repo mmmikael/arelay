@@ -269,7 +269,8 @@ async function evaluatePasskeyPrf(credentialId: string, salt: Uint8Array): Promi
 	return output;
 }
 
-export async function createPasskeyEncryptedPrivateKey(
+export async function wrapPrivateKeyWithPasskey(
+	credentialId: string,
 	privateKey: CryptoKey
 ): Promise<PasskeyEncryptedPrivateKey> {
 	if (!canAttemptPasskeyPrf()) {
@@ -277,36 +278,7 @@ export async function createPasskeyEncryptedPrivateKey(
 	}
 
 	const prfSalt = randomBytes(PASSKEY_PRF_SALT_BYTES);
-	const credential = (await navigator.credentials.create({
-		publicKey: {
-			challenge: toArrayBuffer(randomBytes(32)),
-			rp: { name: 'Agent Relay' },
-			user: {
-				id: toArrayBuffer(randomBytes(16)),
-				name: 'agent-relay',
-				displayName: 'Agent Relay'
-			},
-			pubKeyCredParams: [
-				{ type: 'public-key', alg: -7 },
-				{ type: 'public-key', alg: -257 }
-			],
-			authenticatorSelection: {
-				residentKey: 'preferred',
-				userVerification: 'required'
-			},
-			timeout: PASSKEY_TIMEOUT_MS,
-			extensions: {
-				prf: {
-					eval: { first: toArrayBuffer(prfSalt) }
-				}
-			}
-		} as PublicKeyCredentialCreationOptions
-	})) as PublicKeyCredential | null;
-
-	if (!credential) throw new Error('Passkey creation was cancelled');
-
-	const credentialId = bytesToBase64Url(new Uint8Array(credential.rawId));
-	const prfOutput = getPrfFirstResult(credential) ?? (await evaluatePasskeyPrf(credentialId, prfSalt));
+	const prfOutput = await evaluatePasskeyPrf(credentialId, prfSalt);
 	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
 	const iv = randomBytes(12);
 	const ciphertext = await crypto.subtle.encrypt(
