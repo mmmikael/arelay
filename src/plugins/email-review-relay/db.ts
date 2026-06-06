@@ -12,7 +12,7 @@ export async function getUserCloudflareEmail(
 ): Promise<UserCloudflareEmailRecord | null> {
 	const db = getDb();
 	const rows = await db<UserCloudflareEmailRecord[]>`
-		SELECT user_id, account_id, api_token_ciphertext, created_at, updated_at
+		SELECT user_id, account_id_ciphertext, api_token_ciphertext, created_at, updated_at
 		FROM user_cloudflare_email
 		WHERE user_id = ${userId}
 		LIMIT 1
@@ -22,19 +22,19 @@ export async function getUserCloudflareEmail(
 
 export async function upsertUserCloudflareEmail(input: {
 	userId: string;
-	accountId: string;
+	accountIdCiphertext: string;
 	apiTokenCiphertext: string;
 }): Promise<UserCloudflareEmailRecord> {
 	const db = getDb();
 	const rows = await db<UserCloudflareEmailRecord[]>`
-		INSERT INTO user_cloudflare_email (user_id, account_id, api_token_ciphertext)
-		VALUES (${input.userId}, ${input.accountId}, ${input.apiTokenCiphertext})
+		INSERT INTO user_cloudflare_email (user_id, account_id_ciphertext, api_token_ciphertext)
+		VALUES (${input.userId}, ${input.accountIdCiphertext}, ${input.apiTokenCiphertext})
 		ON CONFLICT (user_id) DO UPDATE
 		SET
-			account_id = EXCLUDED.account_id,
+			account_id_ciphertext = EXCLUDED.account_id_ciphertext,
 			api_token_ciphertext = EXCLUDED.api_token_ciphertext,
 			updated_at = NOW()
-		RETURNING user_id, account_id, api_token_ciphertext, created_at, updated_at
+		RETURNING user_id, account_id_ciphertext, api_token_ciphertext, created_at, updated_at
 	`;
 	return rows[0];
 }

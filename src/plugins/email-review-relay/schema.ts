@@ -3,11 +3,14 @@ ALTER TABLE inbox_sessions ADD COLUMN IF NOT EXISTS delivery_type TEXT NOT NULL 
 
 CREATE TABLE IF NOT EXISTS user_cloudflare_email (
 	user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-	account_id TEXT NOT NULL,
+	account_id_ciphertext TEXT NOT NULL,
 	api_token_ciphertext TEXT NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE user_cloudflare_email ADD COLUMN IF NOT EXISTS account_id_ciphertext TEXT;
+ALTER TABLE user_cloudflare_email DROP COLUMN IF EXISTS account_id;
 
 CREATE TABLE IF NOT EXISTS email_drafts (
 	id UUID PRIMARY KEY,

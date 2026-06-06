@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
-import { encryptSecret } from '$lib/server/secret-crypto';
+import { decryptSecret, encryptSecret } from '$lib/server/secret-crypto';
 import { validateCloudflareEmailCredentials } from '$lib/server/email-send';
 import {
 	deleteUserCloudflareEmail,
@@ -15,7 +15,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const record = await getUserCloudflareEmail(locals.user!.id);
 	return json({
 		configured: Boolean(record),
-		accountId: record?.account_id ?? null
+		accountId: record ? decryptSecret(record.account_id_ciphertext) : null
 	});
 };
 
@@ -46,13 +46,13 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 
 	const record = await upsertUserCloudflareEmail({
 		userId: locals.user!.id,
-		accountId,
+		accountIdCiphertext: encryptSecret(accountId),
 		apiTokenCiphertext: encryptSecret(apiToken)
 	});
 
 	return json({
 		configured: true,
-		accountId: record.account_id
+		accountId: decryptSecret(record.account_id_ciphertext)
 	});
 };
 
