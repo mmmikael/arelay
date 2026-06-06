@@ -3,10 +3,8 @@ import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { getSession } from '$lib/server/db';
 import {
-	emailDraftSendFieldsFromRecord,
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
-	isEncryptedEmailDraft,
 	parseEmailDraftSendFields,
 	sendApprovedEmailDraft,
 	transitionEmailDraftStatus
@@ -41,30 +39,20 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		return json({ error: `Draft is already ${draft.status}` }, { status: 409 });
 	}
 
-	let sendFields;
-	if (isEncryptedEmailDraft(draft)) {
-		let body: unknown;
-		try {
-			body = await request.json();
-		} catch {
-			return json(
-				{ error: 'Decrypted email fields are required to approve an encrypted draft.' },
-				{ status: 400 }
-			);
-		}
-		const parsed = parseEmailDraftSendFields(body);
-		if (!parsed.ok) {
-			return json({ error: parsed.error }, { status: 400 });
-		}
-		sendFields = parsed.value;
-	} else {
-		try {
-			sendFields = emailDraftSendFieldsFromRecord(draft);
-		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Email draft is missing send fields';
-			return json({ error: message }, { status: 400 });
-		}
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return json(
+			{ error: 'Decrypted email fields are required to approve an encrypted draft.' },
+			{ status: 400 }
+		);
 	}
+	const parsed = parseEmailDraftSendFields(body);
+	if (!parsed.ok) {
+		return json({ error: parsed.error }, { status: 400 });
+	}
+	const sendFields = parsed.value;
 
 	const approved = await transitionEmailDraftStatus({
 		draftId: draft.id,

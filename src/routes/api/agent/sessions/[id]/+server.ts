@@ -1,7 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isEmailReviewRelayEnabled } from '$lib/plugins';
-import { getSession, updateEncryptedSession, updateSession, type JsonObject } from '$lib/server/db';
+import { getSession, updateEncryptedSession, type JsonObject } from '$lib/server/db';
+import {
+	isE2eePolicyResponse,
+	isEncryptedEnvelope,
+	rejectPlaintextPayload,
+	requireOwnerE2eeForAgent
+} from '$lib/server/e2ee-policy';
 import {
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
@@ -14,29 +20,36 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		return json({ error: 'Session id required' }, { status: 400 });
 	}
 
+	const policy = await requireOwnerE2eeForAgent(locals.agentUser!.id);
+	if (isE2eePolicyResponse(policy)) {
+		return policy;
+	}
+
 	const body = (await request.json()) as {
-		title?: string;
-		summary?: string | null;
 		encrypted?: boolean;
 		encrypted_title?: JsonObject;
 		encrypted_summary?: JsonObject | null;
 	};
-	if (body.encrypted) {
-		const session = await updateEncryptedSession(sessionId, locals.agentUser!.id, {
-			encryptedTitle: body.encrypted_title,
-			encryptedSummary: body.encrypted_summary
-		});
 
-		if (!session) {
-			return json({ error: 'Session not found' }, { status: 404 });
-		}
-
-		return json({ session });
+	if (!body.encrypted) {
+		return rejectPlaintextPayload();
 	}
 
-	const session = await updateSession(sessionId, locals.agentUser!.id, {
-		title: body.title?.trim(),
-		summary: body.summary
+	if (!isEncryptedEnvelope(body.encrypted_title)) {
+		return json({ error: 'encrypted_title envelope required' }, { status: 400 });
+	}
+
+	if (
+		body.encrypted_summary !== undefined &&
+		body.encrypted_summary !== null &&
+		!isEncryptedEnvelope(body.encrypted_summary)
+	) {
+		return json({ error: 'encrypted_summary must be a valid envelope when provided' }, { status: 400 });
+	}
+
+	const session = await updateEncryptedSession(sessionId, locals.agentUser!.id, {
+		encryptedTitle: body.encrypted_title,
+		encryptedSummary: body.encrypted_summary
 	});
 
 	if (!session) {

@@ -47,8 +47,16 @@
 						receive your biometric data or private passkey key.
 					</li>
 					<li>
-						Agent token hashes, inbox metadata, delivery content, filenames, and files needed
-						to provide the service.
+						Agent token hashes and encrypted copies of agent tokens (stored as ciphertext
+						envelopes for reveal in your browser).
+					</li>
+					<li>
+						Inbox metadata such as delivery timestamps, read state, storage sizes, and
+						encryption version markers.
+					</li>
+					<li>
+						Encrypted delivery content: ciphertext envelopes for titles, summaries, filenames,
+						file payloads, and email drafts. The hosted service cannot read this content.
 					</li>
 					<li>
 						Essential session cookies and limited technical logs, such as IP address, request
@@ -60,14 +68,20 @@
 			<section>
 				<h2>3. End-to-end encryption</h2>
 				<p>
-					When you enable end-to-end encryption and use a compatible agent, protected delivery
-					content is encrypted before upload and decrypted in your browser. The hosted service
-					stores ciphertext and cannot read that protected content.
+					Agent Relay requires end-to-end encryption for all agent deliveries. You must
+					complete encryption setup on your first portal visit before using the inbox or
+					creating agent tokens. Compatible agents encrypt delivery content locally before
+					upload; your browser decrypts it after you unlock encryption with your passkey.
+					The hosted service stores only ciphertext and cannot read agent delivery content.
 				</p>
 				<p>
-					Not everything is end-to-end encrypted. Account details, authentication records,
-					usage and storage totals, timestamps, network logs, and some operational metadata
-					may remain visible to the service.
+					Some information is not end-to-end encrypted. Account details, authentication
+					records, usage and storage totals, timestamps, network logs, and operational
+					metadata may remain visible to the service. If you use Email Review Relay and
+					approve a draft, decrypted email fields are sent in that approve request over
+					HTTPS so mail can be sent; they are not stored as plaintext on the server.
+					Cloudflare API tokens you save in Account are encrypted at rest on the server
+					(separate from end-to-end encryption).
 				</p>
 			</section>
 

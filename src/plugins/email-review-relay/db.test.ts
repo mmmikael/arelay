@@ -1,25 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import type { EmailDraftRecord, EmailDraftStatus } from './types';
 
+const envelope = {
+	v: 1,
+	alg: 'P-256-ECDH-A256GCM',
+	epk: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+	iv: 'iv',
+	ciphertext: 'cipher'
+};
+
 function makeDraft(status: EmailDraftStatus): EmailDraftRecord {
 	const now = new Date('2026-06-06T12:00:00Z');
 	return {
 		id: 'draft-1',
 		session_id: 'session-1',
 		owner_user_id: 'user-1',
-		encryption_version: 'none',
-		to_address: 'user@example.com',
-		from_email: 'noreply@yourdomain.com',
-		from_name: 'Company',
-		subject: 'Hello',
-		html: '<p>Hi</p>',
-		text: 'Hi',
-		metadata: null,
-		encrypted_to: null,
-		encrypted_from_email: null,
+		encryption_version: 'e2ee-v1',
+		encrypted_to: envelope,
+		encrypted_from_email: envelope,
 		encrypted_from_name: null,
-		encrypted_subject: null,
-		encrypted_html: null,
+		encrypted_subject: envelope,
+		encrypted_html: envelope,
 		encrypted_text: null,
 		encrypted_metadata: null,
 		idempotency_key: null,

@@ -13,7 +13,6 @@
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import Archive from '@lucide/svelte/icons/archive';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
 	import FileIcon from '@lucide/svelte/icons/file';
@@ -21,7 +20,6 @@
 	import FileImage from '@lucide/svelte/icons/file-image';
 	import FileText from '@lucide/svelte/icons/file-text';
 	import FileType from '@lucide/svelte/icons/file-type';
-	import Maximize2 from '@lucide/svelte/icons/maximize-2';
 	import X from '@lucide/svelte/icons/x';
 	import type { PreviewKind } from '$lib/artifacts';
 	import { formatBytes, previewKindFor } from '$lib/artifacts';
@@ -44,20 +42,8 @@
 
 	const ensureE2eeUnlocked = getContext<EnsureE2eeUnlock>(ENSURE_E2EE_UNLOCK_KEY);
 
-	function deliveryNeedsUnlock(
-		session: PageData['session'],
-		artifact?: PageData['artifacts'][number]
-	): boolean {
-		if (session.encryption_version === 'e2ee-v1') return true;
-		if (data.emailDraft?.encryption_version === 'e2ee-v1') return true;
-		return artifact?.encryption_version === 'e2ee-v1';
-	}
-
-	async function ensureUnlockedForEncrypted(
-		artifact?: PageData['artifacts'][number]
-	): Promise<boolean> {
-		if ($e2eePrivateKey || !deliveryNeedsUnlock(data.session, artifact)) return true;
-		if (!$e2eeConfig.configured) return false;
+	async function ensureUnlockedForEncrypted(): Promise<boolean> {
+		if ($e2eePrivateKey) return true;
 		return ensureE2eeUnlocked();
 	}
 
@@ -81,24 +67,9 @@
 	let decryptedArtifacts = $state<Record<string, { filename: string; contentType: string }>>({});
 	let decryptedEmailDraft = $state<DecryptedEmailDraftFields | null>(null);
 
-	const activeEmailDraft = $derived(
-		data.emailDraft?.encryption_version === 'e2ee-v1'
-			? decryptedEmailDraft
-			: data.emailDraft
-				? {
-						to: data.emailDraft.to_address ?? '',
-						from_email: data.emailDraft.from_email ?? '',
-						from_name: data.emailDraft.from_name,
-						subject: data.emailDraft.subject ?? '',
-						html: data.emailDraft.html ?? '',
-						text: data.emailDraft.text
-					}
-				: null
-	);
+	const activeEmailDraft = $derived(decryptedEmailDraft);
 
-	const emailDraftNeedsUnlock = $derived(
-		Boolean(data.emailDraft?.encryption_version === 'e2ee-v1' && !decryptedEmailDraft)
-	);
+	const emailDraftNeedsUnlock = $derived(Boolean(data.emailDraft && !decryptedEmailDraft));
 
 	$effect(() => {
 		if (!previewSourceDoc) return;
@@ -153,7 +124,7 @@
 			const nextArtifacts: Record<string, { filename: string; contentType: string }> = {};
 			let nextSession: { title: string; summary: string | null } | null = null;
 
-			if (data.session.encryption_version === 'e2ee-v1' && data.session.encrypted_title) {
+			if (data.session.encrypted_title) {
 				try {
 					const title = await decryptString(
 						data.session.encrypted_title as unknown as EncryptedEnvelope,
@@ -172,11 +143,7 @@
 			}
 
 			for (const artifact of data.artifacts) {
-				if (
-					artifact.encryption_version !== 'e2ee-v1' ||
-					!artifact.encrypted_filename ||
-					!artifact.encrypted_content_type
-				) {
+				if (!artifact.encrypted_filename || !artifact.encrypted_content_type) {
 					continue;
 				}
 				try {
@@ -212,29 +179,20 @@
 		};
 	});
 
-	const sessionTitle = $derived(
-		data.session.encryption_version === 'e2ee-v1'
-			? (decryptedSession?.title ?? 'Encrypted delivery')
-			: data.session.title
-	);
+	const sessionTitle = $derived(decryptedSession?.title ?? 'Encrypted delivery');
 	const sessionSummary = $derived(
-		data.session.encryption_version === 'e2ee-v1'
-			? (decryptedSession?.summary ?? 'Unlock encryption to view this delivery.')
-			: data.session.summary
+		decryptedSession?.summary ?? 'Unlock encryption to view this delivery.'
 	);
 
 	function artifactFilename(artifact: PageData['artifacts'][number]): string {
-		if (artifact.encryption_version !== 'e2ee-v1') return artifact.filename;
 		return decryptedArtifacts[artifact.id]?.filename ?? 'Encrypted artifact';
 	}
 
 	function artifactContentType(artifact: PageData['artifacts'][number]): string {
-		if (artifact.encryption_version !== 'e2ee-v1') return artifact.content_type;
 		return decryptedArtifacts[artifact.id]?.contentType ?? 'application/octet-stream';
 	}
 
 	function artifactPreviewKind(artifact: PageData['artifacts'][number]): PreviewKind {
-		if (artifact.encryption_version !== 'e2ee-v1') return artifact.previewKind;
 		const meta = decryptedArtifacts[artifact.id];
 		if (!meta) return 'none';
 		return previewKindFor(meta.filename, meta.contentType);
@@ -247,10 +205,6 @@
 	async function resolveEncryptedArtifactMeta(
 		artifact: PageData['artifacts'][number]
 	): Promise<EncryptedArtifactMetaResult> {
-		if (artifact.encryption_version !== 'e2ee-v1') {
-			return { ok: false, reason: 'missing' };
-		}
-
 		const cached = decryptedArtifacts[artifact.id];
 		if (cached) {
 			return {
@@ -337,17 +291,6 @@
 		return new Date(iso).toLocaleString();
 	}
 
-	async function downloadArtifact(id: string) {
-		try {
-			const res = await fetch(`/api/artifacts/${id}/download`);
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || 'Download failed');
-			window.location.href = json.downloadUrl;
-		} catch (err) {
-			alert(err instanceof Error ? err.message : 'Download failed');
-		}
-	}
-
 	async function decryptArtifactBytes(artifact: PageData['artifacts'][number]): Promise<Uint8Array> {
 		const privateKey = $e2eePrivateKey;
 		if (!privateKey) throw new Error('Unlock encryption first');
@@ -363,12 +306,7 @@
 	}
 
 	async function downloadArtifactRecord(artifact: PageData['artifacts'][number]) {
-		if (artifact.encryption_version !== 'e2ee-v1') {
-			await downloadArtifact(artifact.id);
-			return;
-		}
-
-		if (!(await ensureUnlockedForEncrypted(artifact))) return;
+		if (!(await ensureUnlockedForEncrypted())) return;
 
 		try {
 			const meta = await resolveEncryptedArtifactMeta(artifact);
@@ -392,26 +330,6 @@
 		}
 	}
 
-	function downloadAllArtifacts() {
-		window.location.href = `/api/sessions/${data.session.id}/archive`;
-	}
-
-	function openInlinePreview(inline: {
-		filename: string;
-		kind: 'markdown' | 'html';
-		doc: string;
-	}) {
-		previewToken++;
-		previewFilename = inline.filename;
-		previewKind = inline.kind;
-		previewUrl = '';
-		previewSourceDoc = inline.doc;
-		previewDoc = buildPreviewContent(inline.kind, inline.doc, darkMode);
-		previewError = '';
-		previewLoading = false;
-		previewOpen = true;
-	}
-
 	async function markSessionRead(id: string) {
 		try {
 			const res = await fetch(`/api/sessions/${id}`, {
@@ -427,36 +345,23 @@
 	}
 
 	async function previewArtifact(artifact: PageData['artifacts'][number]) {
-		if (artifact.encryption_version === 'e2ee-v1' && !(await ensureUnlockedForEncrypted(artifact))) {
+		if (!(await ensureUnlockedForEncrypted())) return;
+
+		const meta = await resolveEncryptedArtifactMeta(artifact);
+		if (!meta.ok) {
+			previewError = encryptedArtifactMetaError(meta);
+			previewOpen = true;
 			return;
 		}
 
-		let filename: string;
-		let contentType: string;
-		let kind: PreviewKind;
-
-		if (artifact.encryption_version === 'e2ee-v1') {
-			const meta = await resolveEncryptedArtifactMeta(artifact);
-			if (!meta.ok) {
-				previewError = encryptedArtifactMetaError(meta);
-				previewOpen = true;
-				return;
-			}
-			filename = meta.filename;
-			contentType = meta.contentType;
-			kind = meta.kind;
-		} else {
-			filename = artifact.filename;
-			contentType = artifact.content_type;
-			kind = artifact.previewKind;
-		}
+		const { filename, contentType, kind } = meta;
 
 		if (kind === 'none') {
 			await downloadArtifactRecord(artifact);
 			return;
 		}
 
-		const token = ++previewToken;
+		previewToken++;
 		previewFilename = filename;
 		previewKind = kind;
 		previewUrl = '';
@@ -466,50 +371,26 @@
 		previewLoading = true;
 		previewOpen = true;
 
-		if (artifact.encryption_version === 'e2ee-v1') {
-			try {
-				const bytes = await decryptArtifactBytes(artifact);
-				if (kind === 'markdown' || kind === 'text' || kind === 'html') {
-					const text = new TextDecoder().decode(bytes);
-					const content =
-						kind === 'markdown'
-							? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
-							: kind === 'text'
-								? `<pre>${escapeHtml(text)}</pre>`
-								: sanitizePreviewHtml(text);
-					previewSourceDoc = content;
-					previewDoc = buildPreviewContent(kind, content, darkMode);
-				} else {
-					previewObjectUrl = URL.createObjectURL(new Blob([bytesToArrayBuffer(bytes)], { type: contentType }));
-					previewUrl = previewObjectUrl;
-				}
-			} catch (err) {
-				previewError = err instanceof Error ? err.message : 'Could not decrypt preview';
-			} finally {
-				previewLoading = false;
-			}
-			return;
-		}
-
 		try {
-			const res = await fetch(`/api/artifacts/${artifact.id}/preview`);
-			const json = await res.json();
-			if (token !== previewToken) return;
-			if (!res.ok) throw new Error(json.error || 'Preview failed');
-
-			if (typeof json.content === 'string') {
-				previewSourceDoc = json.content;
-				previewDoc = buildPreviewContent(json.kind ?? previewKind, json.content, darkMode);
-			} else if (json.previewUrl) {
-				previewUrl = json.previewUrl;
+			const bytes = await decryptArtifactBytes(artifact);
+			if (kind === 'markdown' || kind === 'text' || kind === 'html') {
+				const text = new TextDecoder().decode(bytes);
+				const content =
+					kind === 'markdown'
+						? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
+						: kind === 'text'
+							? `<pre>${escapeHtml(text)}</pre>`
+							: sanitizePreviewHtml(text);
+				previewSourceDoc = content;
+				previewDoc = buildPreviewContent(kind, content, darkMode);
 			} else {
-				throw new Error('No preview available');
+				previewObjectUrl = URL.createObjectURL(new Blob([bytesToArrayBuffer(bytes)], { type: contentType }));
+				previewUrl = previewObjectUrl;
 			}
 		} catch (err) {
-			if (token !== previewToken) return;
-			previewError = err instanceof Error ? err.message : 'Preview failed';
+			previewError = err instanceof Error ? err.message : 'Could not decrypt preview';
 		} finally {
-			if (token === previewToken) previewLoading = false;
+			previewLoading = false;
 		}
 	}
 
@@ -587,71 +468,6 @@
 			e2eeConfigured={$e2eeConfig.configured}
 			onUnlock={ensureE2eeUnlocked}
 		/>
-	{:else if data.inlinePreview}
-		{#await data.inlinePreview}
-			<div
-				class="overflow-hidden bg-white dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
-			>
-				<div class="h-[28rem] flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-					Loading preview…
-				</div>
-			</div>
-		{:then inline}
-			<div
-				class="overflow-hidden bg-white dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
-			>
-				<div
-					class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-slate-800"
-				>
-					<div class="min-w-0">
-						<p class="text-sm font-medium text-slate-900 truncate dark:text-slate-100" title={inline.filename}>
-							{inline.filename}
-						</p>
-						<p class="text-xs text-slate-500 dark:text-slate-400">
-							Rendered from the single {inline.kind === 'markdown' ? 'Markdown' : 'HTML'} artifact.
-						</p>
-					</div>
-					<div class="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-						<Button
-							variant="ghost"
-							size="icon"
-							class="shrink-0"
-							onclick={() => openInlinePreview(inline)}
-							title="Open fullscreen preview"
-							aria-label="Open fullscreen preview"
-						>
-							<Maximize2 class="h-4 w-4" />
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							class="shrink-0"
-							onclick={() => downloadArtifact(inline.artifactId)}
-						>
-							<Download class="h-4 w-4 mr-2" />
-							Download
-						</Button>
-					</div>
-				</div>
-				<div class="px-4 pb-4 sm:px-6">
-					<iframe
-						srcdoc={buildPreviewContent(inline.kind, inline.doc, darkMode)}
-						title={inline.filename}
-						sandbox={STRICT_PREVIEW_SANDBOX}
-						referrerpolicy={PREVIEW_REFERRER_POLICY}
-						class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full border-0 bg-white dark:bg-slate-950 sm:h-[72vh] sm:min-h-[32rem]"
-					></iframe>
-				</div>
-			</div>
-		{:catch err}
-			<div
-				class="overflow-hidden bg-white dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
-			>
-				<div class="p-4 sm:p-6 text-sm text-red-600">
-					{err instanceof Error ? err.message : 'Preview unavailable.'}
-				</div>
-			</div>
-		{/await}
 	{:else}
 		<div
 			class="bg-white p-4 dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:p-6 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
@@ -663,12 +479,6 @@
 						Click an artifact to preview. Use download for a single file.
 					</p>
 				</div>
-				{#if data.artifacts.length > 0}
-					<Button variant="outline" size="sm" class="shrink-0" onclick={downloadAllArtifacts}>
-						<Archive class="h-4 w-4 mr-2" />
-						Download all (.zip)
-					</Button>
-				{/if}
 			</div>
 
 			{#if data.artifacts.length === 0}

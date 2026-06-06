@@ -6,6 +6,11 @@ import {
 	type AgentApiToken,
 	type JsonObject
 } from '$lib/server/db';
+import {
+	isE2eePolicyResponse,
+	isEncryptedEnvelope,
+	requireOwnerE2eeForAgent
+} from '$lib/server/e2ee-policy';
 
 const TOKEN_HASH_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_TOKEN_NAME_LENGTH = 80;
@@ -43,6 +48,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
+	const policy = await requireOwnerE2eeForAgent(locals.user!.id);
+	if (isE2eePolicyResponse(policy)) {
+		return policy;
+	}
+
 	const body = (await request.json()) as {
 		name?: unknown;
 		tokenHash?: unknown;
@@ -53,14 +63,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		return json({ error: 'A valid token hash is required' }, { status: 400 });
 	}
 
-	const encryptedToken =
-		body.encryptedToken === undefined || body.encryptedToken === null
-			? null
-			: isJsonObject(body.encryptedToken)
-				? body.encryptedToken
-				: undefined;
-	if (encryptedToken === undefined) {
-		return json({ error: 'encryptedToken must be an object when provided' }, { status: 400 });
+	if (!isEncryptedEnvelope(body.encryptedToken)) {
+		return json(
+			{ error: 'encryptedToken envelope is required when creating agent tokens' },
+			{ status: 400 }
+		);
 	}
 
 	try {
@@ -68,7 +75,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			userId: locals.user!.id,
 			name: cleanTokenName(body.name),
 			tokenHash,
-			encryptedToken
+			encryptedToken: body.encryptedToken
 		});
 		return json({ token: serializeAgentToken(token) }, { status: 201 });
 	} catch (err) {

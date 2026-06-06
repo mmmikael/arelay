@@ -151,6 +151,10 @@
 
 	async function createAgentApiToken() {
 		if (busy) return;
+		if (!data.e2eeConfigured || !$e2eeConfig.publicKeyJwk) {
+			error = 'Configure encryption before creating agent tokens.';
+			return;
+		}
 		busy = true;
 		error = '';
 		notice = '';
@@ -158,8 +162,7 @@
 		try {
 			const token = generateAgentTokenValue();
 			const tokenHash = await sha256Hex(token);
-			const publicKey = $e2eeConfig.publicKeyJwk;
-			const encryptedToken = publicKey ? await encryptString(token, publicKey) : null;
+			const encryptedToken = await encryptString(token, $e2eeConfig.publicKeyJwk);
 			const res = await fetch('/api/account/agent-tokens', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -175,12 +178,10 @@
 				id: result.token.id,
 				name: result.token.name,
 				token,
-				encrypted: Boolean(result.token.encryptedToken)
+				encrypted: true
 			};
 			newAgentTokenName = '';
-			notice = encryptedToken
-				? 'Agent token created and saved encrypted.'
-				: 'Agent token created. Copy it now; set up encryption to reveal future tokens later.';
+			notice = 'Agent token created and saved encrypted.';
 			await invalidate('account:agent-tokens');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Could not create agent token';
@@ -283,6 +284,15 @@
 				Manage sign-in, storage, agent access, and optional email sending.
 			</p>
 		</div>
+
+		{#if !data.e2eeConfigured}
+			<p
+				class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
+			>
+				Complete <a href="/portal/setup" class="font-semibold underline underline-offset-2">encryption
+					setup</a> before creating agent tokens or receiving deliveries.
+			</p>
+		{/if}
 
 		{#if error}
 			<p
@@ -549,7 +559,7 @@
 							variant="outline"
 							class="h-10 shrink-0"
 							onclick={createAgentApiToken}
-							disabled={busy}
+							disabled={busy || !data.e2eeConfigured}
 						>
 							{busy ? 'Creating…' : 'Create token'}
 						</Button>
