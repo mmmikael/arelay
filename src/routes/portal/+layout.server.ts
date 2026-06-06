@@ -8,9 +8,9 @@ import {
 } from '$lib/server/db';
 import {
 	getUserCloudflareEmail,
-	listEmailDraftSummariesForUser
-} from '../../plugins/email-review-relay/db';
-import type { EmailDraftStatus } from '../../plugins/email-review-relay/types';
+	listEmailDraftSummariesForUser,
+	type EmailDraftStatus
+} from '$plugins/email-review-relay/server';
 
 type EmailDraftSummaryMap = Record<
 	string,

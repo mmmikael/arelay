@@ -7,7 +7,7 @@ import {
 	deleteUserCloudflareEmail,
 	getUserCloudflareEmail,
 	upsertUserCloudflareEmail
-} from '../../../../plugins/email-review-relay/db';
+} from '$plugins/email-review-relay/server';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	requirePlugin(EMAIL_REVIEW_RELAY_PLUGIN_ID);

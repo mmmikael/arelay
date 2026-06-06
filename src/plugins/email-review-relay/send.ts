@@ -1,7 +1,16 @@
+import { sanitizePreviewHtml } from '$lib/preview-sanitize';
 import { decryptSecret } from '$lib/server/secret-crypto';
 import { sendViaCloudflare } from '$lib/server/email-send';
 import { getUserCloudflareEmail } from './db';
 import type { EmailDraftRecord, EmailDraftSendFields } from './types';
+
+/** Sanitize HTML so outbound email matches the portal preview. */
+export function prepareEmailDraftSendFields(fields: EmailDraftSendFields): EmailDraftSendFields {
+	return {
+		...fields,
+		html: sanitizePreviewHtml(fields.html)
+	};
+}
 
 export async function sendApprovedEmailDraft(input: {
 	userId: string;
@@ -14,18 +23,19 @@ export async function sendApprovedEmailDraft(input: {
 		throw new Error('Cloudflare Email Sending is not configured for this account.');
 	}
 
+	const fields = prepareEmailDraftSendFields(input.fields);
 	const apiToken = decryptSecret(credentials.api_token_ciphertext);
 	await sendViaCloudflare({
 		accountId: credentials.account_id,
 		apiToken,
-		to: input.fields.to,
+		to: fields.to,
 		from: {
-			email: input.fields.from.email,
-			name: input.fields.from.name
+			email: fields.from.email,
+			name: fields.from.name
 		},
-		subject: input.fields.subject,
-		html: input.fields.html,
-		text: input.fields.text,
+		subject: fields.subject,
+		html: fields.html,
+		text: fields.text,
 		headers: {
 			'X-Agent-Relay-Origin': input.origin,
 			'X-Agent-Relay-Draft-Id': input.draft.id
@@ -34,12 +44,7 @@ export async function sendApprovedEmailDraft(input: {
 }
 
 export function emailDraftSendFieldsFromRecord(draft: EmailDraftRecord): EmailDraftSendFields {
-	if (
-		!draft.to_address ||
-		!draft.from_email ||
-		!draft.subject ||
-		!draft.html
-	) {
+	if (!draft.to_address || !draft.from_email || !draft.subject || !draft.html) {
 		throw new Error('Email draft is missing plaintext send fields');
 	}
 

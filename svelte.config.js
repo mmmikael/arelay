@@ -6,6 +6,9 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
+		alias: {
+			$plugins: 'src/plugins'
+		},
 		adapter: adapter({ out: 'build' }),
 		csp: {
 			mode: 'auto',

@@ -6,7 +6,7 @@ import {
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
 	getUserCloudflareEmail
-} from '../../../plugins/email-review-relay/db';
+} from '$plugins/email-review-relay/server';
 import { previewKindFor } from '$lib/artifacts';
 import { sanitizePreviewHtml } from '$lib/preview-sanitize';
 import { getObjectText } from '$lib/server/s3';

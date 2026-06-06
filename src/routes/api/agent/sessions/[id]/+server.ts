@@ -4,9 +4,9 @@ import { isEmailReviewRelayEnabled } from '$lib/plugins';
 import { getSession, updateEncryptedSession, updateSession, type JsonObject } from '$lib/server/db';
 import {
 	getEmailDraftBySessionId,
-	getSessionDeliveryType
-} from '../../../../../plugins/email-review-relay/db';
-import { toAgentEmailDraftView } from '../../../../../plugins/email-review-relay/types';
+	getSessionDeliveryType,
+	toAgentEmailDraftView
+} from '$plugins/email-review-relay/server';
 
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	const sessionId = params.id;

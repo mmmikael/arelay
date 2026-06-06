@@ -74,18 +74,9 @@ function optionalEncryptedField(
 	return { ok: true, value };
 }
 
-export function parseEmailDraftPayload(body: unknown):
-	| { ok: true; value: ParsedEmailDraftPayload }
+function parsePlaintextEmailFields(record: Record<string, unknown>):
+	| { ok: true; value: EmailDraftSendFields }
 	| { ok: false; error: string } {
-	if (!body || typeof body !== 'object') {
-		return { ok: false, error: 'JSON body required' };
-	}
-
-	const record = body as Record<string, unknown>;
-	if (record.encrypted === true) {
-		return { ok: false, error: 'Use encrypted email draft fields when encrypted is true' };
-	}
-
 	const to = normalizeEmail(record.to);
 	if (!to) {
 		return { ok: false, error: 'Valid to address required' };
@@ -126,6 +117,33 @@ export function parseEmailDraftPayload(body: unknown):
 			? record.text.slice(0, MAX_TEXT_LENGTH)
 			: undefined;
 
+	return {
+		ok: true,
+		value: {
+			to,
+			from: { email: fromEmail, name: fromName },
+			subject,
+			html,
+			text
+		}
+	};
+}
+
+export function parseEmailDraftPayload(body: unknown):
+	| { ok: true; value: ParsedEmailDraftPayload }
+	| { ok: false; error: string } {
+	if (!body || typeof body !== 'object') {
+		return { ok: false, error: 'JSON body required' };
+	}
+
+	const record = body as Record<string, unknown>;
+	if (record.encrypted === true) {
+		return { ok: false, error: 'Use encrypted email draft fields when encrypted is true' };
+	}
+
+	const core = parsePlaintextEmailFields(record);
+	if (!core.ok) return core;
+
 	let metadata: JsonObject | undefined;
 	if (record.metadata !== undefined) {
 		if (!isJsonObject(record.metadata)) {
@@ -140,11 +158,7 @@ export function parseEmailDraftPayload(body: unknown):
 	return {
 		ok: true,
 		value: {
-			to,
-			from: { email: fromEmail, name: fromName },
-			subject,
-			html,
-			text,
+			...core.value,
 			metadata,
 			idempotency_key: idempotency.value
 		}
@@ -207,57 +221,7 @@ export function parseEmailDraftSendFields(body: unknown):
 		return { ok: false, error: 'JSON body required' };
 	}
 
-	const record = body as Record<string, unknown>;
-	const to = normalizeEmail(record.to);
-	if (!to) {
-		return { ok: false, error: 'Valid to address required' };
-	}
-
-	const fromRaw = record.from;
-	if (!fromRaw || typeof fromRaw !== 'object') {
-		return { ok: false, error: 'from object with email required' };
-	}
-	const fromRecord = fromRaw as Record<string, unknown>;
-	const fromEmail = normalizeEmail(fromRecord.email);
-	if (!fromEmail) {
-		return { ok: false, error: 'Valid from.email required' };
-	}
-	const fromName =
-		typeof fromRecord.name === 'string' && fromRecord.name.trim()
-			? fromRecord.name.trim().slice(0, 200)
-			: undefined;
-
-	const subject = typeof record.subject === 'string' ? record.subject.trim() : '';
-	if (!subject) {
-		return { ok: false, error: 'subject required' };
-	}
-	if (subject.length > MAX_SUBJECT_LENGTH) {
-		return { ok: false, error: `subject must be at most ${MAX_SUBJECT_LENGTH} characters` };
-	}
-
-	const html = typeof record.html === 'string' ? record.html : '';
-	if (!html.trim()) {
-		return { ok: false, error: 'html required' };
-	}
-	if (html.length > MAX_HTML_LENGTH) {
-		return { ok: false, error: `html must be at most ${MAX_HTML_LENGTH} characters` };
-	}
-
-	const text =
-		typeof record.text === 'string' && record.text.trim()
-			? record.text.slice(0, MAX_TEXT_LENGTH)
-			: undefined;
-
-	return {
-		ok: true,
-		value: {
-			to,
-			from: { email: fromEmail, name: fromName },
-			subject,
-			html,
-			text
-		}
-	};
+	return parsePlaintextEmailFields(body as Record<string, unknown>);
 }
 
 export function parseEmailDraftBody(body: unknown):

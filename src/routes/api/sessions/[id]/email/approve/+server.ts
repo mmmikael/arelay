@@ -3,16 +3,16 @@ import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { getSession } from '$lib/server/db';
 import {
-	getEmailDraftBySessionId,
-	getUserCloudflareEmail,
-	transitionEmailDraftStatus
-} from '../../../../../../plugins/email-review-relay/db';
-import {
 	emailDraftSendFieldsFromRecord,
-	sendApprovedEmailDraft
-} from '../../../../../../plugins/email-review-relay/send';
-import { isEncryptedEmailDraft } from '../../../../../../plugins/email-review-relay/types';
-import { parseEmailDraftSendFields } from '../../../../../../plugins/email-review-relay/validate';
+	getEmailDraftBySessionId,
+	getSessionDeliveryType,
+	isEncryptedEmailDraft,
+	parseEmailDraftSendFields,
+	sendApprovedEmailDraft,
+	transitionEmailDraftStatus
+} from '$plugins/email-review-relay/server';
+
+const APPROVABLE_STATUSES = new Set(['pending', 'failed']);
 
 export const POST: RequestHandler = async ({ locals, params, request, url }) => {
 	requirePlugin(EMAIL_REVIEW_RELAY_PLUGIN_ID);
@@ -28,20 +28,17 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		return json({ error: 'Session not found' }, { status: 404 });
 	}
 
+	const deliveryType = await getSessionDeliveryType(sessionId, userId);
+	if (deliveryType !== 'email_draft') {
+		return json({ error: 'Session is not an email draft' }, { status: 404 });
+	}
+
 	const draft = await getEmailDraftBySessionId(sessionId, userId);
 	if (!draft) {
 		return json({ error: 'Email draft not found' }, { status: 404 });
 	}
-	if (draft.status !== 'pending') {
+	if (!APPROVABLE_STATUSES.has(draft.status)) {
 		return json({ error: `Draft is already ${draft.status}` }, { status: 409 });
-	}
-
-	const credentials = await getUserCloudflareEmail(userId);
-	if (!credentials) {
-		return json(
-			{ error: 'Cloudflare Email Sending is not configured for this account.' },
-			{ status: 428 }
-		);
 	}
 
 	let sendFields;
@@ -72,9 +69,10 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 	const approved = await transitionEmailDraftStatus({
 		draftId: draft.id,
 		ownerUserId: userId,
-		expectedStatus: 'pending',
+		expectedStatus: draft.status as 'pending' | 'failed',
 		nextStatus: 'approved',
-		reviewedAt: new Date()
+		reviewedAt: new Date(),
+		sendError: null
 	});
 	if (!approved) {
 		return json({ error: 'Draft is no longer pending' }, { status: 409 });
@@ -89,6 +87,7 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Email send failed';
+		const status = message.includes('not configured') ? 428 : 502;
 		const failed = await transitionEmailDraftStatus({
 			draftId: approved.id,
 			ownerUserId: userId,
@@ -101,7 +100,7 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 				error: message,
 				draft: failed ?? approved
 			},
-			{ status: 502 }
+			{ status }
 		);
 	}
 
@@ -110,7 +109,8 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		ownerUserId: userId,
 		expectedStatus: 'approved',
 		nextStatus: 'sent',
-		sentAt: new Date()
+		sentAt: new Date(),
+		sendError: null
 	});
 
 	return json({ draft: sent });

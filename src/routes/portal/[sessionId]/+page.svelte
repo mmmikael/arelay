@@ -8,10 +8,11 @@
 		type EncryptedEnvelope,
 		type EncryptedPayload
 	} from '$lib/e2ee';
+	import { decryptEmailDraftFields, type DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
+	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import Archive from '@lucide/svelte/icons/archive';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
@@ -79,17 +80,7 @@
 	let lastReadMarkSessionId = $state<string | null>(null);
 	let decryptedSession = $state<{ title: string; summary: string | null } | null>(null);
 	let decryptedArtifacts = $state<Record<string, { filename: string; contentType: string }>>({});
-	let emailActionBusy = $state(false);
-	let emailActionError = $state('');
-	let approveDialogOpen = $state(false);
-	let decryptedEmailDraft = $state<{
-		to: string;
-		from_email: string;
-		from_name: string | null;
-		subject: string;
-		html: string;
-		text: string | null;
-	} | null>(null);
+	let decryptedEmailDraft = $state<DecryptedEmailDraftFields | null>(null);
 
 	const activeEmailDraft = $derived(
 		data.emailDraft?.encryption_version === 'e2ee-v1'
@@ -108,12 +99,6 @@
 
 	const emailDraftNeedsUnlock = $derived(
 		Boolean(data.emailDraft?.encryption_version === 'e2ee-v1' && !decryptedEmailDraft)
-	);
-
-	const emailPreviewDoc = $derived(
-		activeEmailDraft?.html
-			? toPreviewHtmlDocument(sanitizePreviewHtml(activeEmailDraft.html), darkMode)
-			: ''
 	);
 
 	$effect(() => {
@@ -215,48 +200,9 @@
 				}
 			}
 
-			let nextEmailDraft: typeof decryptedEmailDraft = null;
-			if (
-				emailDraft?.encryption_version === 'e2ee-v1' &&
-				emailDraft.encrypted_to &&
-				emailDraft.encrypted_from_email &&
-				emailDraft.encrypted_subject &&
-				emailDraft.encrypted_html
-			) {
-				try {
-					nextEmailDraft = {
-						to: await decryptString(
-							emailDraft.encrypted_to as unknown as EncryptedEnvelope,
-							privateKey
-						),
-						from_email: await decryptString(
-							emailDraft.encrypted_from_email as unknown as EncryptedEnvelope,
-							privateKey
-						),
-						from_name: emailDraft.encrypted_from_name
-							? await decryptString(
-									emailDraft.encrypted_from_name as unknown as EncryptedEnvelope,
-									privateKey
-								)
-							: null,
-						subject: await decryptString(
-							emailDraft.encrypted_subject as unknown as EncryptedEnvelope,
-							privateKey
-						),
-						html: await decryptString(
-							emailDraft.encrypted_html as unknown as EncryptedEnvelope,
-							privateKey
-						),
-						text: emailDraft.encrypted_text
-							? await decryptString(
-									emailDraft.encrypted_text as unknown as EncryptedEnvelope,
-									privateKey
-								)
-							: null
-					};
-				} catch (err) {
-					console.error('[e2ee] email draft decrypt failed:', err);
-				}
+			let nextEmailDraft: DecryptedEmailDraftFields | null = null;
+			if (emailDraft) {
+				nextEmailDraft = await decryptEmailDraftFields(emailDraft, privateKey);
 			}
 
 			if (!cancelled) {
@@ -599,86 +545,6 @@
 	function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 		return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 	}
-
-	function emailDraftStatusLabel(status: string): string {
-		switch (status) {
-			case 'pending':
-				return 'Awaiting review';
-			case 'sent':
-				return 'Sent';
-			case 'rejected':
-				return 'Rejected';
-			case 'failed':
-				return 'Send failed';
-			case 'approved':
-				return 'Approved';
-			default:
-				return status;
-		}
-	}
-
-	function formatEmailFrom(draft: {
-		from_email: string;
-		from_name: string | null;
-	}): string {
-		return draft.from_name ? `${draft.from_name} <${draft.from_email}>` : draft.from_email;
-	}
-
-	async function approveEmailDraft() {
-		if (!data.emailDraft || !activeEmailDraft || emailActionBusy || data.emailDraft.status !== 'pending') {
-			return;
-		}
-		if (emailDraftNeedsUnlock) {
-			if ($e2eeConfig.configured) {
-				const unlocked = await ensureE2eeUnlocked();
-				if (!unlocked) return;
-			}
-			return;
-		}
-		emailActionBusy = true;
-		emailActionError = '';
-		try {
-			const init: RequestInit = { method: 'POST' };
-			if (data.emailDraft.encryption_version === 'e2ee-v1') {
-				init.headers = { 'Content-Type': 'application/json' };
-				init.body = JSON.stringify({
-					to: activeEmailDraft.to,
-					from: {
-						email: activeEmailDraft.from_email,
-						name: activeEmailDraft.from_name ?? undefined
-					},
-					subject: activeEmailDraft.subject,
-					html: activeEmailDraft.html,
-					text: activeEmailDraft.text ?? undefined
-				});
-			}
-			const res = await fetch(`/api/sessions/${data.session.id}/email/approve`, init);
-			const result = await res.json();
-			if (!res.ok) throw new Error(result.error || 'Could not approve email');
-			await Promise.all([invalidate('inbox:session'), invalidate('inbox:sessions')]);
-		} catch (err) {
-			emailActionError = err instanceof Error ? err.message : 'Could not approve email';
-		} finally {
-			emailActionBusy = false;
-			approveDialogOpen = false;
-		}
-	}
-
-	async function rejectEmailDraft() {
-		if (!data.emailDraft || emailActionBusy || data.emailDraft.status !== 'pending') return;
-		emailActionBusy = true;
-		emailActionError = '';
-		try {
-			const res = await fetch(`/api/sessions/${data.session.id}/email/reject`, { method: 'POST' });
-			const result = await res.json();
-			if (!res.ok) throw new Error(result.error || 'Could not reject email');
-			await Promise.all([invalidate('inbox:session'), invalidate('inbox:sessions')]);
-		} catch (err) {
-			emailActionError = err instanceof Error ? err.message : 'Could not reject email';
-		} finally {
-			emailActionBusy = false;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -716,101 +582,16 @@
 	</div>
 
 	{#if data.emailDraft}
-		<div
-			class="overflow-hidden bg-white dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
-		>
-			<div class="space-y-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-6">
-				<div class="flex flex-wrap items-start justify-between gap-3">
-					<div class="space-y-2 text-sm">
-						{#if activeEmailDraft}
-							<p class="text-slate-900 dark:text-slate-100">
-								<span class="font-semibold">To:</span>
-								{activeEmailDraft.to}
-							</p>
-							<p class="text-slate-900 dark:text-slate-100">
-								<span class="font-semibold">From:</span>
-								{formatEmailFrom(activeEmailDraft)}
-							</p>
-							<p class="text-slate-900 dark:text-slate-100">
-								<span class="font-semibold">Subject:</span>
-								{activeEmailDraft.subject}
-							</p>
-						{:else if emailDraftNeedsUnlock}
-							<p class="text-slate-600 dark:text-slate-300">
-								Unlock encryption to preview this email draft.
-							</p>
-							{#if $e2eeConfig.configured}
-								<Button variant="outline" size="sm" onclick={() => ensureE2eeUnlocked()}>
-									Unlock encryption
-								</Button>
-							{/if}
-						{/if}
-					</div>
-					<span
-						class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-					>
-						{emailDraftStatusLabel(data.emailDraft.status)}
-					</span>
-				</div>
-
-				{#if data.emailDraft.status === 'pending'}
-					<div class="flex flex-wrap items-center gap-2">
-						<Button
-							disabled={emailActionBusy || !data.cloudflareEmailConfigured || emailDraftNeedsUnlock}
-							title={emailDraftNeedsUnlock
-								? 'Unlock encryption to preview and approve this draft'
-								: data.cloudflareEmailConfigured
-									? 'Approve and send this email'
-									: 'Add Cloudflare API credentials in Account first'}
-							onclick={() => {
-								approveDialogOpen = true;
-							}}
-						>
-							{emailActionBusy ? 'Sending…' : 'Approve'}
-						</Button>
-						<Button
-							variant="outline"
-							disabled={emailActionBusy}
-							onclick={rejectEmailDraft}
-						>
-							Reject
-						</Button>
-					</div>
-					{#if !data.cloudflareEmailConfigured}
-						<p class="text-xs text-amber-700 dark:text-amber-300">
-							<a href="/portal/account" class="underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-200">Add Cloudflare API credentials in Account</a> before approving.
-						</p>
-					{/if}
-				{/if}
-
-				{#if data.emailDraft.send_error}
-					<p class="text-sm text-red-600 dark:text-red-400">{data.emailDraft.send_error}</p>
-				{/if}
-				{#if emailActionError}
-					<p class="text-sm text-red-600 dark:text-red-400">{emailActionError}</p>
-				{/if}
-			</div>
-
-			<div class="px-4 pb-4 sm:px-6">
-				{#if activeEmailDraft?.html}
-					<iframe
-						srcdoc={emailPreviewDoc}
-						title={activeEmailDraft.subject}
-						sandbox={STRICT_PREVIEW_SANDBOX}
-						referrerpolicy={PREVIEW_REFERRER_POLICY}
-						class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full border-0 bg-white dark:bg-slate-950 sm:h-[72vh] sm:min-h-[32rem]"
-					></iframe>
-				{:else}
-					<div
-						class="flex h-[28rem] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
-					>
-						{emailDraftNeedsUnlock
-							? 'Unlock encryption to preview the email body.'
-							: 'Email preview unavailable.'}
-					</div>
-				{/if}
-			</div>
-		</div>
+		<EmailDraftReviewPanel
+			emailDraft={data.emailDraft}
+			{activeEmailDraft}
+			{emailDraftNeedsUnlock}
+			cloudflareEmailConfigured={data.cloudflareEmailConfigured}
+			sessionId={data.session.id}
+			{darkMode}
+			e2eeConfigured={$e2eeConfig.configured}
+			onUnlock={ensureE2eeUnlocked}
+		/>
 	{:else if data.inlinePreview}
 		{#await data.inlinePreview}
 			<div
@@ -939,24 +720,6 @@
 		</div>
 	{/if}
 </div>
-
-<AlertDialog.Root bind:open={approveDialogOpen}>
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>Approve and send email?</AlertDialog.Title>
-			<AlertDialog.Description>
-				This will send the draft to {activeEmailDraft?.to ?? 'the recipient'} using your
-				Cloudflare Email Sending credentials.
-			</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<AlertDialog.Cancel disabled={emailActionBusy}>Cancel</AlertDialog.Cancel>
-			<AlertDialog.Action on:click={approveEmailDraft} disabled={emailActionBusy}>
-				{emailActionBusy ? 'Sending…' : 'Approve and send'}
-			</AlertDialog.Action>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>
 
 {#if previewOpen}
 	<div class="fixed inset-0 z-[100] bg-white dark:bg-slate-950">

@@ -2,8 +2,9 @@ import { getDb, type InboxSession, type JsonObject } from '$lib/server/db';
 import type { EmailDraftRecord, EmailDraftStatus, UserCloudflareEmailRecord } from './types';
 import type { ParsedEmailDraftPayload, ParsedEncryptedEmailDraftPayload } from './validate';
 
-function mapEmailDraft(row: EmailDraftRecord): EmailDraftRecord {
-	return row;
+/** Inbox summary ciphertext when no dedicated summary envelope is supplied. */
+function encryptedSessionSummaryForInbox(payload: ParsedEncryptedEmailDraftPayload): JsonObject {
+	return payload.encrypted_session_summary ?? payload.encrypted_to;
 }
 
 export async function getUserCloudflareEmail(
@@ -92,7 +93,7 @@ export async function getEmailDraftByIdempotencyKey(
 	const row = rows[0];
 	if (!row) return null;
 
-	const draft = mapEmailDraft(row);
+	const draft: EmailDraftRecord = row;
 
 	const session: InboxSession = {
 		id: row.session_id_join,
@@ -111,98 +112,99 @@ export async function getEmailDraftByIdempotencyKey(
 	return { session, draft };
 }
 
-export async function createEmailDraft(input: {
+async function createEncryptedEmailDraft(input: {
 	sessionId: string;
 	draftId: string;
 	ownerUserId: string;
-	payload: ParsedEmailDraftPayload | ParsedEncryptedEmailDraftPayload;
-	encrypted?: boolean;
+	payload: ParsedEncryptedEmailDraftPayload;
 }): Promise<{ session: InboxSession; draft: EmailDraftRecord }> {
 	const db = getDb();
+	const payload = input.payload;
+	const encryptedSummary = encryptedSessionSummaryForInbox(payload);
 
-	if (input.encrypted) {
-		const payload = input.payload as ParsedEncryptedEmailDraftPayload;
-		const encryptedSummary =
-			payload.encrypted_session_summary ?? payload.encrypted_to;
+	return await db.begin(async (tx) => {
+		const sessionRows = await tx<InboxSession[]>`
+			INSERT INTO inbox_sessions (
+				id,
+				owner_user_id,
+				title,
+				summary,
+				delivery_type,
+				encryption_version,
+				encrypted_title,
+				encrypted_summary
+			)
+			VALUES (
+				${input.sessionId},
+				${input.ownerUserId},
+				${'Encrypted email draft'},
+				${null},
+				'email_draft',
+				'e2ee-v1',
+				${tx.json(payload.encrypted_subject)},
+				${tx.json(encryptedSummary)}
+			)
+			RETURNING
+				id,
+				owner_user_id,
+				title,
+				summary,
+				encryption_version,
+				encrypted_title,
+				encrypted_summary,
+				read_at,
+				created_at,
+				updated_at,
+				(read_at IS NOT NULL) AS is_read
+		`;
 
-		return await db.begin(async (tx) => {
-			const sessionRows = await tx<InboxSession[]>`
-				INSERT INTO inbox_sessions (
-					id,
-					owner_user_id,
-					title,
-					summary,
-					delivery_type,
-					encryption_version,
-					encrypted_title,
-					encrypted_summary
-				)
-				VALUES (
-					${input.sessionId},
-					${input.ownerUserId},
-					${'Encrypted email draft'},
-					${null},
-					'email_draft',
-					'e2ee-v1',
-					${tx.json(payload.encrypted_subject)},
-					${tx.json(encryptedSummary)}
-				)
-				RETURNING
-					id,
-					owner_user_id,
-					title,
-					summary,
-					encryption_version,
-					encrypted_title,
-					encrypted_summary,
-					read_at,
-					created_at,
-					updated_at,
-					(read_at IS NOT NULL) AS is_read
-			`;
+		const draftRows = await tx<EmailDraftRecord[]>`
+			INSERT INTO email_drafts (
+				id,
+				session_id,
+				owner_user_id,
+				encryption_version,
+				encrypted_to,
+				encrypted_from_email,
+				encrypted_from_name,
+				encrypted_subject,
+				encrypted_html,
+				encrypted_text,
+				encrypted_metadata,
+				idempotency_key
+			)
+			VALUES (
+				${input.draftId},
+				${input.sessionId},
+				${input.ownerUserId},
+				'e2ee-v1',
+				${tx.json(payload.encrypted_to)},
+				${tx.json(payload.encrypted_from_email)},
+				${payload.encrypted_from_name ? tx.json(payload.encrypted_from_name) : null},
+				${tx.json(payload.encrypted_subject)},
+				${tx.json(payload.encrypted_html)},
+				${payload.encrypted_text ? tx.json(payload.encrypted_text) : null},
+				${payload.encrypted_metadata ? tx.json(payload.encrypted_metadata) : null},
+				${payload.idempotency_key ?? null}
+			)
+			RETURNING *
+		`;
 
-			const draftRows = await tx<EmailDraftRecord[]>`
-				INSERT INTO email_drafts (
-					id,
-					session_id,
-					owner_user_id,
-					encryption_version,
-					encrypted_to,
-					encrypted_from_email,
-					encrypted_from_name,
-					encrypted_subject,
-					encrypted_html,
-					encrypted_text,
-					encrypted_metadata,
-					idempotency_key
-				)
-				VALUES (
-					${input.draftId},
-					${input.sessionId},
-					${input.ownerUserId},
-					'e2ee-v1',
-					${tx.json(payload.encrypted_to)},
-					${tx.json(payload.encrypted_from_email)},
-					${payload.encrypted_from_name ? tx.json(payload.encrypted_from_name) : null},
-					${tx.json(payload.encrypted_subject)},
-					${tx.json(payload.encrypted_html)},
-					${payload.encrypted_text ? tx.json(payload.encrypted_text) : null},
-					${payload.encrypted_metadata ? tx.json(payload.encrypted_metadata) : null},
-					${payload.idempotency_key ?? null}
-				)
-				RETURNING *
-			`;
+		return { session: sessionRows[0], draft: draftRows[0] };
+	});
+}
 
-			return { session: sessionRows[0], draft: mapEmailDraft(draftRows[0]) };
-		});
-	}
-
-	const payload = input.payload as ParsedEmailDraftPayload;
+async function createPlaintextEmailDraft(input: {
+	sessionId: string;
+	draftId: string;
+	ownerUserId: string;
+	payload: ParsedEmailDraftPayload;
+}): Promise<{ session: InboxSession; draft: EmailDraftRecord }> {
+	const db = getDb();
+	const payload = input.payload;
 	const summary = `To: ${payload.to}`;
 	const title =
-		payload.subject.length > 120
-			? `${payload.subject.slice(0, 117)}...`
-			: payload.subject;
+		payload.subject.length > 120 ? `${payload.subject.slice(0, 117)}...` : payload.subject;
 
 	return await db.begin(async (tx) => {
 		const sessionRows = await tx<InboxSession[]>`
@@ -258,30 +260,46 @@ export async function createEmailDraft(input: {
 			RETURNING *
 		`;
 
-		return { session: sessionRows[0], draft: mapEmailDraft(draftRows[0]) };
+		return { session: sessionRows[0], draft: draftRows[0] };
+	});
+}
+
+export async function createEmailDraft(input: {
+	sessionId: string;
+	draftId: string;
+	ownerUserId: string;
+	payload: ParsedEmailDraftPayload | ParsedEncryptedEmailDraftPayload;
+	encrypted?: boolean;
+}): Promise<{ session: InboxSession; draft: EmailDraftRecord }> {
+	if (input.encrypted) {
+		return createEncryptedEmailDraft({
+			sessionId: input.sessionId,
+			draftId: input.draftId,
+			ownerUserId: input.ownerUserId,
+			payload: input.payload as ParsedEncryptedEmailDraftPayload
+		});
+	}
+
+	return createPlaintextEmailDraft({
+		sessionId: input.sessionId,
+		draftId: input.draftId,
+		ownerUserId: input.ownerUserId,
+		payload: input.payload as ParsedEmailDraftPayload
 	});
 }
 
 export async function getEmailDraftBySessionId(
 	sessionId: string,
-	ownerUserId?: string
+	ownerUserId: string
 ): Promise<EmailDraftRecord | null> {
 	const db = getDb();
-	const rows = ownerUserId
-		? await db<EmailDraftRecord[]>`
-			SELECT *
-			FROM email_drafts
-			WHERE session_id = ${sessionId} AND owner_user_id = ${ownerUserId}
-			LIMIT 1
-		`
-		: await db<EmailDraftRecord[]>`
-			SELECT *
-			FROM email_drafts
-			WHERE session_id = ${sessionId}
-			LIMIT 1
-		`;
-	const row = rows[0];
-	return row ? mapEmailDraft(row) : null;
+	const rows = await db<EmailDraftRecord[]>`
+		SELECT *
+		FROM email_drafts
+		WHERE session_id = ${sessionId} AND owner_user_id = ${ownerUserId}
+		LIMIT 1
+	`;
+	return rows[0] ?? null;
 }
 
 export async function getEmailDraftById(
@@ -295,8 +313,7 @@ export async function getEmailDraftById(
 		WHERE id = ${draftId} AND owner_user_id = ${ownerUserId}
 		LIMIT 1
 	`;
-	const row = rows[0];
-	return row ? mapEmailDraft(row) : null;
+	return rows[0] ?? null;
 }
 
 export async function transitionEmailDraftStatus(input: {
@@ -322,8 +339,7 @@ export async function transitionEmailDraftStatus(input: {
 			AND status = ${input.expectedStatus}
 		RETURNING *
 	`;
-	const row = rows[0];
-	return row ? mapEmailDraft(row) : null;
+	return rows[0] ?? null;
 }
 
 export async function listEmailDraftSummariesForUser(

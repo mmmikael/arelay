@@ -4,8 +4,9 @@ import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { getSession } from '$lib/server/db';
 import {
 	getEmailDraftBySessionId,
+	getSessionDeliveryType,
 	transitionEmailDraftStatus
-} from '../../../../../../plugins/email-review-relay/db';
+} from '$plugins/email-review-relay/server';
 
 export const POST: RequestHandler = async ({ locals, params }) => {
 	requirePlugin(EMAIL_REVIEW_RELAY_PLUGIN_ID);
@@ -19,6 +20,11 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 	const session = await getSession(sessionId, userId);
 	if (!session) {
 		return json({ error: 'Session not found' }, { status: 404 });
+	}
+
+	const deliveryType = await getSessionDeliveryType(sessionId, userId);
+	if (deliveryType !== 'email_draft') {
+		return json({ error: 'Session is not an email draft' }, { status: 404 });
 	}
 
 	const draft = await getEmailDraftBySessionId(sessionId, userId);

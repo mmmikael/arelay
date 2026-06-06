@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
-import { getEmailDraftById } from '../../../../../plugins/email-review-relay/db';
+import { getEmailDraftById, toAgentEmailDraftView } from '$plugins/email-review-relay/server';
 import { getSession } from '$lib/server/db';
-import { toAgentEmailDraftView } from '../../../../../plugins/email-review-relay/types';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	requirePlugin(EMAIL_REVIEW_RELAY_PLUGIN_ID);
