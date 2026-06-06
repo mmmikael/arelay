@@ -30,10 +30,11 @@
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import LockKeyhole from '@lucide/svelte/icons/lock-keyhole';
+	import LogOut from '@lucide/svelte/icons/log-out';
 	import Mail from '@lucide/svelte/icons/mail';
 	import MailOpen from '@lucide/svelte/icons/mail-open';
-	import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
-	import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import UserRound from '@lucide/svelte/icons/user-round';
@@ -828,34 +829,21 @@
 			? 'hidden sm:block'
 			: ''}"
 	>
-		<div class="flex min-h-[4.5rem] items-center justify-between gap-3 px-4 py-2.5 sm:h-16 sm:min-h-16 sm:px-6 sm:py-0">
-			<div class="flex min-w-0 flex-1 items-center gap-3">
-				<Button
-					variant="ghost"
-					size="icon"
-					class="hidden shrink-0 sm:inline-flex"
-					onclick={toggleSidebar}
-					title={effectiveSidebarCollapsed ? 'Show sessions' : 'Hide sessions'}
-					aria-label={effectiveSidebarCollapsed ? 'Show sessions' : 'Hide sessions'}
-					aria-expanded={!effectiveSidebarCollapsed}
+		<div class="flex h-14 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
+			<div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+				<Logo class="h-8 w-8 shrink-0" />
+				<span
+					class="hidden min-w-0 truncate text-lg font-bold text-slate-900 dark:text-slate-100 sm:block"
 				>
-					{#if effectiveSidebarCollapsed}
-						<PanelLeftOpen class="h-5 w-5" />
-					{:else}
-						<PanelLeftClose class="h-5 w-5" />
-					{/if}
-				</Button>
-				<Logo class="h-10 w-10 shrink-0 sm:h-8 sm:w-8" />
-				<span class="min-w-0 leading-none">
-					<span class="block truncate text-lg font-bold leading-6 text-slate-900 dark:text-slate-100 sm:text-lg">
-						Agent Relay
-					</span>
-					<span class="mt-1 block truncate text-sm font-medium leading-4 text-slate-500 dark:text-slate-400 sm:hidden">
-						Inbox · {#if unreadCount > 0}{unreadCount} unread{:else}{data.sessions.length} messages{/if}
-					</span>
+					Agent Relay
+				</span>
+				<span
+					class="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:hidden"
+				>
+					Inbox · {#if unreadCount > 0}{unreadCount} unread{:else}{data.sessions.length} messages{/if}
 				</span>
 			</div>
-			<div class="ml-auto flex shrink-0 items-center gap-2">
+			<div class="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
 				<button
 					type="button"
 					onclick={openAccountDialog}
@@ -889,12 +877,47 @@
 					{/if}
 				</button>
 				<ThemeToggle />
-				<Button variant="outline" size="sm" onclick={logout} class="shrink-0">Sign out</Button>
+				<Button
+					variant="outline"
+					size="icon"
+					onclick={logout}
+					class="h-8 w-8 shrink-0 sm:hidden"
+					aria-label="Sign out"
+					title="Sign out"
+				>
+					<LogOut class="h-4 w-4" />
+				</Button>
+				<Button variant="outline" size="sm" onclick={logout} class="hidden shrink-0 sm:inline-flex">
+					Sign out
+				</Button>
 			</div>
 		</div>
 	</header>
 
-	<div class="flex flex-1 min-h-0 overflow-hidden">
+	<div class="relative flex min-h-0 flex-1 overflow-hidden">
+		{#if effectiveSidebarCollapsed && isDesktop}
+			<button
+				type="button"
+				onclick={toggleSidebar}
+				title="Show sessions"
+				aria-label="Show inbox"
+				aria-expanded={false}
+				class="absolute left-4 top-4 z-30 hidden items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-md backdrop-blur-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-blue-900 dark:hover:bg-blue-950/80 sm:inline-flex"
+			>
+				<Inbox class="h-4 w-4 text-[#3b82f6]" />
+				<span>Inbox</span>
+				<span
+					class="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+				>
+					{#if unreadCount > 0}
+						{unreadCount} unread
+					{:else}
+						{data.sessions.length}
+					{/if}
+				</span>
+				<ChevronRight class="h-4 w-4 text-slate-400" />
+			</button>
+		{/if}
 		<div
 			class="relative shrink-0 flex-col min-h-0 overflow-hidden border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950
 				{activeSessionId ? 'hidden sm:flex' : 'flex w-full'}
@@ -906,18 +929,32 @@
 			aria-hidden={effectiveSidebarCollapsed || (!isDesktop && Boolean(activeSessionId))}
 		>
 			<div class="hidden min-w-0 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:block">
-				<div class="flex items-center justify-between gap-3">
-					<div class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-						<Inbox class="h-4 w-4 text-[#3b82f6]" />
+				<div class="flex items-center justify-between gap-2">
+					<div class="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+						<Inbox class="h-4 w-4 shrink-0 text-[#3b82f6]" />
 						Inbox
 					</div>
-					<span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-						{#if unreadCount > 0}
-							{unreadCount} unread
-						{:else}
-							{data.sessions.length}
-						{/if}
-					</span>
+					<div class="flex shrink-0 items-center gap-1">
+						<span
+							class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-300"
+						>
+							{#if unreadCount > 0}
+								{unreadCount} unread
+							{:else}
+								{data.sessions.length}
+							{/if}
+						</span>
+						<button
+							type="button"
+							onclick={toggleSidebar}
+							title="Hide sessions"
+							aria-label="Hide sessions"
+							aria-expanded={true}
+							class="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+						>
+							<ChevronLeft class="h-4 w-4" />
+						</button>
+					</div>
 				</div>
 				<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Deliveries from AI agents</p>
 			</div>
