@@ -56,6 +56,26 @@ function stripUnsafeMetaTags(html: string): string {
 	});
 }
 
+function replaceUntilStable(input: string, replacer: (value: string) => string): string {
+	let out = input;
+	let previous;
+	do {
+		previous = out;
+		out = replacer(out);
+	} while (out !== previous);
+	return out;
+}
+
+function stripBlockedTags(html: string): string {
+	return replaceUntilStable(html, (value) =>
+		value.replace(TAG_PATTERN, '').replace(VOID_TAG_PATTERN, '')
+	);
+}
+
+function stripEventHandlers(html: string): string {
+	return replaceUntilStable(html, (value) => value.replace(EVENT_HANDLER_ATTR, ''));
+}
+
 function stripUnsafeAttributes(html: string): string {
 	let out = html.replace(ATTR_PATTERN, (match, attr: string, rawValue: string) => {
 		const value = rawValue.replace(/^['"]|['"]$/g, '');
@@ -65,7 +85,7 @@ function stripUnsafeAttributes(html: string): string {
 		}
 		return isExternalUrl(value) ? '' : match;
 	});
-	out = out.replace(EVENT_HANDLER_ATTR, '');
+	out = stripEventHandlers(out);
 	return out;
 }
 
@@ -74,7 +94,7 @@ function stripUnsafeAttributes(html: string): string {
  * from agent-authored HTML before rendering in a sandboxed iframe.
  */
 export function sanitizePreviewHtml(html: string): string {
-	let out = html.replace(TAG_PATTERN, '').replace(VOID_TAG_PATTERN, '');
+	let out = stripBlockedTags(html);
 	out = stripUnsafeMetaTags(out);
 	out = stripUnsafeAttributes(out);
 	return out;

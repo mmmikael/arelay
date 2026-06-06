@@ -2,7 +2,7 @@
  * Submit an E2EE email draft for human review (Email Review Relay plugin).
  *
  * Usage:
- *   AGENT_RELAY_URL=http://localhost:3000 AGENT_API_TOKEN=ar_... node scripts/e2ee-email-draft.mjs [to@example.com]
+ *   AGENT_RELAY_URL=http://localhost:3000 AGENT_API_TOKEN=ar_... node scripts/e2ee-email-draft.mjs [to@example.com] [subject] [html] [plainText]
  *
  * After submit, open the portal session and Approve to send via your Cloudflare credentials.
  */
@@ -34,6 +34,9 @@ const subject = process.argv[3] ?? 'E2EE email draft test';
 const html =
 	process.argv[4] ??
 	'<p>This is an <strong>encrypted</strong> email draft submitted by <code>scripts/e2ee-email-draft.mjs</code>.</p>';
+const text =
+	process.argv[5] ??
+	'Encrypted email draft submitted by scripts/e2ee-email-draft.mjs. Open the portal to preview the HTML body.';
 
 if (!toAddress) {
 	console.error('Recipient required: pass as first arg or set TEST_EMAIL_TO');
@@ -137,7 +140,7 @@ const body = {
 	encrypted_from_name: await encryptString(fromName, publicKeyJwk),
 	encrypted_subject: await encryptString(subject, publicKeyJwk),
 	encrypted_html: await encryptString(html, publicKeyJwk),
-	encrypted_text: await encryptString(html.replace(/<[^>]+>/g, ''), publicKeyJwk),
+	encrypted_text: await encryptString(text, publicKeyJwk),
 	encrypted_session_summary: await encryptString(`To: ${toAddress}`, publicKeyJwk),
 	idempotency_key: `e2ee-email-test-${Date.now()}`
 };
