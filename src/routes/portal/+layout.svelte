@@ -94,6 +94,7 @@
 
 	const activeSessionId = $derived($page.params.sessionId ?? null);
 	const isAccountPage = $derived($page.url.pathname === '/portal/account');
+	const showMobileDetail = $derived(Boolean(activeSessionId) || isAccountPage);
 	const navigatingToSessionId = $derived.by(() => {
 		const pathname = $navigating?.to?.url.pathname;
 		if (!pathname?.startsWith('/portal/')) return null;
@@ -653,7 +654,7 @@
 
 <div class="flex h-[100dvh] min-h-screen flex-col overflow-hidden bg-white sm:bg-slate-50 dark:bg-slate-950">
 	<header
-		class="z-50 shrink-0 border-b border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950 {activeSessionId
+		class="z-50 shrink-0 border-b border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950 {showMobileDetail
 			? 'hidden sm:block'
 			: ''}"
 	>
@@ -750,13 +751,13 @@
 		{/if}
 		<div
 			class="relative shrink-0 flex-col min-h-0 overflow-hidden border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950
-				{activeSessionId ? 'hidden sm:flex' : 'flex w-full'}
+				{showMobileDetail ? 'hidden sm:flex' : 'flex w-full'}
 				{effectiveSidebarCollapsed ? 'sm:w-0 sm:border-0' : 'w-full sm:w-[var(--sidebar-width)] sm:border-r'}
 				{!isResizing && !effectiveSidebarCollapsed
 				? 'transition-[width,border-color] duration-300 ease-in-out'
 				: ''}"
 			style={sidebarStyle}
-			aria-hidden={effectiveSidebarCollapsed || (!isDesktop && Boolean(activeSessionId))}
+			aria-hidden={effectiveSidebarCollapsed || (!isDesktop && showMobileDetail)}
 		>
 			<div class="hidden min-w-0 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:block">
 				<div class="flex items-center justify-between gap-2">
@@ -939,7 +940,7 @@
 		</div>
 
 		<main
-			class="min-w-0 overflow-y-auto bg-slate-50 dark:bg-slate-950 {activeSessionId
+			class="min-w-0 overflow-y-auto bg-slate-50 dark:bg-slate-950 {showMobileDetail
 				? 'flex-1'
 				: 'hidden sm:block sm:flex-1'} sm:p-6"
 		>
