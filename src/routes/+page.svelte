@@ -7,6 +7,14 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import Bot from '@lucide/svelte/icons/bot';
+	import FileText from '@lucide/svelte/icons/file-text';
+	import Github from '@lucide/svelte/icons/github';
+	import Inbox from '@lucide/svelte/icons/inbox';
+	import KeyRound from '@lucide/svelte/icons/key-round';
+	import LockKeyhole from '@lucide/svelte/icons/lock-keyhole';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import { PRIVACY_VERSION, TERMS_VERSION } from '$lib/legal';
 
 	let authMode = $state<'signin' | 'signup'>('signin');
@@ -139,171 +147,807 @@
 	<title>Agent Relay — Sign in</title>
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center p-4">
-	<div class="w-full max-w-md">
-		<div class="flex items-center justify-center gap-3 mb-8">
-			<Logo class="w-12 h-12" />
-			<span class="text-2xl font-bold text-slate-900 dark:text-slate-100">Agent Relay</span>
-		</div>
+<div class="login-page">
+	<div class="signal-mark" aria-hidden="true">
+		<span></span><span></span><span></span>
+	</div>
 
-		<div class="glass-card p-8">
-			<div class="text-center mb-6">
-				<h1 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
-					{authMode === 'signin' ? 'Welcome back' : 'Create your account'}
-				</h1>
-				<p class="text-sm text-slate-500 mt-1 dark:text-slate-400">
-					{authMode === 'signin'
-						? 'Use a passkey to view deliveries'
-						: 'Create a private inbox with a new passkey'}
-				</p>
-			</div>
+	<header class="login-header">
+		<a href="/" class="flex items-center gap-3 text-slate-950 dark:text-white">
+			<Logo class="h-11 w-11" />
+			<span class="text-xl font-bold sm:text-2xl">Agent Relay</span>
+		</a>
+		<a
+			href="https://github.com/mmmikael/arelay"
+			target="_blank"
+			rel="noreferrer"
+			class="source-badge"
+		>
+			<Github class="h-4 w-4" />
+			<span class="hidden sm:inline">Open source</span>
+			<span class="source-license">MIT</span>
+		</a>
+	</header>
 
-			<div class="space-y-3">
-				{#if authMode === 'signin'}
-					<Button class="w-full h-11" onclick={signInWithPasskey} disabled={passkeyBusy}>
-						{passkeyBusy ? 'Checking passkey…' : 'Sign in with passkey'}
-					</Button>
-					<Button
-						variant="outline"
-						class="w-full h-11"
-						onclick={() => {
-							authMode = 'signup';
-							passkeyError = '';
-							signupNotice = '';
-						}}
-						disabled={passkeyBusy}
-					>
-						Create account
-					</Button>
-				{:else}
-					<div class="space-y-3">
-						<div class="space-y-2">
-							<Label for="signup-email" class={labelClass}>Email</Label>
-							<Input
-								id="signup-email"
-								type="email"
-								placeholder="you@example.com"
-								bind:value={signupEmail}
-								autocomplete="email"
-								class={inputClass}
-								oninput={resetSignupVerification}
-							/>
-						</div>
-						<div class="space-y-2">
-							<Label for="signup-name" class={labelClass}>Name</Label>
-							<Input
-								id="signup-name"
-								type="text"
-								placeholder="Your name"
-								bind:value={signupName}
-								autocomplete="name"
-								class={inputClass}
-							/>
-						</div>
-						<label
-							for="legal-acceptance"
-							class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-						>
-							<input
-								id="legal-acceptance"
-								type="checkbox"
-								bind:checked={legalAccepted}
-								class="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
-							/>
-							<span>
-								I agree to the <a
-									href="/terms"
-									class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
-								>Terms of Service</a> and acknowledge the <a
-									href="/privacy"
-									class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
-								>Privacy Policy</a>.
-							</span>
-						</label>
-						{#if emailVerificationSent}
-							{#if shouldShowPasskeyStorageHint()}
-								<p
-									class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
-								>
-									{PASSKEY_STORAGE_HINT}
-								</p>
+	<main class="login-grid">
+		<section class="login-story">
+			<p class="login-eyebrow">
+				<span aria-hidden="true"></span>
+				Private delivery channel
+			</p>
+			<h1>Your agents have something for you.</h1>
+			<p class="login-intro">
+				Reports, files, and finished work arrive in one quiet inbox, ready when you are.
+			</p>
+			<ul class="login-proof" aria-label="Agent Relay features">
+				<li><KeyRound class="h-4 w-4 text-blue-600" />Passkey access</li>
+				<li><ShieldCheck class="h-4 w-4 text-emerald-600" />Optional E2EE</li>
+				<li><Github class="h-4 w-4 text-violet-600" />Self-hostable</li>
+			</ul>
+		</section>
+
+		<section class="login-access">
+			<div class="access-card">
+				<div class="access-stripes" aria-hidden="true">
+					<span></span><span></span><span></span>
+				</div>
+				<div class="access-card-inner">
+					<div class="access-meta">
+						<span>Secure access</span>
+						<span>AR / 01</span>
+					</div>
+
+					<div class="access-heading">
+						<div class="access-icon">
+							{#if authMode === 'signin'}
+								<KeyRound class="h-5 w-5" />
+							{:else}
+								<Inbox class="h-5 w-5" />
 							{/if}
-							<div class="space-y-2">
-								<Label for="signup-code" class={labelClass}>Verification code</Label>
-								<Input
-									id="signup-code"
-									type="text"
-									inputmode="numeric"
-									placeholder="123456"
-									bind:value={signupCode}
-									autocomplete="one-time-code"
-									class={inputClass}
-								/>
-							</div>
+						</div>
+						<div>
+							<h2>
+								{authMode === 'signin' ? 'Open your inbox' : 'Create your inbox'}
+							</h2>
+							<p>
+								{authMode === 'signin'
+									? 'Use your passkey to continue'
+									: 'Verify your email, then create a passkey'}
+							</p>
+						</div>
+					</div>
+
+					<div class="space-y-3">
+						{#if authMode === 'signin'}
 							<Button
-								class="w-full h-11"
-								onclick={createAccountWithPasskey}
-								disabled={passkeyBusy || signupCode.replace(/\D/g, '').length !== 6}
+								class="h-12 w-full gap-2 rounded-md"
+								onclick={signInWithPasskey}
+								disabled={passkeyBusy}
 							>
-								{passkeyBusy ? 'Creating passkey…' : 'Verify email and create passkey'}
+								<KeyRound class="h-4 w-4" />
+								{passkeyBusy ? 'Checking passkey…' : 'Sign in with passkey'}
 							</Button>
 							<Button
 								variant="outline"
-								class="w-full h-11"
-								onclick={sendVerificationCode}
-								disabled={passkeyBusy || !signupEmail.trim() || !legalAccepted}
+								class="h-12 w-full gap-2 rounded-md"
+								onclick={() => {
+									authMode = 'signup';
+									passkeyError = '';
+									signupNotice = '';
+								}}
+								disabled={passkeyBusy}
 							>
-								Send another code
+								<UserPlus class="h-4 w-4" />
+								Create account
 							</Button>
 						{:else}
-							<Button
-								class="w-full h-11"
-								onclick={sendVerificationCode}
-								disabled={passkeyBusy || !signupEmail.trim() || !legalAccepted}
-							>
-								{passkeyBusy ? 'Sending code…' : 'Send verification code'}
-							</Button>
+							<div class="space-y-3">
+								<div class="space-y-2">
+									<Label for="signup-email" class={labelClass}>Email</Label>
+									<Input
+										id="signup-email"
+										type="email"
+										placeholder="you@example.com"
+										bind:value={signupEmail}
+										autocomplete="email"
+										class={inputClass}
+										oninput={resetSignupVerification}
+									/>
+								</div>
+								<div class="space-y-2">
+									<Label for="signup-name" class={labelClass}>Name</Label>
+									<Input
+										id="signup-name"
+										type="text"
+										placeholder="Your name"
+										bind:value={signupName}
+										autocomplete="name"
+										class={inputClass}
+									/>
+								</div>
+								<label
+									for="legal-acceptance"
+									class="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+								>
+									<input
+										id="legal-acceptance"
+										type="checkbox"
+										bind:checked={legalAccepted}
+										class="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+									/>
+									<span>
+										I agree to the <a
+											href="/terms"
+											class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
+										>Terms of Service</a> and acknowledge the <a
+											href="/privacy"
+											class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
+										>Privacy Policy</a>.
+									</span>
+								</label>
+								{#if emailVerificationSent}
+									{#if shouldShowPasskeyStorageHint()}
+										<p
+											class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
+										>
+											{PASSKEY_STORAGE_HINT}
+										</p>
+									{/if}
+									<div class="space-y-2">
+										<Label for="signup-code" class={labelClass}>Verification code</Label>
+										<Input
+											id="signup-code"
+											type="text"
+											inputmode="numeric"
+											placeholder="123456"
+											bind:value={signupCode}
+											autocomplete="one-time-code"
+											class={inputClass}
+										/>
+									</div>
+									<Button
+										class="h-12 w-full rounded-md"
+										onclick={createAccountWithPasskey}
+										disabled={passkeyBusy || signupCode.replace(/\D/g, '').length !== 6}
+									>
+										{passkeyBusy ? 'Creating passkey…' : 'Verify email and create passkey'}
+									</Button>
+									<Button
+										variant="outline"
+										class="h-12 w-full rounded-md"
+										onclick={sendVerificationCode}
+										disabled={passkeyBusy || !signupEmail.trim() || !legalAccepted}
+									>
+										Send another code
+									</Button>
+								{:else}
+									<Button
+										class="h-12 w-full rounded-md"
+										onclick={sendVerificationCode}
+										disabled={passkeyBusy || !signupEmail.trim() || !legalAccepted}
+									>
+										{passkeyBusy ? 'Sending code…' : 'Send verification code'}
+									</Button>
+								{/if}
+								<Button
+									variant="outline"
+									class="h-12 w-full rounded-md"
+									onclick={() => {
+										authMode = 'signin';
+										passkeyError = '';
+										resetSignupVerification();
+									}}
+									disabled={passkeyBusy}
+								>
+									Back to sign in
+								</Button>
+							</div>
 						{/if}
-						<Button
-							variant="outline"
-							class="w-full h-11"
-							onclick={() => {
-								authMode = 'signin';
-								passkeyError = '';
-								resetSignupVerification();
-							}}
-							disabled={passkeyBusy}
-						>
-							Back to sign in
-						</Button>
-					</div>
-				{/if}
 
-				{#if passkeyError}
-					<div class="rounded-xl bg-red-50 border border-red-100 p-3">
-						<p class="text-sm text-red-600">{passkeyError}</p>
+						{#if passkeyError}
+							<div class="rounded-md border border-red-100 bg-red-50 p-3">
+								<p class="text-sm text-red-600">{passkeyError}</p>
+							</div>
+						{/if}
+						{#if signupNotice}
+							<div
+								class="rounded-md border border-blue-100 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-950/40"
+							>
+								<p class="text-sm text-blue-700 dark:text-blue-200">{signupNotice}</p>
+							</div>
+						{/if}
 					</div>
-				{/if}
-				{#if signupNotice}
-					<div
-						class="rounded-xl border border-blue-100 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-950/40"
-					>
-						<p class="text-sm text-blue-700 dark:text-blue-200">{signupNotice}</p>
+
+					<p class="access-note">No passwords. No social login.</p>
+				</div>
+			</div>
+		</section>
+
+		<div
+			class="relay-visual"
+			role="img"
+			aria-label="A delivery moving securely from an AI agent to the Agent Relay inbox"
+		>
+			<div class="relay-visual-inner" aria-hidden="true">
+				<div class="relay-status">
+					<span>Delivery route</span>
+					<span><i></i>Channel ready</span>
+				</div>
+
+				<div class="relay-track">
+					<div class="relay-node relay-node-agent">
+						<div class="relay-node-icon"><Bot class="h-5 w-5" /></div>
+						<span>Agent</span>
 					</div>
-				{/if}
+					<div class="relay-connection"><span></span></div>
+					<div class="relay-node relay-node-encrypted">
+						<div class="relay-node-icon"><LockKeyhole class="h-5 w-5" /></div>
+						<span>Encrypted</span>
+					</div>
+					<div class="relay-connection"><span></span></div>
+					<div class="relay-node relay-node-inbox">
+						<div class="relay-node-icon"><Inbox class="h-5 w-5" /></div>
+						<span>Inbox</span>
+					</div>
+				</div>
+
+				<div class="delivery-preview">
+					<div class="delivery-file"><FileText class="h-5 w-5" /></div>
+					<div class="min-w-0 flex-1">
+						<p>Weekly agent report</p>
+						<span>report.md · metrics.csv · brief.pdf</span>
+					</div>
+					<strong>Delivered</strong>
+				</div>
 			</div>
 		</div>
+	</main>
 
-		<nav
-			aria-label="Legal"
-			class="mt-4 flex items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400"
+	<footer class="login-footer">
+		<a
+			href="https://github.com/mmmikael/arelay"
+			target="_blank"
+			rel="noreferrer"
+			class="footer-source"
 		>
-			<a href="/terms" class="hover:text-slate-900 hover:underline dark:hover:text-slate-100">
-				Terms
-			</a>
-			<a href="/privacy" class="hover:text-slate-900 hover:underline dark:hover:text-slate-100">
-				Privacy
-			</a>
+			<Github class="h-4 w-4" />
+			View source and self-host
+		</a>
+		<nav aria-label="Legal">
+			<a href="/terms">Terms</a>
+			<a href="/privacy">Privacy</a>
 		</nav>
-	</div>
+	</footer>
 </div>
+
+<style>
+	.login-page {
+		min-height: 100vh;
+		overflow: hidden;
+		background: #f5f7fb;
+		color: #0f172a;
+		position: relative;
+	}
+
+	.signal-mark {
+		display: grid;
+		grid-template-columns: 52% 28% 20%;
+		height: 5px;
+		left: 0;
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
+
+	.signal-mark span:nth-child(1),
+	.access-stripes span:nth-child(1) {
+		background: #3b82f6;
+	}
+
+	.signal-mark span:nth-child(2),
+	.access-stripes span:nth-child(2) {
+		background: #10b981;
+	}
+
+	.signal-mark span:nth-child(3),
+	.access-stripes span:nth-child(3) {
+		background: #8b5cf6;
+	}
+
+	.login-header,
+	.login-footer,
+	.login-grid {
+		margin-inline: auto;
+		max-width: 1180px;
+		width: calc(100% - 2rem);
+	}
+
+	.login-header {
+		align-items: center;
+		display: flex;
+		justify-content: space-between;
+		padding-top: 2rem;
+	}
+
+	.source-badge {
+		align-items: center;
+		background: #ffffff;
+		border: 1px solid #dbe3ef;
+		border-radius: 999px;
+		color: #334155;
+		display: inline-flex;
+		font-size: 0.75rem;
+		font-weight: 700;
+		gap: 0.5rem;
+		padding: 0.4rem 0.45rem 0.4rem 0.75rem;
+		transition:
+			border-color 150ms ease,
+			color 150ms ease,
+			transform 150ms ease;
+	}
+
+	.source-badge:hover {
+		border-color: #93c5fd;
+		color: #2563eb;
+		transform: translateY(-1px);
+	}
+
+	.source-license {
+		background: #e8eef8;
+		border-radius: 999px;
+		color: #475569;
+		padding: 0.15rem 0.45rem;
+	}
+
+	.login-grid {
+		display: grid;
+		gap: 2rem;
+		grid-template-areas:
+			'story'
+			'access'
+			'visual';
+		padding-block: 2.5rem 2rem;
+	}
+
+	.login-story {
+		grid-area: story;
+	}
+
+	.login-eyebrow {
+		align-items: center;
+		color: #2563eb;
+		display: flex;
+		font-size: 0.7rem;
+		font-weight: 800;
+		gap: 0.5rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.login-eyebrow span {
+		background: #10b981;
+		border: 3px solid #d1fae5;
+		border-radius: 999px;
+		height: 0.75rem;
+		width: 0.75rem;
+	}
+
+	.login-story h1 {
+		color: #0b1220;
+		font-size: 2.4rem;
+		font-weight: 750;
+		letter-spacing: 0;
+		line-height: 1.02;
+		margin-top: 1rem;
+		max-width: 11ch;
+	}
+
+	.login-intro {
+		color: #526177;
+		font-size: 1rem;
+		line-height: 1.7;
+		margin-top: 1.25rem;
+		max-width: 31rem;
+	}
+
+	.login-proof {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.65rem 1rem;
+		margin-top: 1.4rem;
+	}
+
+	.login-proof li {
+		align-items: center;
+		color: #475569;
+		display: flex;
+		font-size: 0.8rem;
+		font-weight: 700;
+		gap: 0.4rem;
+	}
+
+	.login-access {
+		align-self: center;
+		grid-area: access;
+		width: 100%;
+	}
+
+	.access-card {
+		background: #ffffff;
+		border: 1px solid #dce3ee;
+		border-radius: 8px;
+		box-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
+		overflow: hidden;
+		width: 100%;
+	}
+
+	.access-stripes {
+		display: grid;
+		grid-template-columns: 52% 28% 20%;
+		height: 4px;
+	}
+
+	.access-card-inner {
+		padding: 1.5rem;
+	}
+
+	.access-meta {
+		align-items: center;
+		color: #94a3b8;
+		display: flex;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.65rem;
+		font-weight: 700;
+		justify-content: space-between;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.access-heading {
+		align-items: center;
+		display: flex;
+		gap: 0.85rem;
+		margin-block: 1.5rem;
+	}
+
+	.access-icon {
+		align-items: center;
+		background: #eaf2ff;
+		border: 1px solid #cfe0ff;
+		border-radius: 8px;
+		color: #2563eb;
+		display: flex;
+		flex: 0 0 auto;
+		height: 2.75rem;
+		justify-content: center;
+		width: 2.75rem;
+	}
+
+	.access-heading h2 {
+		color: #0f172a;
+		font-size: 1.25rem;
+		font-weight: 750;
+		line-height: 1.25;
+	}
+
+	.access-heading p {
+		color: #64748b;
+		font-size: 0.85rem;
+		margin-top: 0.2rem;
+	}
+
+	.access-note {
+		color: #94a3b8;
+		font-size: 0.75rem;
+		margin-top: 1.25rem;
+		text-align: center;
+	}
+
+	.relay-visual {
+		background: #101827;
+		border: 1px solid #1e293b;
+		border-radius: 8px;
+		box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+		color: #f8fafc;
+		grid-area: visual;
+		overflow: hidden;
+	}
+
+	.relay-visual-inner {
+		padding: 1.2rem;
+	}
+
+	.relay-status {
+		align-items: center;
+		color: #94a3b8;
+		display: flex;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.65rem;
+		font-weight: 700;
+		justify-content: space-between;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.relay-status span:last-child {
+		align-items: center;
+		display: flex;
+		gap: 0.4rem;
+	}
+
+	.relay-status i {
+		background: #34d399;
+		border-radius: 999px;
+		box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
+		height: 0.45rem;
+		width: 0.45rem;
+	}
+
+	.relay-track {
+		align-items: start;
+		display: grid;
+		grid-template-columns: 3.25rem minmax(1.5rem, 1fr) 3.25rem minmax(1.5rem, 1fr) 3.25rem;
+		margin: 1.25rem auto 1rem;
+		max-width: 26rem;
+	}
+
+	.relay-node {
+		align-items: center;
+		display: flex;
+		flex-direction: column;
+		font-size: 0.65rem;
+		font-weight: 700;
+		gap: 0.45rem;
+		text-align: center;
+	}
+
+	.relay-node-icon {
+		border-radius: 8px;
+		display: flex;
+		padding: 0.65rem;
+	}
+
+	.relay-node-agent .relay-node-icon {
+		background: #1d4ed8;
+		color: #dbeafe;
+	}
+
+	.relay-node-encrypted .relay-node-icon {
+		background: #6d28d9;
+		color: #ede9fe;
+	}
+
+	.relay-node-inbox .relay-node-icon {
+		background: #047857;
+		color: #d1fae5;
+	}
+
+	.relay-connection {
+		border-top: 1px dashed #475569;
+		margin-top: 1.3rem;
+		position: relative;
+	}
+
+	.relay-connection span {
+		animation: relay-packet 2.8s ease-in-out infinite;
+		background: #60a5fa;
+		border: 2px solid #bfdbfe;
+		border-radius: 999px;
+		height: 0.55rem;
+		left: 0;
+		position: absolute;
+		top: -0.3rem;
+		width: 0.55rem;
+	}
+
+	.relay-connection:nth-of-type(4) span {
+		animation-delay: 1.4s;
+		background: #34d399;
+		border-color: #a7f3d0;
+	}
+
+	.delivery-preview {
+		align-items: center;
+		background: #f8fafc;
+		border-radius: 6px;
+		color: #0f172a;
+		display: flex;
+		gap: 0.75rem;
+		padding: 0.8rem;
+	}
+
+	.delivery-file {
+		align-items: center;
+		background: #dbeafe;
+		border-radius: 6px;
+		color: #2563eb;
+		display: flex;
+		flex: 0 0 auto;
+		height: 2.4rem;
+		justify-content: center;
+		width: 2.4rem;
+	}
+
+	.delivery-preview p {
+		font-size: 0.85rem;
+		font-weight: 750;
+	}
+
+	.delivery-preview span {
+		color: #64748b;
+		display: block;
+		font-size: 0.7rem;
+		margin-top: 0.1rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.delivery-preview strong {
+		background: #d1fae5;
+		border-radius: 999px;
+		color: #047857;
+		font-size: 0.65rem;
+		padding: 0.28rem 0.5rem;
+	}
+
+	.login-footer {
+		align-items: center;
+		color: #64748b;
+		display: flex;
+		font-size: 0.75rem;
+		justify-content: space-between;
+		padding-bottom: 1.5rem;
+	}
+
+	.footer-source,
+	.login-footer nav {
+		align-items: center;
+		display: flex;
+		gap: 1rem;
+	}
+
+	.footer-source {
+		font-weight: 700;
+		gap: 0.4rem;
+	}
+
+	.footer-source:hover,
+	.login-footer a:hover {
+		color: #2563eb;
+	}
+
+	@keyframes relay-packet {
+		0%,
+		15% {
+			left: 0;
+			opacity: 0;
+		}
+		25% {
+			opacity: 1;
+		}
+		75% {
+			opacity: 1;
+		}
+		85%,
+		100% {
+			left: calc(100% - 0.55rem);
+			opacity: 0;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.login-header,
+		.login-footer,
+		.login-grid {
+			width: calc(100% - 4rem);
+		}
+
+		.login-grid {
+			gap: 2.5rem 4.5rem;
+			grid-template-areas:
+				'story access'
+				'visual access';
+			grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.75fr);
+			grid-template-rows: auto auto;
+			min-height: calc(100vh - 10.5rem);
+			padding-block: 3.25rem 2.5rem;
+		}
+
+		.login-story {
+			align-self: end;
+		}
+
+		.login-story h1 {
+			font-size: clamp(3rem, 5vw, 4.75rem);
+		}
+
+		.login-intro {
+			font-size: 1.08rem;
+		}
+
+		.access-card-inner {
+			padding: 2rem;
+		}
+
+		.relay-visual {
+			align-self: start;
+			max-width: 37rem;
+		}
+
+		.relay-visual-inner {
+			padding: 1.4rem;
+		}
+	}
+
+	@media (max-width: 767px) {
+		.login-header {
+			padding-top: 1.5rem;
+		}
+
+		.login-grid {
+			padding-top: 2rem;
+		}
+
+		.login-story h1 {
+			font-size: 2.55rem;
+			max-width: 10ch;
+		}
+
+		.login-access {
+			max-width: 28rem;
+		}
+
+		.relay-visual {
+			max-width: 28rem;
+		}
+
+		.login-footer {
+			align-items: flex-start;
+			flex-direction: column;
+			gap: 0.8rem;
+		}
+	}
+
+	:global(.dark) .login-page {
+		background: #030712;
+		color: #f8fafc;
+	}
+
+	:global(.dark) .source-badge,
+	:global(.dark) .access-card {
+		background: #0f172a;
+		border-color: #263449;
+		color: #cbd5e1;
+	}
+
+	:global(.dark) .source-license {
+		background: #1e293b;
+		color: #cbd5e1;
+	}
+
+	:global(.dark) .login-story h1,
+	:global(.dark) .access-heading h2 {
+		color: #f8fafc;
+	}
+
+	:global(.dark) .login-intro,
+	:global(.dark) .login-proof li,
+	:global(.dark) .access-heading p {
+		color: #94a3b8;
+	}
+
+	:global(.dark) .access-icon {
+		background: #172554;
+		border-color: #1e3a8a;
+		color: #93c5fd;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.relay-connection span {
+			animation: none;
+			left: calc(50% - 0.275rem);
+			opacity: 1;
+		}
+	}
+</style>
