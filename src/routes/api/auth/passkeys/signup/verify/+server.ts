@@ -8,6 +8,7 @@ import {
 	createWebAuthnCredential,
 	getUser,
 	getUserByEmail,
+	recordLegalAcceptance,
 	updateWebAuthnCredentialCounter
 } from '$lib/server/db';
 import { createSession, getSessionCookieName, getSessionMaxAge } from '$lib/server/session';
@@ -40,7 +41,12 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 				: null
 			: await getUser(challenge.userId);
 	if (challenge.purpose === 'signup') {
-		if (!challenge.email || !challenge.emailVerificationChallengeId) {
+		if (
+			!challenge.email ||
+			!challenge.emailVerificationChallengeId ||
+			!challenge.termsVersion ||
+			!challenge.privacyVersion
+		) {
 			return json({ error: 'Email verification expired. Try again.' }, { status: 400 });
 		}
 		if (user && user.id !== challenge.userId) {
@@ -51,12 +57,21 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 				user = await createUser({
 					id: challenge.userId,
 					email: challenge.email,
-					displayName: challenge.displayName ?? null
+					displayName: challenge.displayName ?? null,
+					termsVersion: challenge.termsVersion,
+					privacyVersion: challenge.privacyVersion
 				});
 			} catch (err) {
 				console.error('[passkey-signup] failed to create verified user:', err);
 				return json({ error: 'Could not create account. Try signing in.' }, { status: 409 });
 			}
+		} else {
+			user =
+				(await recordLegalAcceptance({
+					userId: user.id,
+					termsVersion: challenge.termsVersion,
+					privacyVersion: challenge.privacyVersion
+				})) ?? user;
 		}
 	} else if (!user) {
 		return json({ error: 'Account setup expired. Try again.' }, { status: 404 });

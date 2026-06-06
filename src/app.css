@@ -134,6 +134,48 @@ h6 {
 	text-decoration: underline;
 }
 
+.legal-copy {
+	color: var(--text-secondary);
+	font-size: 1rem;
+	line-height: 1.75;
+}
+
+.legal-copy section + section {
+	margin-top: 2rem;
+}
+
+.legal-copy h2 {
+	color: var(--text-primary);
+	font-size: 1.125rem;
+	font-weight: 700;
+	margin-bottom: 0.5rem;
+}
+
+.legal-copy p + p {
+	margin-top: 0.75rem;
+}
+
+.legal-copy ul {
+	list-style: disc;
+	margin-left: 1.25rem;
+}
+
+.legal-copy li + li {
+	margin-top: 0.5rem;
+}
+
+.legal-copy a {
+	color: var(--accent-primary);
+	font-weight: 600;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.legal-warning {
+	border-left: 3px solid var(--accent-primary);
+	padding-left: 1rem;
+}
+
 @layer base {
 	*,
 	::after,

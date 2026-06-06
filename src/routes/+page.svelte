@@ -7,6 +7,7 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import { PRIVACY_VERSION, TERMS_VERSION } from '$lib/legal';
 
 	let authMode = $state<'signin' | 'signup'>('signin');
 	let signupEmail = $state('');
@@ -15,6 +16,7 @@
 	let signupNotice = $state('');
 	let emailVerificationSent = $state(false);
 	let emailVerificationToken = $state('');
+	let legalAccepted = $state(false);
 	let passkeyBusy = $state(false);
 	let passkeyError = $state('');
 	const inputClass =
@@ -106,7 +108,10 @@
 				body: JSON.stringify({
 					email: signupEmail,
 					displayName: signupName,
-					emailVerificationToken
+					emailVerificationToken,
+					termsAccepted: legalAccepted,
+					termsVersion: TERMS_VERSION,
+					privacyVersion: PRIVACY_VERSION
 				})
 			});
 			const optionsJSON = await optionsRes.json();
@@ -195,6 +200,26 @@
 								class={inputClass}
 							/>
 						</div>
+						<label
+							for="legal-acceptance"
+							class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+						>
+							<input
+								id="legal-acceptance"
+								type="checkbox"
+								bind:checked={legalAccepted}
+								class="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+							/>
+							<span>
+								I agree to the <a
+									href="/terms"
+									class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
+								>Terms of Service</a> and acknowledge the <a
+									href="/privacy"
+									class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
+								>Privacy Policy</a>.
+							</span>
+						</label>
 						{#if emailVerificationSent}
 							{#if shouldShowPasskeyStorageHint()}
 								<p
@@ -226,7 +251,7 @@
 								variant="outline"
 								class="w-full h-11"
 								onclick={sendVerificationCode}
-								disabled={passkeyBusy || !signupEmail.trim()}
+								disabled={passkeyBusy || !signupEmail.trim() || !legalAccepted}
 							>
 								Send another code
 							</Button>
@@ -234,7 +259,7 @@
 							<Button
 								class="w-full h-11"
 								onclick={sendVerificationCode}
-								disabled={passkeyBusy || !signupEmail.trim()}
+								disabled={passkeyBusy || !signupEmail.trim() || !legalAccepted}
 							>
 								{passkeyBusy ? 'Sending code…' : 'Send verification code'}
 							</Button>
@@ -269,5 +294,16 @@
 			</div>
 		</div>
 
+		<nav
+			aria-label="Legal"
+			class="mt-4 flex items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400"
+		>
+			<a href="/terms" class="hover:text-slate-900 hover:underline dark:hover:text-slate-100">
+				Terms
+			</a>
+			<a href="/privacy" class="hover:text-slate-900 hover:underline dark:hover:text-slate-100">
+				Privacy
+			</a>
+		</nav>
 	</div>
 </div>

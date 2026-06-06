@@ -3,9 +3,16 @@ CREATE TABLE IF NOT EXISTS users (
 	id UUID PRIMARY KEY,
 	email TEXT NOT NULL UNIQUE,
 	display_name TEXT,
+	terms_version TEXT,
+	privacy_version TEXT,
+	legal_accepted_at TIMESTAMPTZ,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_accepted_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS email_verification_challenges (
 	id UUID PRIMARY KEY,

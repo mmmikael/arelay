@@ -83,6 +83,9 @@ export type User = {
 	id: string;
 	email: string;
 	display_name: string | null;
+	terms_version: string | null;
+	privacy_version: string | null;
+	legal_accepted_at: Date | null;
 	created_at: Date;
 	updated_at: Date;
 };
@@ -647,7 +650,15 @@ export async function getUser(id: string): Promise<User | null> {
 	await ensureSchema();
 	const db = getDb();
 	const rows = await db<User[]>`
-		SELECT id, email, display_name, created_at, updated_at
+		SELECT
+			id,
+			email,
+			display_name,
+			terms_version,
+			privacy_version,
+			legal_accepted_at,
+			created_at,
+			updated_at
 		FROM users
 		WHERE id = ${id}
 		LIMIT 1
@@ -659,7 +670,15 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 	await ensureSchema();
 	const db = getDb();
 	const rows = await db<User[]>`
-		SELECT id, email, display_name, created_at, updated_at
+		SELECT
+			id,
+			email,
+			display_name,
+			terms_version,
+			privacy_version,
+			legal_accepted_at,
+			created_at,
+			updated_at
 		FROM users
 		WHERE lower(email) = lower(${email})
 		LIMIT 1
@@ -681,6 +700,9 @@ export async function getUserByActiveAgentTokenHash(
 			u.id,
 			u.email,
 			u.display_name,
+			u.terms_version,
+			u.privacy_version,
+			u.legal_accepted_at,
 			u.created_at,
 			u.updated_at,
 			t.id AS agent_token_id
@@ -771,19 +793,67 @@ export async function createUser(input: {
 	id?: string;
 	email: string;
 	displayName?: string | null;
+	termsVersion: string;
+	privacyVersion: string;
 }): Promise<User> {
 	await ensureSchema();
 	const db = getDb();
 	const rows = await db<User[]>`
-		INSERT INTO users (id, email, display_name)
+		INSERT INTO users (
+			id,
+			email,
+			display_name,
+			terms_version,
+			privacy_version,
+			legal_accepted_at
+		)
 		VALUES (
 			${input.id ?? randomUUID()},
 			${input.email.trim().toLowerCase()},
-			${input.displayName?.trim() || null}
+			${input.displayName?.trim() || null},
+			${input.termsVersion},
+			${input.privacyVersion},
+			NOW()
 		)
-		RETURNING id, email, display_name, created_at, updated_at
+		RETURNING
+			id,
+			email,
+			display_name,
+			terms_version,
+			privacy_version,
+			legal_accepted_at,
+			created_at,
+			updated_at
 	`;
 	return rows[0];
+}
+
+export async function recordLegalAcceptance(input: {
+	userId: string;
+	termsVersion: string;
+	privacyVersion: string;
+}): Promise<User | null> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<User[]>`
+		UPDATE users
+		SET
+			terms_version = ${input.termsVersion},
+			privacy_version = ${input.privacyVersion},
+			legal_accepted_at = NOW(),
+			updated_at = NOW()
+		WHERE id = ${input.userId}
+		RETURNING
+			id,
+			email,
+			display_name,
+			terms_version,
+			privacy_version,
+			legal_accepted_at,
+			created_at,
+			updated_at
+	`;
+	return rows[0] ?? null;
 }
 
 export async function createEmailVerificationChallenge(input: {
