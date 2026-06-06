@@ -13,19 +13,12 @@ CREATE TABLE IF NOT EXISTS email_drafts (
 	id UUID PRIMARY KEY,
 	session_id UUID NOT NULL UNIQUE REFERENCES inbox_sessions(id) ON DELETE CASCADE,
 	owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-	encryption_version TEXT NOT NULL DEFAULT 'none',
-	to_address TEXT,
-	from_email TEXT,
-	from_name TEXT,
-	subject TEXT,
-	html TEXT,
-	text TEXT,
-	metadata JSONB,
-	encrypted_to JSONB,
-	encrypted_from_email JSONB,
+	encryption_version TEXT NOT NULL DEFAULT 'e2ee-v1',
+	encrypted_to JSONB NOT NULL,
+	encrypted_from_email JSONB NOT NULL,
 	encrypted_from_name JSONB,
-	encrypted_subject JSONB,
-	encrypted_html JSONB,
+	encrypted_subject JSONB NOT NULL,
+	encrypted_html JSONB NOT NULL,
 	encrypted_text JSONB,
 	encrypted_metadata JSONB,
 	idempotency_key TEXT,
@@ -37,7 +30,7 @@ CREATE TABLE IF NOT EXISTS email_drafts (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encryption_version TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encryption_version TEXT NOT NULL DEFAULT 'e2ee-v1';
 ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_to JSONB;
 ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_from_email JSONB;
 ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_from_name JSONB;
@@ -45,10 +38,26 @@ ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_subject JSONB;
 ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_html JSONB;
 ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_text JSONB;
 ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_metadata JSONB;
-ALTER TABLE email_drafts ALTER COLUMN to_address DROP NOT NULL;
-ALTER TABLE email_drafts ALTER COLUMN from_email DROP NOT NULL;
-ALTER TABLE email_drafts ALTER COLUMN subject DROP NOT NULL;
-ALTER TABLE email_drafts ALTER COLUMN html DROP NOT NULL;
+ALTER TABLE email_drafts ALTER COLUMN encryption_version SET DEFAULT 'e2ee-v1';
+
+DELETE FROM email_drafts
+WHERE encrypted_to IS NULL
+	OR encrypted_from_email IS NULL
+	OR encrypted_subject IS NULL
+	OR encrypted_html IS NULL;
+
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS to_address;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS from_email;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS from_name;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS subject;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS html;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS text;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS metadata;
+
+ALTER TABLE email_drafts ALTER COLUMN encrypted_to SET NOT NULL;
+ALTER TABLE email_drafts ALTER COLUMN encrypted_from_email SET NOT NULL;
+ALTER TABLE email_drafts ALTER COLUMN encrypted_subject SET NOT NULL;
+ALTER TABLE email_drafts ALTER COLUMN encrypted_html SET NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_drafts_idempotency
 	ON email_drafts(owner_user_id, idempotency_key)

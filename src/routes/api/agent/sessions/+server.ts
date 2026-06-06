@@ -1,7 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createEncryptedSession, createSession, listSessions, type JsonObject } from '$lib/server/db';
-import { defaultSessionTitle } from '$lib/artifacts';
+import { createEncryptedSession, listSessions, type JsonObject } from '$lib/server/db';
+import {
+	isE2eePolicyResponse,
+	isEncryptedEnvelope,
+	rejectPlaintextPayload,
+	requireOwnerE2eeForAgent
+} from '$lib/server/e2ee-policy';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	const sessions = await listSessions(locals.agentUser!.id);
@@ -9,9 +14,13 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
+	const ownerUserId = locals.agentUser!.id;
+	const policy = await requireOwnerE2eeForAgent(ownerUserId);
+	if (isE2eePolicyResponse(policy)) {
+		return policy;
+	}
+
 	let body: {
-		title?: string;
-		summary?: string | null;
 		encrypted?: boolean;
 		encrypted_title?: JsonObject;
 		encrypted_summary?: JsonObject | null;
@@ -21,26 +30,28 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		body = await request.json();
 	}
 
-	const id = crypto.randomUUID();
-	if (body.encrypted) {
-		if (!body.encrypted_title) {
-			return json({ error: 'encrypted_title is required for encrypted sessions' }, { status: 400 });
-		}
-		const session = await createEncryptedSession({
-			id,
-			ownerUserId: locals.agentUser!.id,
-			encryptedTitle: body.encrypted_title,
-			encryptedSummary: body.encrypted_summary ?? null
-		});
-		return json({ session }, { status: 201 });
+	if (!body.encrypted) {
+		return rejectPlaintextPayload();
 	}
 
-	const title = body.title?.trim() || defaultSessionTitle();
-	const session = await createSession({
+	if (!isEncryptedEnvelope(body.encrypted_title)) {
+		return json({ error: 'encrypted_title envelope required' }, { status: 400 });
+	}
+
+	if (
+		body.encrypted_summary !== undefined &&
+		body.encrypted_summary !== null &&
+		!isEncryptedEnvelope(body.encrypted_summary)
+	) {
+		return json({ error: 'encrypted_summary must be a valid envelope when provided' }, { status: 400 });
+	}
+
+	const id = crypto.randomUUID();
+	const session = await createEncryptedSession({
 		id,
-		ownerUserId: locals.agentUser!.id,
-		title,
-		summary: body.summary?.trim() || null
+		ownerUserId,
+		encryptedTitle: body.encrypted_title,
+		encryptedSummary: body.encrypted_summary ?? null
 	});
 
 	return json({ session }, { status: 201 });

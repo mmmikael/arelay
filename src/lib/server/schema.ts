@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS inbox_sessions (
 	owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	title TEXT NOT NULL,
 	summary TEXT,
-	encryption_version TEXT NOT NULL DEFAULT 'none',
+	encryption_version TEXT NOT NULL DEFAULT 'e2ee-v1',
 	encrypted_title JSONB,
 	encrypted_summary JSONB,
 	read_at TIMESTAMPTZ,
@@ -51,12 +51,14 @@ CREATE TABLE IF NOT EXISTS inbox_sessions (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE inbox_sessions ALTER COLUMN encryption_version SET DEFAULT 'e2ee-v1';
+
 CREATE TABLE IF NOT EXISTS inbox_artifacts (
 	id UUID PRIMARY KEY,
 	session_id UUID NOT NULL REFERENCES inbox_sessions(id) ON DELETE CASCADE,
 	filename TEXT NOT NULL,
 	content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
-	encryption_version TEXT NOT NULL DEFAULT 'none',
+	encryption_version TEXT NOT NULL DEFAULT 'e2ee-v1',
 	encrypted_filename JSONB,
 	encrypted_content_type JSONB,
 	encrypted_payload JSONB,
@@ -64,6 +66,8 @@ CREATE TABLE IF NOT EXISTS inbox_artifacts (
 	storage_key TEXT NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE inbox_artifacts ALTER COLUMN encryption_version SET DEFAULT 'e2ee-v1';
 
 CREATE TABLE IF NOT EXISTS e2ee_config (
 	id TEXT PRIMARY KEY,

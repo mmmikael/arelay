@@ -1,38 +1,20 @@
+import { isEncryptedEnvelope } from '$lib/e2ee-envelope';
 import { normalizeEmail } from '$lib/server/email-verification';
 import type { JsonObject } from '$lib/server/db';
-import type {
-	EmailDraftPayload,
-	EmailDraftSendFields,
-	EncryptedEmailDraftPayload
-} from './types';
+import type { EmailDraftSendFields, EncryptedEmailDraftPayload } from './types';
 
 const MAX_SUBJECT_LENGTH = 500;
 const MAX_HTML_LENGTH = 256 * 1024;
 const MAX_TEXT_LENGTH = 256 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
-const MAX_ENCRYPTED_FIELD_LENGTH = 512 * 1024;
 
-export type ParsedEmailDraftPayload = EmailDraftPayload;
 export type ParsedEncryptedEmailDraftPayload = EncryptedEmailDraftPayload;
 
 function isJsonObject(value: unknown): value is JsonObject {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function isEncryptedEnvelope(value: unknown): value is JsonObject {
-	if (!isJsonObject(value)) return false;
-	const record = value as Record<string, unknown>;
-	return (
-		record.v === 1 &&
-		record.alg === 'P-256-ECDH-A256GCM' &&
-		isJsonObject(record.epk) &&
-		typeof record.iv === 'string' &&
-		typeof record.ciphertext === 'string' &&
-		record.iv.length > 0 &&
-		record.ciphertext.length > 0 &&
-		record.ciphertext.length <= MAX_ENCRYPTED_FIELD_LENGTH
-	);
-}
+export { isEncryptedEnvelope };
 
 function parseIdempotencyKey(record: Record<string, unknown>):
 	| { ok: true; value?: string }
@@ -129,42 +111,6 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 	};
 }
 
-export function parseEmailDraftPayload(body: unknown):
-	| { ok: true; value: ParsedEmailDraftPayload }
-	| { ok: false; error: string } {
-	if (!body || typeof body !== 'object') {
-		return { ok: false, error: 'JSON body required' };
-	}
-
-	const record = body as Record<string, unknown>;
-	if (record.encrypted === true) {
-		return { ok: false, error: 'Use encrypted email draft fields when encrypted is true' };
-	}
-
-	const core = parsePlaintextEmailFields(record);
-	if (!core.ok) return core;
-
-	let metadata: JsonObject | undefined;
-	if (record.metadata !== undefined) {
-		if (!isJsonObject(record.metadata)) {
-			return { ok: false, error: 'metadata must be an object when provided' };
-		}
-		metadata = record.metadata;
-	}
-
-	const idempotency = parseIdempotencyKey(record);
-	if (!idempotency.ok) return idempotency;
-
-	return {
-		ok: true,
-		value: {
-			...core.value,
-			metadata,
-			idempotency_key: idempotency.value
-		}
-	};
-}
-
 export function parseEncryptedEmailDraftPayload(body: unknown):
 	| { ok: true; value: ParsedEncryptedEmailDraftPayload }
 	| { ok: false; error: string } {
@@ -225,21 +171,21 @@ export function parseEmailDraftSendFields(body: unknown):
 }
 
 export function parseEmailDraftBody(body: unknown):
-	| { ok: true; encrypted: false; value: ParsedEmailDraftPayload }
-	| { ok: true; encrypted: true; value: ParsedEncryptedEmailDraftPayload }
+	| { ok: true; value: ParsedEncryptedEmailDraftPayload }
 	| { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
 
 	const record = body as Record<string, unknown>;
-	if (record.encrypted === true) {
-		const parsed = parseEncryptedEmailDraftPayload(body);
-		if (!parsed.ok) return parsed;
-		return { ok: true, encrypted: true, value: parsed.value };
+	if (record.encrypted !== true) {
+		return {
+			ok: false,
+			error: 'encrypted must be true; plaintext email drafts are not allowed'
+		};
 	}
 
-	const parsed = parseEmailDraftPayload(body);
+	const parsed = parseEncryptedEmailDraftPayload(body);
 	if (!parsed.ok) return parsed;
-	return { ok: true, encrypted: false, value: parsed.value };
+	return { ok: true, value: parsed.value };
 }

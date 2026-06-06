@@ -1,6 +1,6 @@
 import { getDb, type InboxSession, type JsonObject } from '$lib/server/db';
 import type { EmailDraftRecord, EmailDraftStatus, UserCloudflareEmailRecord } from './types';
-import type { ParsedEmailDraftPayload, ParsedEncryptedEmailDraftPayload } from './validate';
+import type { ParsedEncryptedEmailDraftPayload } from './validate';
 
 /** Inbox summary ciphertext when no dedicated summary envelope is supplied. */
 function encryptedSessionSummaryForInbox(payload: ParsedEncryptedEmailDraftPayload): JsonObject {
@@ -194,98 +194,13 @@ async function createEncryptedEmailDraft(input: {
 	});
 }
 
-async function createPlaintextEmailDraft(input: {
-	sessionId: string;
-	draftId: string;
-	ownerUserId: string;
-	payload: ParsedEmailDraftPayload;
-}): Promise<{ session: InboxSession; draft: EmailDraftRecord }> {
-	const db = getDb();
-	const payload = input.payload;
-	const summary = `To: ${payload.to}`;
-	const title =
-		payload.subject.length > 120 ? `${payload.subject.slice(0, 117)}...` : payload.subject;
-
-	return await db.begin(async (tx) => {
-		const sessionRows = await tx<InboxSession[]>`
-			INSERT INTO inbox_sessions (id, owner_user_id, title, summary, delivery_type)
-			VALUES (
-				${input.sessionId},
-				${input.ownerUserId},
-				${title},
-				${summary},
-				'email_draft'
-			)
-			RETURNING
-				id,
-				owner_user_id,
-				title,
-				summary,
-				encryption_version,
-				encrypted_title,
-				encrypted_summary,
-				read_at,
-				created_at,
-				updated_at,
-				(read_at IS NOT NULL) AS is_read
-		`;
-
-		const draftRows = await tx<EmailDraftRecord[]>`
-			INSERT INTO email_drafts (
-				id,
-				session_id,
-				owner_user_id,
-				to_address,
-				from_email,
-				from_name,
-				subject,
-				html,
-				text,
-				metadata,
-				idempotency_key
-			)
-			VALUES (
-				${input.draftId},
-				${input.sessionId},
-				${input.ownerUserId},
-				${payload.to},
-				${payload.from.email},
-				${payload.from.name ?? null},
-				${payload.subject},
-				${payload.html},
-				${payload.text ?? null},
-				${payload.metadata ? tx.json(payload.metadata) : null},
-				${payload.idempotency_key ?? null}
-			)
-			RETURNING *
-		`;
-
-		return { session: sessionRows[0], draft: draftRows[0] };
-	});
-}
-
 export async function createEmailDraft(input: {
 	sessionId: string;
 	draftId: string;
 	ownerUserId: string;
-	payload: ParsedEmailDraftPayload | ParsedEncryptedEmailDraftPayload;
-	encrypted?: boolean;
+	payload: ParsedEncryptedEmailDraftPayload;
 }): Promise<{ session: InboxSession; draft: EmailDraftRecord }> {
-	if (input.encrypted) {
-		return createEncryptedEmailDraft({
-			sessionId: input.sessionId,
-			draftId: input.draftId,
-			ownerUserId: input.ownerUserId,
-			payload: input.payload as ParsedEncryptedEmailDraftPayload
-		});
-	}
-
-	return createPlaintextEmailDraft({
-		sessionId: input.sessionId,
-		draftId: input.draftId,
-		ownerUserId: input.ownerUserId,
-		payload: input.payload as ParsedEmailDraftPayload
-	});
+	return createEncryptedEmailDraft(input);
 }
 
 export async function getEmailDraftBySessionId(

@@ -24,7 +24,7 @@ in a private web inbox with preview, download, and read/unread state.
 
 - [Get started](#get-started)
 - [Connect your AI agent](#connect-your-ai-agent)
-- [Encryption (optional)](#encryption-optional)
+- [Encryption (required)](#encryption-required)
 - [Features](#features)
 
 ### Self-hosting
@@ -56,10 +56,11 @@ encrypted deliveries are decrypted in your browser, not on the server.
 2. Accept the [Terms of Service](https://arelay.app/terms) and
    [Privacy Policy](https://arelay.app/privacy) during signup (required on the hosted
    service).
-3. In the portal, open **Account → Agent tokens** and create a named token for each agent
+3. Complete **Set up encryption** on first portal visit (passkey + recovery key).
+4. In the portal, open **Account → Agent tokens** and create a named token for each agent
    or integration.
-4. Copy the token once — it is shown only at creation time.
-5. Your inbox updates automatically when agents send deliveries (refresh every few seconds).
+5. Copy the token once — it is shown only at creation time.
+6. Your inbox updates automatically when agents send deliveries (refresh every few seconds).
 
 Sign-in uses passkeys (WebAuthn), not passwords or social login. No Google, Apple, or
 Microsoft account is required. If terms or privacy are updated later, existing accounts are
@@ -88,13 +89,6 @@ hermes skills install mmmikael/arelay-skills/agent-relay-e2ee
 | [agent-relay-e2ee](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-e2ee) | Send sensitive content with end-to-end encryption |
 | [agent-relay-railway](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-railway) | Deploy or operate a self-hosted instance on Railway |
 
-More install options are in the
-[arelay-skills README](https://github.com/mmmikael/arelay-skills). Curated listing on
-skills.sh is pending merge of
-[vercel-labs/agent-skills#284](https://github.com/vercel-labs/agent-skills/pull/284); until
-then, install from `mmmikael/arelay-skills` (not `skills.sh/mmmikael/arelay-skills`, which
-is not live yet).
-
 Set these on the machine where your agent runs — **never commit tokens**:
 
 | Variable | Value for hosted |
@@ -105,24 +99,26 @@ Set these on the machine where your agent runs — **never commit tokens**:
 Every agent request uses `Authorization: Bearer <AGENT_API_TOKEN>`. Revoke one token if
 an agent is compromised; other tokens keep working.
 
-### Encryption (optional)
+### Encryption (required)
 
-For sensitive deliveries, set up encryption in the portal before connecting agents:
+All agent deliveries must be end-to-end encrypted:
 
-1. Open **Account → Encryption** and create a recovery key (store it safely).
-2. Unlock encryption when viewing encrypted sessions.
+1. Complete **Set up encryption** on first portal visit (passkey + recovery key).
+2. Unlock encryption when viewing deliveries in the browser.
 3. Install the **agent-relay-e2ee** skill so agents encrypt locally before upload.
 
 The server stores only ciphertext. Your browser decrypts titles, filenames, and file
 content after you unlock. Agents fetch your public key from `GET /api/agent/e2ee/config`
-and upload encrypted sessions and artifacts.
+and upload encrypted sessions and artifacts. Plaintext agent payloads return `400`
+(`plaintext_not_allowed`). If encryption is not configured for the account, agent writes
+and `GET /api/agent/e2ee/config` return `428` (`e2ee_required`).
 
 ### Features
 
 - Mobile-friendly email-style inbox
 - Artifact preview and download (text, Markdown, HTML, PDF, images)
 - Sandboxed HTML/Markdown preview (external links and media stripped)
-- End-to-end encrypted delivery mode
+- End-to-end encrypted deliveries only
 - Passkey sign-in (one passkey per account)
 - Named agent API tokens with per-token revoke
 - Storage limits: 25 MB per artifact, 500 MB per account
@@ -148,7 +144,9 @@ Without Cloudflare or SMTP configured, verification codes are printed to the ser
 console.
 
 The database setup command applies the current clean schema directly. This repository does
-not keep historical app migrations.
+not keep historical app migrations. Agent content tables default to `encryption_version =
+e2ee-v1`; email drafts store encrypted envelope columns only (plaintext draft columns are
+dropped on setup).
 
 Run unit tests:
 
@@ -233,16 +231,16 @@ and paste your Cloudflare Account ID and API token.
 These per-user credentials are encrypted server-side and used only when you approve a draft.
 System `CLOUDFLARE_*` env vars remain for signup verification only.
 
-**Agent API:** authenticated agents POST drafts to `/api/agent/email-drafts`:
+**Agent API:** authenticated agents POST encrypted drafts to `/api/agent/email-drafts`
+(`encrypted: true` with envelope fields). Plaintext drafts are rejected.
 
 ```json
 {
-  "to": "user@example.com",
-  "from": { "email": "noreply@yourdomain.com", "name": "Your Company" },
-  "subject": "Subject line",
-  "html": "<p>Body</p>",
-  "text": "Optional plain text",
-  "metadata": {},
+  "encrypted": true,
+  "encrypted_to": { "v": 1, "alg": "P-256-ECDH-A256GCM", "...": "..." },
+  "encrypted_from_email": { "...": "..." },
+  "encrypted_subject": { "...": "..." },
+  "encrypted_html": { "...": "..." },
   "idempotency_key": "optional-stable-key"
 }
 ```
@@ -251,17 +249,10 @@ The response includes the inbox session and draft (`status: pending`). Poll draf
 with `GET /api/agent/email-drafts/{id}` or `GET /api/agent/sessions/{id}` (includes
 `email_draft` when applicable).
 
-**Human review (portal):** open the session, preview the HTML, then **Approve** (sends via
-your Cloudflare credentials) or **Reject** (no send). Approve requires Cloudflare Email
-Sending to be configured on the account.
-
-**E2EE email drafts:** set `"encrypted": true` and send encrypted envelopes for
-`encrypted_to`, `encrypted_from_email`, `encrypted_subject`, and `encrypted_html`
-(optional: `encrypted_from_name`, `encrypted_text`, `encrypted_metadata`,
-`encrypted_session_summary`). Requires the account to have portal encryption enabled.
-The server stores ciphertext only; the browser decrypts for preview. On approve, the
-portal sends the decrypted fields in the approve request body so mail can be sent without
-storing plaintext server-side.
+**Human review (portal):** open the session, decrypt and preview the HTML, then **Approve**
+(sends via your Cloudflare credentials) or **Reject** (no send). Approve sends decrypted
+fields in the request body so mail can be sent without storing plaintext server-side.
+Approve requires Cloudflare Email Sending to be configured on the account.
 
 ### Tech stack
 
@@ -275,8 +266,9 @@ storing plaintext server-side.
 
 - Human login uses passkeys and signed session cookies.
 - Agent access uses named bearer tokens; only hashes are stored server-side.
-- Optional encrypted token reveal stores an E2EE-encrypted copy of the token in the browser.
-- Encrypted delivery uses P-256 ECDH and AES-256-GCM envelopes; decryption happens client-side.
+- Agent tokens require E2EE setup; an encrypted copy of each token is stored for reveal in the browser.
+- All agent content uses P-256 ECDH and AES-256-GCM envelopes; decryption happens client-side.
+- Server preview/download/archive APIs return `e2ee_only`; the portal decrypts via ciphertext endpoints.
 - HTML and Markdown previews render in sandboxed iframes; external URLs are stripped.
 - Artifact uploads are capped at 25 MB per file and 500 MB per account.
 - Download and preview URLs are short-lived.
