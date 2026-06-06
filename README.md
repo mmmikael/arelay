@@ -1,6 +1,7 @@
 # Agent Relay
 
 [![CI](https://github.com/mmmikael/arelay/actions/workflows/ci.yml/badge.svg)](https://github.com/mmmikael/arelay/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/mmmikael/arelay/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/mmmikael/arelay/actions/workflows/github-code-scanning/codeql)
 [![License: MIT](https://img.shields.io/github/license/mmmikael/arelay)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
