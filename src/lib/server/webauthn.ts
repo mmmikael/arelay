@@ -13,6 +13,8 @@ export type RegisterChallenge = {
 	email?: string;
 	displayName?: string | null;
 	emailVerificationChallengeId?: string;
+	termsVersion?: string;
+	privacyVersion?: string;
 	expiresAt: number;
 };
 

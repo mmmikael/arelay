@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { getSessionCookieName, verifySession } from '$lib/server/session';
 import { resolveAgentUser } from '$lib/server/agent-auth';
 import { ensureSchema, getUser } from '$lib/server/db';
+import { hasCurrentLegalVersions } from '$lib/legal';
 
 const SECURITY_HEADERS = {
 	'Cross-Origin-Opener-Policy': 'same-origin',
@@ -81,6 +82,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return secureRedirect('/portal', secure);
 	}
 
+	const needsLegalAcceptance =
+		event.locals.user !== null && !hasCurrentLegalVersions(event.locals.user);
+	if (
+		event.locals.authenticated &&
+		needsLegalAcceptance &&
+		path.startsWith('/portal')
+	) {
+		return secureRedirect('/legal/accept', secure);
+	}
+	if (
+		event.locals.authenticated &&
+		!needsLegalAcceptance &&
+		path === '/legal/accept'
+	) {
+		return secureRedirect('/portal', secure);
+	}
+
 	const isPublicAuthApi =
 		path.startsWith('/api/auth/passkeys/login/') ||
 		path.startsWith('/api/auth/passkeys/signup/') ||
@@ -99,6 +117,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 				);
 			}
 			return secureRedirect('/', secure);
+		}
+		if (isHumanApi && needsLegalAcceptance && path !== '/api/logout') {
+			return applySecurityHeaders(
+				new Response(JSON.stringify({ error: 'Legal acceptance required.' }), {
+					status: 428,
+					headers: { 'Content-Type': 'application/json' }
+				}),
+				secure
+			);
 		}
 	}
 

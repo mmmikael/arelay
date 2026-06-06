@@ -13,6 +13,11 @@ import {
 	normalizeEmail
 } from '$lib/server/email-verification';
 import {
+	PRIVACY_VERSION,
+	TERMS_VERSION,
+	isCurrentLegalAcceptance
+} from '$lib/legal';
+import {
 	challengeExpiresAt,
 	getWebAuthnSettings,
 	setRegisterChallenge
@@ -23,6 +28,9 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 		email?: unknown;
 		displayName?: unknown;
 		emailVerificationToken?: unknown;
+		termsAccepted?: unknown;
+		termsVersion?: unknown;
+		privacyVersion?: unknown;
 	};
 	const email = normalizeEmail(body.email);
 	if (!email) {
@@ -30,6 +38,12 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 	}
 	if (typeof body.emailVerificationToken !== 'string' || !body.emailVerificationToken) {
 		return json({ error: 'Verify your email before creating a passkey.' }, { status: 403 });
+	}
+	if (!isCurrentLegalAcceptance(body)) {
+		return json(
+			{ error: 'Accept the current Terms of Service and acknowledge the Privacy Policy.' },
+			{ status: 400 }
+		);
 	}
 
 	const emailVerification = await getEmailVerificationBySignupToken({
@@ -80,6 +94,8 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 		email,
 		displayName,
 		emailVerificationChallengeId: emailVerification.id,
+		termsVersion: TERMS_VERSION,
+		privacyVersion: PRIVACY_VERSION,
 		expiresAt: challengeExpiresAt()
 	});
 
