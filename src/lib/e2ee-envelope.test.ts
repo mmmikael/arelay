@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isEncryptedEnvelope } from './e2ee-envelope';
+import { isEncryptedArtifactPayload, isEncryptedEnvelope } from './e2ee-envelope';
 
 const envelope = {
 	v: 1,
@@ -17,5 +17,11 @@ describe('isEncryptedEnvelope', () => {
 	it('rejects invalid envelopes', () => {
 		expect(isEncryptedEnvelope(null)).toBe(false);
 		expect(isEncryptedEnvelope({ ...envelope, alg: 'bad' })).toBe(false);
+	});
+
+	it('accepts artifact payload envelopes without inline ciphertext', () => {
+		const { ciphertext: _ciphertext, ...payload } = envelope;
+		expect(isEncryptedArtifactPayload(payload)).toBe(true);
+		expect(isEncryptedArtifactPayload(envelope)).toBe(false);
 	});
 });
