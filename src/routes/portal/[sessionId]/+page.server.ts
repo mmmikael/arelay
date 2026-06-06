@@ -1,6 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { isEmailReviewRelayEnabled } from '$lib/plugins';
 import { getSession, listArtifacts } from '$lib/server/db';
+import {
+	getEmailDraftBySessionId,
+	getSessionDeliveryType,
+	getUserCloudflareEmail
+} from '$plugins/email-review-relay/server';
 import { previewKindFor } from '$lib/artifacts';
 import { sanitizePreviewHtml } from '$lib/preview-sanitize';
 import { getObjectText } from '$lib/server/s3';
@@ -67,9 +73,24 @@ export const load: PageServerLoad = async ({ locals, params, depends }) => {
 				)
 			: null;
 
+	let emailDraft = null;
+	let cloudflareEmailConfigured = false;
+	if (isEmailReviewRelayEnabled()) {
+		const deliveryType = await getSessionDeliveryType(params.sessionId, locals.user!.id);
+		if (deliveryType === 'email_draft') {
+			emailDraft = await getEmailDraftBySessionId(params.sessionId, locals.user!.id);
+		}
+		cloudflareEmailConfigured = Boolean(await getUserCloudflareEmail(locals.user!.id));
+	}
+
 	return {
 		session,
 		artifacts: mappedArtifacts,
-		inlinePreview
+		inlinePreview: emailDraft ? null : inlinePreview,
+		plugins: {
+			emailReviewRelay: isEmailReviewRelayEnabled()
+		},
+		emailDraft,
+		cloudflareEmailConfigured
 	};
 };

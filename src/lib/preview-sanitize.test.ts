@@ -41,4 +41,10 @@ describe('sanitizePreviewHtml', () => {
 		expect(output).not.toContain('refresh');
 		expect(output).toContain('charset');
 	});
+
+	it('strips nested or malformed event handler patterns', () => {
+		const input = '<p oonclick="alert(1)">x</p><div ononmouseover="alert(2)">y</div>';
+		const output = sanitizePreviewHtml(input);
+		expect(output).not.toMatch(/\son[a-z]+\s*=/i);
+	});
 });

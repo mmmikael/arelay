@@ -7,7 +7,6 @@
 		createEncryptionPasskeyPrivateKey,
 		wrapPrivateKeyWithPasskey,
 		decryptString,
-		encryptString,
 		unlockPrivateKey,
 		unlockPrivateKeyWithPasskey,
 		type EncryptedEnvelope,
@@ -70,13 +69,6 @@
 		until: number;
 	};
 
-	type GeneratedAgentToken = {
-		id: string;
-		name: string;
-		token: string;
-		encrypted: boolean;
-	};
-
 	let { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
 
 	let deleteDialogOpen = $state(false);
@@ -90,14 +82,6 @@
 	let e2eeBusy = $state(false);
 	let e2eeError = $state('');
 	let e2eeNotice = $state('');
-	let accountDialogOpen = $state(false);
-	let accountBusy = $state(false);
-	let accountError = $state('');
-	let accountNotice = $state('');
-	let generatedAgentToken = $state<GeneratedAgentToken | null>(null);
-	let newAgentTokenName = $state('');
-	let revealedAgentTokens = $state<Record<string, string>>({});
-	let tokenActionId = $state<string | null>(null);
 	let recoveryKeyInput = $state('');
 	let generatedRecoveryKey = $state('');
 	let usedDedicatedEncryptionPasskey = $state(false);
@@ -109,6 +93,7 @@
 	let isDesktop = $state(false);
 
 	const activeSessionId = $derived($page.params.sessionId ?? null);
+	const isAccountPage = $derived($page.url.pathname === '/portal/account');
 	const navigatingToSessionId = $derived.by(() => {
 		const pathname = $navigating?.to?.url.pathname;
 		if (!pathname?.startsWith('/portal/')) return null;
@@ -137,182 +122,25 @@
 		goto('/', { replaceState: true });
 	}
 
-	function openAccountDialog() {
-		accountDialogOpen = true;
-		accountError = '';
-		accountNotice = '';
-		generatedAgentToken = null;
+	function emailDraftStatusLabel(status: string): string {
+		switch (status) {
+			case 'pending':
+				return 'Awaiting review';
+			case 'sent':
+				return 'Sent';
+			case 'rejected':
+				return 'Rejected';
+			case 'failed':
+				return 'Send failed';
+			case 'approved':
+				return 'Approved';
+			default:
+				return status;
+		}
 	}
 
 	function accountPasskeyId(): string | null {
 		return data.passkeys.find((passkey) => passkey.isCurrent)?.id ?? data.passkeys[0]?.id ?? null;
-	}
-
-	function bytesToBase64Url(bytes: Uint8Array): string {
-		let binary = '';
-		for (const byte of bytes) binary += String.fromCharCode(byte);
-		return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-	}
-
-	function generateAgentTokenValue(): string {
-		const bytes = new Uint8Array(32);
-		crypto.getRandomValues(bytes);
-		return `ar_${bytesToBase64Url(bytes)}`;
-	}
-
-	async function sha256Hex(value: string): Promise<string> {
-		const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-		return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(
-			''
-		);
-	}
-
-	function suggestedAgentTokenName(): string {
-		const index = data.agentTokens.length + 1;
-		return `Agent token ${index}`;
-	}
-
-	async function createAgentApiToken() {
-		if (accountBusy) return;
-		accountBusy = true;
-		accountError = '';
-		accountNotice = '';
-		generatedAgentToken = null;
-		try {
-			const token = generateAgentTokenValue();
-			const tokenHash = await sha256Hex(token);
-			const publicKey = $e2eeConfig.publicKeyJwk;
-			const encryptedToken = publicKey ? await encryptString(token, publicKey) : null;
-			const res = await fetch('/api/account/agent-tokens', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name: newAgentTokenName.trim() || suggestedAgentTokenName(),
-					tokenHash,
-					encryptedToken
-				})
-			});
-			const result = await res.json();
-			if (!res.ok) throw new Error(result.error || 'Could not create agent token');
-			generatedAgentToken = {
-				id: result.token.id,
-				name: result.token.name,
-				token,
-				encrypted: Boolean(result.token.encryptedToken)
-			};
-			newAgentTokenName = '';
-			accountNotice = encryptedToken
-				? 'Agent token created and saved encrypted.'
-				: 'Agent token created. Copy it now; set up encryption to reveal future tokens later.';
-			await invalidate('account:agent-tokens');
-		} catch (err) {
-			accountError = err instanceof Error ? err.message : 'Could not create agent token';
-		} finally {
-			accountBusy = false;
-		}
-	}
-
-	async function revealAgentApiToken(token: LayoutData['agentTokens'][number]) {
-		if (tokenActionId) return;
-		accountError = '';
-		accountNotice = '';
-		if (revealedAgentTokens[token.id]) {
-			const remaining = { ...revealedAgentTokens };
-			delete remaining[token.id];
-			revealedAgentTokens = remaining;
-			return;
-		}
-		if (!token.encryptedToken) {
-			accountError = 'This token was not saved with encrypted reveal. Create a new encrypted token.';
-			return;
-		}
-		if (!$e2eePrivateKey) {
-			accountNotice = 'Unlock encryption to reveal saved agent tokens.';
-			openE2eeDialog();
-			return;
-		}
-
-		tokenActionId = token.id;
-		try {
-			const plaintext = await decryptString(
-				token.encryptedToken as unknown as EncryptedEnvelope,
-				$e2eePrivateKey
-			);
-			revealedAgentTokens = { ...revealedAgentTokens, [token.id]: plaintext };
-		} catch (err) {
-			accountError = err instanceof Error ? err.message : 'Could not reveal token';
-		} finally {
-			tokenActionId = null;
-		}
-	}
-
-	async function revokeAgentApiToken(token: LayoutData['agentTokens'][number]) {
-		if (tokenActionId) return;
-		const confirmed = confirm(`Revoke "${token.name}"? Agents using this token will stop working.`);
-		if (!confirmed) return;
-
-		tokenActionId = token.id;
-		accountError = '';
-		accountNotice = '';
-		try {
-			const res = await fetch(`/api/account/agent-tokens/${token.id}`, { method: 'DELETE' });
-			const result = await res.json();
-			if (!res.ok) throw new Error(result.error || 'Could not revoke token');
-			const remaining = { ...revealedAgentTokens };
-			delete remaining[token.id];
-			revealedAgentTokens = remaining;
-			if (generatedAgentToken?.id === token.id) generatedAgentToken = null;
-			accountNotice = 'Agent token revoked.';
-			await invalidate('account:agent-tokens');
-		} catch (err) {
-			accountError = err instanceof Error ? err.message : 'Could not revoke token';
-		} finally {
-			tokenActionId = null;
-		}
-	}
-
-	function formatAccountDate(value: string | Date | null | undefined): string {
-		if (!value) return 'Not created yet';
-		return new Date(value).toLocaleString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
-	function passkeyTitle(passkey: LayoutData['passkeys'][number], index: number): string {
-		if (passkey.backedUp || passkey.deviceType === 'multiDevice') return `Synced passkey ${index + 1}`;
-		if (passkey.transports?.includes('internal')) return `Device passkey ${index + 1}`;
-		return `Security key ${index + 1}`;
-	}
-
-	function passkeySubtitle(passkey: LayoutData['passkeys'][number]): string {
-		const parts = [
-			passkey.backedUp || passkey.deviceType === 'multiDevice' ? 'Synced' : 'Device-bound',
-			passkey.transports?.length ? passkey.transports.map(formatTransport).join(', ') : null
-		].filter(Boolean);
-		return parts.join(' · ');
-	}
-
-	function formatTransport(transport: string): string {
-		const labels: Record<string, string> = {
-			internal: 'Built-in',
-			hybrid: 'Phone',
-			usb: 'USB',
-			nfc: 'NFC',
-			ble: 'Bluetooth'
-		};
-		return labels[transport] ?? transport;
-	}
-
-	function formatPasskeyLastUsed(value: string | Date | null | undefined): string {
-		return value ? `Last used ${formatAccountDate(value)}` : 'Not used for sign-in yet';
-	}
-
-	function storageUsedPercent(usedBytes: number, limitBytes: number): number {
-		if (limitBytes <= 0) return 0;
-		return Math.min(100, (usedBytes / limitBytes) * 100);
 	}
 
 	function confirmDeleteSession(id: string, event: MouseEvent) {
@@ -844,15 +672,17 @@
 				</span>
 			</div>
 			<div class="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-				<button
-					type="button"
-					onclick={openAccountDialog}
+				<a
+					href="/portal/account"
 					title={data.currentUser?.email ?? 'Account'}
 					aria-label="Account"
-					class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+					aria-current={isAccountPage ? 'page' : undefined}
+					class="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 {isAccountPage
+						? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200'
+						: 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}"
 				>
 					<UserRound class="h-4 w-4" />
-				</button>
+				</a>
 				<button
 					type="button"
 					onclick={openE2eeDialog}
@@ -976,6 +806,7 @@
 								(pendingSessionId === session.id || navigatingToSessionId === session.id)}
 							{@const title = displaySessionTitle(session)}
 							{@const summary = displaySessionSummary(session)}
+							{@const emailDraft = data.emailDraftSummaries[session.id]}
 							<li>
 								<div
 									class="group relative flex items-stretch border-b border-slate-100 transition-colors dark:border-slate-800 sm:mb-1 sm:rounded-xl sm:border {isCurrent ||
@@ -1031,7 +862,9 @@
 													? 'text-slate-500 dark:text-slate-400'
 													: 'font-medium text-slate-700 dark:text-slate-300'}"
 											>
-												{#if session.artifact_count}
+												{#if emailDraft}
+													Email · {emailDraftStatusLabel(emailDraft.status)}
+												{:else if session.artifact_count}
 													{session.artifact_count} file{session.artifact_count === 1 ? '' : 's'}
 												{:else}
 													No files
@@ -1114,248 +947,6 @@
 		</main>
 	</div>
 </div>
-
-{#if accountDialogOpen}
-	<div class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-		<div
-			class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900"
-		>
-			<div class="flex items-start justify-between gap-3">
-				<div>
-					<h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Account</h2>
-					<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-						{data.currentUser?.displayName || data.currentUser?.email}
-					</p>
-				</div>
-				<button
-					type="button"
-					class="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-					aria-label="Close account dialog"
-					onclick={() => {
-						accountDialogOpen = false;
-						accountError = '';
-						accountNotice = '';
-						generatedAgentToken = null;
-					}}
-				>
-					×
-				</button>
-			</div>
-
-			{#if accountError}
-				<p class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
-					{accountError}
-				</p>
-			{/if}
-			{#if accountNotice}
-				<p class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
-					{accountNotice}
-				</p>
-			{/if}
-
-			<div class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-				<div class="min-w-0">
-					<p class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-						{data.currentUser?.email}
-					</p>
-					<p class="text-xs text-slate-500 dark:text-slate-400">Personal inbox account</p>
-				</div>
-			</div>
-
-			<div class="mt-5 space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Storage</h3>
-					<p class="text-xs font-medium text-slate-600 dark:text-slate-300">
-						{formatBytes(data.storage.usedBytes)} / {formatBytes(data.storage.limitBytes)}
-					</p>
-				</div>
-				<div
-					class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
-					role="progressbar"
-					aria-valuenow={data.storage.usedBytes}
-					aria-valuemin={0}
-					aria-valuemax={data.storage.limitBytes}
-					aria-label="Account storage used"
-				>
-					<div
-						class="h-full rounded-full transition-[width] duration-300 {storageUsedPercent(
-							data.storage.usedBytes,
-							data.storage.limitBytes
-						) >= 90
-							? 'bg-amber-500'
-							: 'bg-blue-500'}"
-						style="width: {storageUsedPercent(data.storage.usedBytes, data.storage.limitBytes)}%"
-					></div>
-				</div>
-				<p class="text-xs text-slate-500 dark:text-slate-400">
-					Up to {formatBytes(data.storage.artifactLimitBytes)} per message. Deleting sessions frees space.
-				</p>
-			</div>
-
-			<div class="mt-5 space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<div class="min-w-0">
-						<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Passkey</h3>
-						<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-							Your account passkey signs you in. Encryption may use the same passkey or a separate one.
-						</p>
-					</div>
-				</div>
-
-				<div class="max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
-					{#each data.passkeys as passkey, index (passkey.id)}
-						<div class="flex items-start gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
-							<span class="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 dark:bg-slate-900 dark:text-blue-300">
-								<KeyRound class="h-4 w-4" />
-							</span>
-							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center gap-2">
-									<p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-										{passkeyTitle(passkey, index)}
-									</p>
-									{#if passkey.isCurrent}
-										<span class="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-200">
-											Used for this session
-										</span>
-									{/if}
-								</div>
-								<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-									Created {formatAccountDate(passkey.createdAt)}
-								</p>
-								<p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-									{formatPasskeyLastUsed(passkey.lastUsedAt)}
-								</p>
-								{#if passkeySubtitle(passkey)}
-									<p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-										{passkeySubtitle(passkey)}
-									</p>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<div class="mt-5 space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<div class="min-w-0">
-						<h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Agent API tokens</h3>
-						<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-							Create one token per agent and revoke only the token that needs replacing.
-						</p>
-					</div>
-				</div>
-
-				<div class="flex flex-col gap-2 sm:flex-row">
-					<input
-						class="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-						bind:value={newAgentTokenName}
-						placeholder="Token name"
-						autocomplete="off"
-					/>
-					<Button
-						variant="outline"
-						size="sm"
-						class="h-10 shrink-0"
-						onclick={createAgentApiToken}
-						disabled={accountBusy}
-					>
-						{accountBusy ? 'Creating…' : 'Create token'}
-					</Button>
-				</div>
-
-				{#if generatedAgentToken}
-					<div class="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/60 dark:bg-blue-950/30">
-						<div class="flex flex-wrap items-center justify-between gap-2">
-							<p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-								{generatedAgentToken.name}
-							</p>
-							<span class="text-xs text-slate-500 dark:text-slate-400">
-								{generatedAgentToken.encrypted ? 'Encrypted reveal saved' : 'Shown once'}
-							</span>
-						</div>
-						<input
-							readonly
-							value={generatedAgentToken.token}
-							class="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-						/>
-						<Button
-							variant="outline"
-							size="sm"
-							class="w-full"
-							onclick={() => navigator.clipboard?.writeText(generatedAgentToken?.token ?? '')}
-						>
-							Copy token
-						</Button>
-					</div>
-				{/if}
-
-				<div class="max-h-72 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
-					{#if data.agentTokens.length === 0}
-						<p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-							No agent tokens yet.
-						</p>
-					{:else}
-						{#each data.agentTokens as token (token.id)}
-							<div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
-								<div class="flex flex-wrap items-start justify-between gap-3">
-									<div class="min-w-0">
-										<p class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-											{token.name}
-										</p>
-										<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-											Created {formatAccountDate(token.createdAt)}
-										</p>
-										<p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-											{token.lastUsedAt ? `Last used ${formatAccountDate(token.lastUsedAt)}` : 'Never used'}
-										</p>
-									</div>
-									<div class="flex shrink-0 items-center gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											onclick={() => revealAgentApiToken(token)}
-											disabled={tokenActionId === token.id || !token.encryptedToken}
-											title={token.encryptedToken ? 'Reveal token' : 'Token was not saved encrypted'}
-										>
-											{revealedAgentTokens[token.id] ? 'Hide' : 'Reveal'}
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											onclick={() => revokeAgentApiToken(token)}
-											disabled={tokenActionId === token.id}
-										>
-											Revoke
-										</Button>
-									</div>
-								</div>
-
-								{#if revealedAgentTokens[token.id]}
-									<div class="mt-3 space-y-2">
-										<input
-											readonly
-											value={revealedAgentTokens[token.id]}
-											class="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-										/>
-										<Button
-											variant="outline"
-											size="sm"
-											class="w-full"
-											onclick={() => navigator.clipboard?.writeText(revealedAgentTokens[token.id])}
-										>
-											Copy token
-										</Button>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					{/if}
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
 
 {#if e2eeDialog}
 	<div class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">

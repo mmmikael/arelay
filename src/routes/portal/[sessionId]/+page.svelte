@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
 		decryptBytes,
@@ -8,6 +8,8 @@
 		type EncryptedEnvelope,
 		type EncryptedPayload
 	} from '$lib/e2ee';
+	import { decryptEmailDraftFields, type DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
+	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -47,6 +49,7 @@
 		artifact?: PageData['artifacts'][number]
 	): boolean {
 		if (session.encryption_version === 'e2ee-v1') return true;
+		if (data.emailDraft?.encryption_version === 'e2ee-v1') return true;
 		return artifact?.encryption_version === 'e2ee-v1';
 	}
 
@@ -74,9 +77,28 @@
 	let previewObjectUrl = '';
 	let darkMode = $state(false);
 	let previewToken = 0;
-	let lastReadMarkSessionId = $state<string | null>(null);
 	let decryptedSession = $state<{ title: string; summary: string | null } | null>(null);
 	let decryptedArtifacts = $state<Record<string, { filename: string; contentType: string }>>({});
+	let decryptedEmailDraft = $state<DecryptedEmailDraftFields | null>(null);
+
+	const activeEmailDraft = $derived(
+		data.emailDraft?.encryption_version === 'e2ee-v1'
+			? decryptedEmailDraft
+			: data.emailDraft
+				? {
+						to: data.emailDraft.to_address ?? '',
+						from_email: data.emailDraft.from_email ?? '',
+						from_name: data.emailDraft.from_name,
+						subject: data.emailDraft.subject ?? '',
+						html: data.emailDraft.html ?? '',
+						text: data.emailDraft.text
+					}
+				: null
+	);
+
+	const emailDraftNeedsUnlock = $derived(
+		Boolean(data.emailDraft?.encryption_version === 'e2ee-v1' && !decryptedEmailDraft)
+	);
 
 	$effect(() => {
 		if (!previewSourceDoc) return;
@@ -107,24 +129,22 @@
 		};
 	});
 
-	$effect(() => {
-		const session = data.session;
-		if (session.is_read || lastReadMarkSessionId === session.id) return;
-
-		lastReadMarkSessionId = session.id;
-		const sessionId = session.id;
-		const timer = setTimeout(() => {
+	afterNavigate(({ to }) => {
+		const sessionId = to?.params?.sessionId;
+		if (!sessionId) return;
+		queueMicrotask(() => {
+			if (data.session.id !== sessionId || data.session.is_read) return;
 			void markSessionRead(sessionId);
-		}, 0);
-
-		return () => clearTimeout(timer);
+		});
 	});
 
 	$effect(() => {
 		const privateKey = $e2eePrivateKey;
+		const emailDraft = data.emailDraft;
 		if (!privateKey) {
 			decryptedSession = null;
 			decryptedArtifacts = {};
+			decryptedEmailDraft = null;
 			return;
 		}
 
@@ -175,9 +195,15 @@
 				}
 			}
 
+			let nextEmailDraft: DecryptedEmailDraftFields | null = null;
+			if (emailDraft) {
+				nextEmailDraft = await decryptEmailDraftFields(emailDraft, privateKey);
+			}
+
 			if (!cancelled) {
 				decryptedSession = nextSession;
 				decryptedArtifacts = nextArtifacts;
+				decryptedEmailDraft = nextEmailDraft;
 			}
 		};
 		void decryptMetadata();
@@ -394,7 +420,7 @@
 				body: JSON.stringify({ is_read: true })
 			});
 			if (!res.ok) throw new Error('Mark read failed');
-			void invalidate('inbox:sessions');
+			await Promise.all([invalidate('inbox:sessions'), invalidate('inbox:session')]);
 		} catch (err) {
 			console.error('[sessions] mark read failed:', err);
 		}
@@ -550,7 +576,18 @@
 		{/if}
 	</div>
 
-	{#if data.inlinePreview}
+	{#if data.emailDraft}
+		<EmailDraftReviewPanel
+			emailDraft={data.emailDraft}
+			{activeEmailDraft}
+			{emailDraftNeedsUnlock}
+			cloudflareEmailConfigured={data.cloudflareEmailConfigured}
+			sessionId={data.session.id}
+			{darkMode}
+			e2eeConfigured={$e2eeConfig.configured}
+			onUnlock={ensureE2eeUnlocked}
+		/>
+	{:else if data.inlinePreview}
 		{#await data.inlinePreview}
 			<div
 				class="overflow-hidden bg-white dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
