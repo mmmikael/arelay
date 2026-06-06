@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { env } from '$env/dynamic/private';
+import { getPluginSchemaSql } from '$lib/plugins';
 import { SCHEMA_LOCK_ID, SCHEMA_LOCK_NAMESPACE, SCHEMA_SQL } from './schema';
 
 let sql: ReturnType<typeof postgres> | null = null;
@@ -32,6 +33,10 @@ export async function ensureSchema(): Promise<void> {
 	await db`SELECT pg_advisory_lock(${SCHEMA_LOCK_NAMESPACE}, ${SCHEMA_LOCK_ID})`;
 	try {
 		await db.unsafe(SCHEMA_SQL);
+		const pluginSchemaSql = getPluginSchemaSql();
+		if (pluginSchemaSql.trim()) {
+			await db.unsafe(pluginSchemaSql);
+		}
 		migrated = true;
 	} finally {
 		await db`SELECT pg_advisory_unlock(${SCHEMA_LOCK_NAMESPACE}, ${SCHEMA_LOCK_ID})`;

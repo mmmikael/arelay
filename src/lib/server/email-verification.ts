@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, randomInt } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { env } from '$env/dynamic/private';
+import { parseFromAddress, sendViaCloudflare } from '$lib/server/email-send';
 
 export const EMAIL_VERIFICATION_MAX_AGE_MS = 15 * 60 * 1000;
 
@@ -12,11 +13,6 @@ type VerificationEmailContent = {
 	subject: string;
 	text: string;
 	html: string;
-};
-
-type ParsedFromAddress = {
-	address: string;
-	name?: string;
 };
 
 export function normalizeEmail(value: unknown): string | null {
@@ -89,18 +85,6 @@ function requireFromAddress(): string {
 	return from;
 }
 
-function parseFromAddress(value: string): ParsedFromAddress {
-	const trimmed = value.trim();
-	const namedMatch = /^(.+?)\s*<([^>]+)>$/.exec(trimmed);
-	if (namedMatch) {
-		const name = namedMatch[1].trim().replace(/^["']|["']$/g, '');
-		const address = namedMatch[2].trim();
-		return { address, name: name || undefined };
-	}
-
-	return { address: trimmed };
-}
-
 function isCloudflareEmailConfigured(): boolean {
 	return Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && env.CLOUDFLARE_API_TOKEN?.trim());
 }
@@ -109,48 +93,23 @@ function isSmtpConfigured(): boolean {
 	return Boolean(env.SMTP_HOST?.trim());
 }
 
-async function sendViaCloudflare(input: {
+async function sendVerificationViaCloudflare(input: {
 	to: string;
 	origin: string;
 	content: VerificationEmailContent;
 }): Promise<void> {
-	const accountId = env.CLOUDFLARE_ACCOUNT_ID!.trim();
-	const apiToken = env.CLOUDFLARE_API_TOKEN!.trim();
-	const from = parseFromAddress(requireFromAddress());
-	const fromField = from.name
-		? { address: from.address, name: from.name }
-		: from.address;
-
-	const response = await fetch(
-		`https://api.cloudflare.com/client/v4/accounts/${accountId}/email/sending/send`,
-		{
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${apiToken}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				to: input.to,
-				from: fromField,
-				subject: input.content.subject,
-				text: input.content.text,
-				html: input.content.html,
-				headers: {
-					'X-Agent-Relay-Origin': input.origin
-				}
-			})
+	await sendViaCloudflare({
+		accountId: env.CLOUDFLARE_ACCOUNT_ID!.trim(),
+		apiToken: env.CLOUDFLARE_API_TOKEN!.trim(),
+		to: input.to,
+		from: parseFromAddress(requireFromAddress()),
+		subject: input.content.subject,
+		html: input.content.html,
+		text: input.content.text,
+		headers: {
+			'X-Agent-Relay-Origin': input.origin
 		}
-	);
-
-	const result = (await response.json().catch(() => null)) as {
-		success?: boolean;
-		errors?: Array<{ message?: string }>;
-	} | null;
-
-	if (!response.ok || !result?.success) {
-		const message = result?.errors?.[0]?.message || `Cloudflare email send failed (${response.status})`;
-		throw new Error(message);
-	}
+	});
 }
 
 async function sendViaSmtp(input: {
@@ -204,7 +163,7 @@ export async function sendVerificationEmail(input: {
 	const content = verificationEmailContent(input.code);
 
 	if (isCloudflareEmailConfigured()) {
-		await sendViaCloudflare({
+		await sendVerificationViaCloudflare({
 			to: input.to,
 			origin: input.origin,
 			content

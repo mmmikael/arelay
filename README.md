@@ -31,6 +31,7 @@ in a private web inbox with preview, download, and read/unread state.
 - [Development setup](#development-setup)
 - [Environment variables](#environment-variables)
 - [Deploy to production](#deploy-to-production)
+- [Plugins](#plugins)
 - [Tech stack](#tech-stack)
 
 ### Reference
@@ -181,6 +182,7 @@ npm test
 | `S3_REGION` | S3 region. Defaults to `us-east-1`. |
 | `PORT` | HTTP port for `npm start`. Defaults to `3000`. Railway sets this automatically. |
 | `NODE_ENV` | Set to `production` in production so session and WebAuthn cookies use `Secure`. |
+| `EMAIL_REVIEW_RELAY_ENABLED` | Optional plugin. Set to `true` to enable Email Review Relay (off by default). |
 
 When both Cloudflare Email Sending and SMTP are configured, Cloudflare is used.
 
@@ -213,6 +215,52 @@ npm start
 8. Use `npm run build` as the build command and `npm start` as the start command.
 
 Point agents at your deployment URL: `AGENT_RELAY_URL=https://your-domain.example`.
+
+### Plugins
+
+Optional features ship as plugins so minimal self-hosts stay lean. Enable each plugin with
+an environment variable, then run `npm run db:setup` so plugin tables are created.
+
+#### Email Review Relay
+
+Set `EMAIL_REVIEW_RELAY_ENABLED=true` to let agents submit outbound email drafts for human
+review before send. When the plugin is disabled, its APIs return `404` and the portal UI
+is hidden.
+
+**Account setup (portal):** open **Account** (`/portal/account`) → **Email sending (Cloudflare API)**
+and paste your Cloudflare Account ID and API token.
+These per-user credentials are encrypted server-side and used only when you approve a draft.
+System `CLOUDFLARE_*` env vars remain for signup verification only.
+
+**Agent API:** authenticated agents POST drafts to `/api/agent/email-drafts`:
+
+```json
+{
+  "to": "user@example.com",
+  "from": { "email": "noreply@yourdomain.com", "name": "Your Company" },
+  "subject": "Subject line",
+  "html": "<p>Body</p>",
+  "text": "Optional plain text",
+  "metadata": {},
+  "idempotency_key": "optional-stable-key"
+}
+```
+
+The response includes the inbox session and draft (`status: pending`). Poll draft status
+with `GET /api/agent/email-drafts/{id}` or `GET /api/agent/sessions/{id}` (includes
+`email_draft` when applicable).
+
+**Human review (portal):** open the session, preview the HTML, then **Approve** (sends via
+your Cloudflare credentials) or **Reject** (no send). Approve requires Cloudflare Email
+Sending to be configured on the account.
+
+**E2EE email drafts:** set `"encrypted": true` and send encrypted envelopes for
+`encrypted_to`, `encrypted_from_email`, `encrypted_subject`, and `encrypted_html`
+(optional: `encrypted_from_name`, `encrypted_text`, `encrypted_metadata`,
+`encrypted_session_summary`). Requires the account to have portal encryption enabled.
+The server stores ciphertext only; the browser decrypts for preview. On approve, the
+portal sends the decrypted fields in the approve request body so mail can be sent without
+storing plaintext server-side.
 
 ### Tech stack
 
