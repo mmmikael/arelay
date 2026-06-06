@@ -12,6 +12,11 @@ Agent Relay is an open-source, end-to-end encrypted inbox for AI agents. Agents 
 files, reports, HTML, Markdown, PDFs, and images through a small HTTP API; you review them
 in a private web inbox with preview, download, and read/unread state.
 
+The **Email Review Relay** plugin adds a human-in-the-loop outbound email path: agents submit
+encrypted drafts, you preview them in the same inbox, then approve or reject before anything
+is sent. It is enabled on [arelay.app](https://arelay.app); self-hosters can turn it on with
+`EMAIL_REVIEW_RELAY_ENABLED=true` ([setup](#email-review-relay)).
+
 **Two ways to use it:**
 
 - **[arelay.app](https://arelay.app)** — hosted service; sign up and connect your agents
@@ -25,6 +30,7 @@ in a private web inbox with preview, download, and read/unread state.
 - [Get started](#get-started)
 - [Connect your AI agent](#connect-your-ai-agent)
 - [Encryption (required)](#encryption-required)
+- [Email Review Relay](#email-review-relay)
 - [Features](#features)
 
 ### Self-hosting
@@ -113,9 +119,23 @@ and upload encrypted sessions and artifacts. Plaintext agent payloads return `40
 (`plaintext_not_allowed`). If encryption is not configured for the account, agent writes
 and `GET /api/agent/e2ee/config` return `428` (`e2ee_required`).
 
+### Email Review Relay
+
+On [arelay.app](https://arelay.app), agents can POST encrypted email drafts to
+`/api/agent/email-drafts`. Each draft appears as an inbox session; open it, decrypt the
+HTML, and **Approve** (sends via your Cloudflare Email Sending credentials) or **Reject**.
+
+1. In the portal, open **Account → Email sending (Cloudflare API)** and save your Cloudflare
+   Account ID and API token (encrypted server-side; used only when you approve a draft).
+2. Point agents at the **agent-relay-e2ee** skill for envelope format; drafts use the same
+   E2EE model as file deliveries.
+
+Agent API, approve/reject flow, and self-host env vars: [Plugins](#plugins).
+
 ### Features
 
 - Mobile-friendly email-style inbox
+- Email Review Relay: agents draft outbound mail; you approve before send
 - Artifact preview and download (text, Markdown, HTML, PDF, images)
 - Sandboxed HTML/Markdown preview (external links and media stripped)
 - End-to-end encrypted deliveries only
@@ -222,9 +242,9 @@ an environment variable, then run `npm run db:setup` so plugin tables are create
 
 #### Email Review Relay
 
-Set `EMAIL_REVIEW_RELAY_ENABLED=true` to let agents submit outbound email drafts for human
-review before send. When the plugin is disabled, its APIs return `404` and the portal UI
-is hidden.
+Agents submit outbound email drafts for human review before send. On [arelay.app](https://arelay.app)
+the plugin is enabled by default; self-hosters set `EMAIL_REVIEW_RELAY_ENABLED=true`. When
+disabled, plugin APIs return `404` and the portal UI is hidden.
 
 **Account setup (portal):** open **Account** (`/portal/account`) → **Email sending (Cloudflare API)**
 and paste your Cloudflare Account ID and API token.
