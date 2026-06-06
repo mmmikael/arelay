@@ -118,7 +118,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 			return secureRedirect('/', secure);
 		}
-		if (isHumanApi && needsLegalAcceptance && path !== '/api/logout') {
+		if (
+			isHumanApi &&
+			needsLegalAcceptance &&
+			path !== '/api/logout' &&
+			path !== '/api/legal/accept'
+		) {
 			return applySecurityHeaders(
 				new Response(JSON.stringify({ error: 'Legal acceptance required.' }), {
 					status: 428,

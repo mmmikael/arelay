@@ -1,9 +1,34 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import Logo from '$lib/components/Logo.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import type { ActionData, PageData } from './$types';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
+
+	let accepted = $state(false);
+	let busy = $state(false);
+	let error = $state('');
+
+	async function submitAcceptance() {
+		if (busy || !accepted) return;
+		busy = true;
+		error = '';
+		try {
+			const res = await fetch('/api/legal/accept', { method: 'POST' });
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(
+					typeof body.error === 'string' ? body.error : 'Could not save your acceptance'
+				);
+			}
+			await goto('/portal');
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not save your acceptance';
+		} finally {
+			busy = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -43,7 +68,7 @@
 				</div>
 			</div>
 
-			<form method="POST" class="mt-5 space-y-4">
+			<div class="mt-5 space-y-4">
 				<label
 					for="existing-legal-acceptance"
 					class="flex cursor-pointer items-start gap-3 text-sm leading-5 text-slate-600 dark:text-slate-300"
@@ -51,20 +76,25 @@
 					<input
 						id="existing-legal-acceptance"
 						type="checkbox"
-						name="accepted"
-						value="yes"
-						required
+						bind:checked={accepted}
 						class="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
 					/>
 					<span>I agree to the Terms of Service and acknowledge the Privacy Policy.</span>
 				</label>
 
-				{#if form?.error}
-					<p class="text-sm text-red-600 dark:text-red-400">{form.error}</p>
+				{#if error}
+					<p class="text-sm text-red-600 dark:text-red-400">{error}</p>
 				{/if}
 
-				<Button type="submit" class="h-11 w-full">Agree and continue</Button>
-			</form>
+				<Button
+					type="button"
+					class="h-11 w-full"
+					disabled={busy || !accepted}
+					onclick={submitAcceptance}
+				>
+					{busy ? 'Saving…' : 'Agree and continue'}
+				</Button>
+			</div>
 		</div>
 	</div>
 </main>

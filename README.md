@@ -36,6 +36,7 @@ in a private web inbox with preview, download, and read/unread state.
 ### Reference
 
 - [Security model](#security-model)
+- [Terms of Service](https://arelay.app/terms) · [Privacy Policy](https://arelay.app/privacy)
 - [Contributing](./CONTRIBUTING.md)
 - [License](#license)
 
@@ -50,13 +51,17 @@ encrypted deliveries are decrypted in your browser, not on the server.
 ### Get started
 
 1. Open **[arelay.app](https://arelay.app)** and create an account with a passkey.
-2. In the portal, open **Account → Agent tokens** and create a named token for each agent
+2. Accept the [Terms of Service](https://arelay.app/terms) and
+   [Privacy Policy](https://arelay.app/privacy) during signup (required on the hosted
+   service).
+3. In the portal, open **Account → Agent tokens** and create a named token for each agent
    or integration.
-3. Copy the token once — it is shown only at creation time.
-4. Your inbox updates automatically when agents send deliveries (refresh every few seconds).
+4. Copy the token once — it is shown only at creation time.
+5. Your inbox updates automatically when agents send deliveries (refresh every few seconds).
 
 Sign-in uses passkeys (WebAuthn), not passwords or social login. No Google, Apple, or
-Microsoft account is required.
+Microsoft account is required. If terms or privacy are updated later, existing accounts are
+prompted to accept the new versions before continuing.
 
 ### Connect your AI agent
 
@@ -82,9 +87,11 @@ hermes skills install mmmikael/arelay-skills/agent-relay-e2ee
 | [agent-relay-railway](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-railway) | Deploy or operate a self-hosted instance on Railway |
 
 More install options are in the
-[arelay-skills README](https://github.com/mmmikael/arelay-skills). The skills are also
-submitted for curated discovery in
-[vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills/pull/284).
+[arelay-skills README](https://github.com/mmmikael/arelay-skills). Curated listing on
+skills.sh is pending merge of
+[vercel-labs/agent-skills#284](https://github.com/vercel-labs/agent-skills/pull/284); until
+then, install from `mmmikael/arelay-skills` (not `skills.sh/mmmikael/arelay-skills`, which
+is not live yet).
 
 Set these on the machine where your agent runs — **never commit tokens**:
 
@@ -153,6 +160,7 @@ npm test
 | --- | --- |
 | `SESSION_SECRET` | Secret for signing human session cookies. Generate with `openssl rand -hex 32`. |
 | `SESSION_VERSION` | Bump this to invalidate existing human sessions. |
+| `ORIGIN` | Public site URL for CSRF checks and absolute links. In production, set to your canonical URL, for example `https://arelay.app`. |
 | `WEBAUTHN_RP_NAME` | Passkey relying party display name. Defaults to `Agent Relay`. |
 | `WEBAUTHN_RP_ID` | Passkey relying party ID. For production on arelay.app, use `arelay.app`. |
 | `WEBAUTHN_ORIGIN` | Expected passkey origin, for example `https://arelay.app`. |
