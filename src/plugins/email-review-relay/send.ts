@@ -24,9 +24,10 @@ export async function sendApprovedEmailDraft(input: {
 	}
 
 	const fields = prepareEmailDraftSendFields(input.fields);
+	const accountId = decryptSecret(credentials.account_id_ciphertext);
 	const apiToken = decryptSecret(credentials.api_token_ciphertext);
 	await sendViaCloudflare({
-		accountId: credentials.account_id,
+		accountId,
 		apiToken,
 		to: fields.to,
 		from: {

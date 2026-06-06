@@ -25,7 +25,7 @@ export type EmailDraftRecord = {
 
 export type UserCloudflareEmailRecord = {
 	user_id: string;
-	account_id: string;
+	account_id_ciphertext: string;
 	api_token_ciphertext: string;
 	created_at: Date;
 	updated_at: Date;
