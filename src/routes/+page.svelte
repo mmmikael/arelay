@@ -7,6 +7,7 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Bot from '@lucide/svelte/icons/bot';
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Github from '@lucide/svelte/icons/github';
@@ -157,16 +158,19 @@
 			<Logo class="h-11 w-11" />
 			<span class="text-xl font-bold sm:text-2xl">Agent Relay</span>
 		</a>
-		<a
-			href="https://github.com/mmmikael/arelay"
-			target="_blank"
-			rel="noreferrer"
-			class="source-badge"
-		>
-			<Github class="h-4 w-4" />
-			<span class="hidden sm:inline">Open source</span>
-			<span class="source-license">MIT</span>
-		</a>
+		<div class="header-actions">
+			<ThemeToggle />
+			<a
+				href="https://github.com/mmmikael/arelay"
+				target="_blank"
+				rel="noreferrer"
+				class="source-badge"
+			>
+				<Github class="h-4 w-4" />
+				<span class="hidden sm:inline">Open source</span>
+				<span class="source-license">MIT</span>
+			</a>
+		</div>
 	</header>
 
 	<main class="login-grid">
@@ -467,6 +471,12 @@
 		display: flex;
 		justify-content: space-between;
 		padding-top: 2rem;
+	}
+
+	.header-actions {
+		align-items: center;
+		display: flex;
+		gap: 0.65rem;
 	}
 
 	.source-badge {
