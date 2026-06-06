@@ -36,6 +36,7 @@ in a private web inbox with preview, download, and read/unread state.
 ### Reference
 
 - [Security model](#security-model)
+- [Contributing](./CONTRIBUTING.md)
 - [License](#license)
 
 ---
