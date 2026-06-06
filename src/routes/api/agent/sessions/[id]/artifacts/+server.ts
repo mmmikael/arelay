@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createArtifact, getSession, type JsonObject } from '$lib/server/db';
+import { isEncryptedArtifactPayload, isEncryptedEnvelope } from '$lib/e2ee-envelope';
 import {
 	isE2eePolicyResponse,
-	isEncryptedEnvelope,
 	rejectPlaintextPayload,
 	requireOwnerE2eeForAgent
 } from '$lib/server/e2ee-policy';
@@ -60,7 +60,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 	if (
 		!isEncryptedEnvelope(body.encrypted_filename) ||
 		!isEncryptedEnvelope(body.encrypted_content_type) ||
-		!isEncryptedEnvelope(body.encrypted_payload) ||
+		!isEncryptedArtifactPayload(body.encrypted_payload) ||
 		!body.ciphertext_base64
 	) {
 		return json(
