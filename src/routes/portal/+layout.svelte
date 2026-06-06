@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { afterNavigate, goto, invalidate } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { navigating, page } from '$app/stores';
 	import {
 		canAttemptPasskeyPrf,
 		createE2eeKeyring,
@@ -39,10 +39,16 @@
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import { formatBytes } from '$lib/artifacts';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
+	import {
+		forgetSessionPrefetch,
+		markSessionPrefetched,
+		prefetchSessionPages
+	} from '$lib/session-prefetch';
 	import { onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	const POLL_MS = 5000;
+	const NAV_PENDING_TIMEOUT_MS = 20_000;
 	const SIDEBAR_KEY = 'agentRelay:sidebarCollapsed';
 	const SIDEBAR_WIDTH_KEY = 'agentRelay:sidebarWidth';
 	const SIDEBAR_MIN_WIDTH = 240;
@@ -102,6 +108,12 @@
 	let isDesktop = $state(false);
 
 	const activeSessionId = $derived($page.params.sessionId ?? null);
+	const navigatingToSessionId = $derived.by(() => {
+		const pathname = $navigating?.to?.url.pathname;
+		if (!pathname?.startsWith('/portal/')) return null;
+		const sessionId = pathname.slice('/portal/'.length).split('/')[0];
+		return sessionId || null;
+	});
 	const effectiveSidebarCollapsed = $derived(isDesktop && sidebarCollapsed);
 	const unreadCount = $derived(data.sessions.filter((session) => !session.is_read).length);
 
@@ -576,7 +588,10 @@
 		if (needsUnlock) {
 			event.preventDefault();
 			const unlocked = await ensureE2eeUnlocked();
-			if (!unlocked) return;
+			if (!unlocked) {
+				pendingSessionId = null;
+				return;
+			}
 			if (activeSessionId !== id) {
 				pendingSessionId = id;
 				await goto(`/portal/${id}`);
@@ -615,6 +630,7 @@
 		try {
 			const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error('Delete failed');
+			forgetSessionPrefetch(id);
 			const wasActive = activeSessionId === id;
 			if (wasActive) {
 				await goto('/portal', { replaceState: true });
@@ -683,8 +699,36 @@
 		return `--sidebar-width: ${sidebarWidth}px`;
 	});
 
-	afterNavigate(() => {
+	afterNavigate(({ to }) => {
 		pendingSessionId = null;
+		const sessionId = to?.params?.sessionId;
+		if (typeof sessionId === 'string') {
+			const session = data.sessions.find((entry) => entry.id === sessionId);
+			markSessionPrefetched(sessionId, session?.updated_at);
+		}
+	});
+
+	$effect(() => {
+		if (pendingSessionId && activeSessionId === pendingSessionId) {
+			pendingSessionId = null;
+		}
+	});
+
+	$effect(() => {
+		const pendingId = pendingSessionId;
+		if (!pendingId || activeSessionId === pendingId) return;
+
+		const timer = setTimeout(() => {
+			if (pendingSessionId === pendingId) {
+				pendingSessionId = null;
+			}
+		}, NAV_PENDING_TIMEOUT_MS);
+
+		return () => clearTimeout(timer);
+	});
+
+	$effect(() => {
+		void prefetchSessionPages(data.sessions);
 	});
 
 	$effect(() => {
@@ -890,7 +934,9 @@
 					<ul class="sm:p-2">
 						{#each data.sessions as session (session.id)}
 							{@const isCurrent = activeSessionId === session.id}
-							{@const isPending = pendingSessionId === session.id}
+							{@const isPending =
+								activeSessionId !== session.id &&
+								(pendingSessionId === session.id || navigatingToSessionId === session.id)}
 							{@const title = displaySessionTitle(session)}
 							{@const summary = displaySessionSummary(session)}
 							<li>

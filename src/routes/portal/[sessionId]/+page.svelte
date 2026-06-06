@@ -112,7 +112,12 @@
 		if (session.is_read || lastReadMarkSessionId === session.id) return;
 
 		lastReadMarkSessionId = session.id;
-		void markSessionRead(session.id);
+		const sessionId = session.id;
+		const timer = setTimeout(() => {
+			void markSessionRead(sessionId);
+		}, 0);
+
+		return () => clearTimeout(timer);
 	});
 
 	$effect(() => {
@@ -389,7 +394,7 @@
 				body: JSON.stringify({ is_read: true })
 			});
 			if (!res.ok) throw new Error('Mark read failed');
-			await Promise.all([invalidate('inbox:sessions'), invalidate('inbox:session')]);
+			void invalidate('inbox:sessions');
 		} catch (err) {
 			console.error('[sessions] mark read failed:', err);
 		}
