@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isEmailReviewRelayEnabled } from '$lib/plugins';
+import { toSessionView } from '$lib/session-view';
 import { getSession, updateEncryptedSession, type JsonObject } from '$lib/server/db';
 import {
 	isE2eePolicyResponse,
@@ -56,7 +57,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		return json({ error: 'Session not found' }, { status: 404 });
 	}
 
-	return json({ session });
+	return json({ session: toSessionView(session) });
 };
 
 export const GET: RequestHandler = async ({ locals, params }) => {
@@ -70,18 +71,20 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		return json({ error: 'Session not found' }, { status: 404 });
 	}
 
+	const sessionView = toSessionView(session);
+
 	if (!isEmailReviewRelayEnabled()) {
-		return json({ session });
+		return json({ session: sessionView });
 	}
 
 	const deliveryType = await getSessionDeliveryType(sessionId, locals.agentUser!.id);
 	if (deliveryType !== 'email_draft') {
-		return json({ session });
+		return json({ session: sessionView });
 	}
 
 	const draft = await getEmailDraftBySessionId(sessionId, locals.agentUser!.id);
 	return json({
-		session,
+		session: sessionView,
 		email_draft: draft ? toAgentEmailDraftView(draft) : null
 	});
 };

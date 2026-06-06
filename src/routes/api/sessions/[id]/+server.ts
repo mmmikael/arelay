@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { toSessionView } from '$lib/session-view';
 import {
 	deleteSession,
 	getSession,
@@ -25,7 +26,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		return json({ error: 'Session not found' }, { status: 404 });
 	}
 
-	return json({ session });
+	return json({ session: toSessionView(session) });
 };
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
@@ -68,5 +69,5 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		return json({ error: 'Session not found' }, { status: 404 });
 	}
 
-	return json({ session, artifacts });
+	return json({ session: toSessionView(session), artifacts });
 };

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { getEmailDraftById, toAgentEmailDraftView } from '$plugins/email-review-relay/server';
+import { toSessionView } from '$lib/session-view';
 import { getSession } from '$lib/server/db';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
@@ -23,7 +24,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 	}
 
 	return json({
-		session,
+		session: toSessionView(session),
 		draft: toAgentEmailDraftView(draft)
 	});
 };

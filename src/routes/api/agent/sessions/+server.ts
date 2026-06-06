@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { toSessionView } from '$lib/session-view';
 import { createEncryptedSession, listSessions, type JsonObject } from '$lib/server/db';
 import {
 	isE2eePolicyResponse,
@@ -10,7 +11,7 @@ import {
 
 export const GET: RequestHandler = async ({ locals }) => {
 	const sessions = await listSessions(locals.agentUser!.id);
-	return json({ sessions });
+	return json({ sessions: sessions.map(toSessionView) });
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
@@ -54,5 +55,5 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		encryptedSummary: body.encrypted_summary ?? null
 	});
 
-	return json({ session }, { status: 201 });
+	return json({ session: toSessionView(session) }, { status: 201 });
 };
