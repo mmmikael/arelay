@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
 		decryptBytes,
@@ -77,7 +77,6 @@
 	let previewObjectUrl = '';
 	let darkMode = $state(false);
 	let previewToken = 0;
-	let lastReadMarkSessionId = $state<string | null>(null);
 	let decryptedSession = $state<{ title: string; summary: string | null } | null>(null);
 	let decryptedArtifacts = $state<Record<string, { filename: string; contentType: string }>>({});
 	let decryptedEmailDraft = $state<DecryptedEmailDraftFields | null>(null);
@@ -130,17 +129,13 @@
 		};
 	});
 
-	$effect(() => {
-		const session = data.session;
-		if (session.is_read || lastReadMarkSessionId === session.id) return;
-
-		lastReadMarkSessionId = session.id;
-		const sessionId = session.id;
-		const timer = setTimeout(() => {
+	afterNavigate(({ to }) => {
+		const sessionId = to?.params?.sessionId;
+		if (!sessionId) return;
+		queueMicrotask(() => {
+			if (data.session.id !== sessionId || data.session.is_read) return;
 			void markSessionRead(sessionId);
-		}, 0);
-
-		return () => clearTimeout(timer);
+		});
 	});
 
 	$effect(() => {
@@ -425,7 +420,7 @@
 				body: JSON.stringify({ is_read: true })
 			});
 			if (!res.ok) throw new Error('Mark read failed');
-			void invalidate('inbox:sessions');
+			await Promise.all([invalidate('inbox:sessions'), invalidate('inbox:session')]);
 		} catch (err) {
 			console.error('[sessions] mark read failed:', err);
 		}
