@@ -56,24 +56,24 @@ function stripUnsafeMetaTags(html: string): string {
 	});
 }
 
-function replaceUntilStable(input: string, replacer: (value: string) => string): string {
-	let out = input;
+function stripBlockedTags(html: string): string {
+	let out = html;
 	let previous;
 	do {
 		previous = out;
-		out = replacer(out);
+		out = out.replace(TAG_PATTERN, '').replace(VOID_TAG_PATTERN, '');
 	} while (out !== previous);
 	return out;
 }
 
-function stripBlockedTags(html: string): string {
-	return replaceUntilStable(html, (value) =>
-		value.replace(TAG_PATTERN, '').replace(VOID_TAG_PATTERN, '')
-	);
-}
-
 function stripEventHandlers(html: string): string {
-	return replaceUntilStable(html, (value) => value.replace(EVENT_HANDLER_ATTR, ''));
+	let out = html;
+	let previous;
+	do {
+		previous = out;
+		out = out.replace(EVENT_HANDLER_ATTR, '');
+	} while (out !== previous);
+	return out;
 }
 
 function stripUnsafeAttributes(html: string): string {
