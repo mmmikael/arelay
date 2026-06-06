@@ -1,10 +1,44 @@
 import type { Handle } from '@sveltejs/kit';
-import { redirect } from '@sveltejs/kit';
 import { getSessionCookieName, verifySession } from '$lib/server/session';
 import { resolveAgentUser } from '$lib/server/agent-auth';
 import { ensureSchema, getUser } from '$lib/server/db';
 
+const SECURITY_HEADERS = {
+	'Cross-Origin-Opener-Policy': 'same-origin',
+	'Cross-Origin-Resource-Policy': 'same-origin',
+	'Permissions-Policy':
+		'camera=(), geolocation=(), microphone=(), payment=(), publickey-credentials-create=(self), publickey-credentials-get=(self), usb=()',
+	'Referrer-Policy': 'no-referrer',
+	'X-Content-Type-Options': 'nosniff',
+	'X-Frame-Options': 'DENY'
+} as const;
+
+function applySecurityHeaders(response: Response, isHttps: boolean): Response {
+	for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+		response.headers.set(name, value);
+	}
+	if (isHttps) {
+		response.headers.set(
+			'Strict-Transport-Security',
+			'max-age=31536000; includeSubDomains'
+		);
+	}
+	return response;
+}
+
+function secureRedirect(location: string, isHttps: boolean): Response {
+	return applySecurityHeaders(
+		new Response(null, {
+			status: 307,
+			headers: { Location: location }
+		}),
+		isHttps
+	);
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
+	const secure = event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https';
+
 	try {
 		await ensureSchema();
 	} catch (err) {
@@ -18,13 +52,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (path.startsWith('/api/agent/')) {
 		const agentUser = await resolveAgentUser(event.request);
 		if (!agentUser) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
+			return applySecurityHeaders(
+				new Response(JSON.stringify({ error: 'Unauthorized' }), {
+					status: 401,
+					headers: { 'Content-Type': 'application/json' }
+				}),
+				secure
+			);
 		}
 		event.locals.agentUser = agentUser;
-		return resolve(event);
+		return applySecurityHeaders(await resolve(event), secure);
 	}
 
 	const cookieValue = event.cookies.get(getSessionCookieName());
@@ -41,7 +78,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (event.locals.authenticated && path === '/') {
-		throw redirect(307, '/portal');
+		return secureRedirect('/portal', secure);
 	}
 
 	const isPublicAuthApi =
@@ -53,14 +90,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (path.startsWith('/portal') || isHumanApi) {
 		if (!event.locals.authenticated) {
 			if (isHumanApi) {
-				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-					status: 401,
-					headers: { 'Content-Type': 'application/json' }
-				});
+				return applySecurityHeaders(
+					new Response(JSON.stringify({ error: 'Unauthorized' }), {
+						status: 401,
+						headers: { 'Content-Type': 'application/json' }
+					}),
+					secure
+				);
 			}
-			throw redirect(307, '/');
+			return secureRedirect('/', secure);
 		}
 	}
 
-	return resolve(event);
+	return applySecurityHeaders(await resolve(event), secure);
 };
