@@ -55,8 +55,9 @@
 
 			<div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
 				<p>
-					Agent Relay is not a backup service. Keep independent copies of important content,
-					and safely store any encryption recovery material.
+					Agent Relay requires end-to-end encryption for all agent deliveries. It is not a
+					backup service — keep independent copies of important content and safely store your
+					encryption recovery material.
 				</p>
 				<div class="mt-3 flex gap-4 font-semibold">
 					<a href="/terms" class="text-blue-600 underline underline-offset-2 dark:text-blue-300">

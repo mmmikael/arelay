@@ -1,6 +1,6 @@
-export const TERMS_VERSION = '2026-06-06';
-export const PRIVACY_VERSION = '2026-06-06';
-export const LEGAL_EFFECTIVE_DATE = 'June 6, 2026';
+export const TERMS_VERSION = '2026-06-07';
+export const PRIVACY_VERSION = '2026-06-07';
+export const LEGAL_EFFECTIVE_DATE = 'June 7, 2026';
 
 export function isCurrentLegalAcceptance(input: {
 	termsAccepted?: unknown;

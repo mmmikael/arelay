@@ -54,6 +54,11 @@
 					You must have the right to submit it and must not use the service for unlawful,
 					harmful, or abusive activity.
 				</p>
+				<p>
+					All agent deliveries must be end-to-end encrypted. You are responsible for completing
+					encryption setup in the portal and for configuring agents to encrypt before upload.
+					Plaintext agent payloads are rejected.
+				</p>
 			</section>
 
 			<section class="legal-warning">
@@ -62,8 +67,9 @@
 					<strong>Agent Relay is not a backup or archival service.</strong> Keep independent
 					copies of important files and messages. Deliveries may be deleted, lost, corrupted,
 					or become inaccessible because of service failure, account termination, deletion,
-					or loss of passkeys or encryption credentials. End-to-end encrypted content cannot
-					be recovered by us if you lose the material required to decrypt it.
+					or loss of passkeys or encryption credentials. Encryption setup is required before
+					you can receive agent deliveries. End-to-end encrypted content cannot be recovered
+					by us if you lose the material required to decrypt it.
 				</p>
 			</section>
 

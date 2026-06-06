@@ -219,33 +219,6 @@ export async function getSession(id: string, ownerUserId?: string): Promise<Inbo
 	return rows[0] ?? null;
 }
 
-export async function createSession(input: {
-	id: string;
-	ownerUserId: string;
-	title: string;
-	summary?: string | null;
-}): Promise<InboxSession> {
-	await ensureSchema();
-	const db = getDb();
-	const rows = await db<InboxSession[]>`
-		INSERT INTO inbox_sessions (id, owner_user_id, title, summary)
-		VALUES (${input.id}, ${input.ownerUserId}, ${input.title}, ${input.summary ?? null})
-		RETURNING
-			id,
-			owner_user_id,
-			title,
-			summary,
-			encryption_version,
-			encrypted_title,
-			encrypted_summary,
-			read_at,
-			created_at,
-			updated_at,
-			(read_at IS NOT NULL) AS is_read
-	`;
-	return rows[0];
-}
-
 export async function createEncryptedSession(input: {
 	id: string;
 	ownerUserId: string;
@@ -288,39 +261,6 @@ export async function createEncryptedSession(input: {
 			(read_at IS NOT NULL) AS is_read
 	`;
 	return rows[0];
-}
-
-export async function updateSession(
-	id: string,
-	ownerUserId: string,
-	input: { title?: string; summary?: string | null }
-): Promise<InboxSession | null> {
-	await ensureSchema();
-	const db = getDb();
-	const existing = await getSession(id, ownerUserId);
-	if (!existing) return null;
-
-	const title = input.title ?? existing.title;
-	const summary = input.summary !== undefined ? input.summary : existing.summary;
-
-	const rows = await db<InboxSession[]>`
-		UPDATE inbox_sessions
-		SET title = ${title}, summary = ${summary}, read_at = NULL, updated_at = NOW()
-		WHERE id = ${id} AND owner_user_id = ${ownerUserId}
-		RETURNING
-			id,
-			owner_user_id,
-			title,
-			summary,
-			encryption_version,
-			encrypted_title,
-			encrypted_summary,
-			read_at,
-			created_at,
-			updated_at,
-			(read_at IS NOT NULL) AS is_read
-	`;
-	return rows[0] ?? null;
 }
 
 export async function updateEncryptedSession(
@@ -543,7 +483,7 @@ export async function createArtifact(input: {
 			${input.contentType},
 			${input.sizeBytes},
 			${input.storageKey},
-			${input.encryptionVersion ?? 'none'},
+			${input.encryptionVersion ?? 'e2ee-v1'},
 			${encryptedFilename ? db.json(encryptedFilename) : null},
 			${encryptedContentType ? db.json(encryptedContentType) : null},
 			${encryptedPayload ? db.json(encryptedPayload) : null}

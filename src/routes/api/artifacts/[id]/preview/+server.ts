@@ -1,10 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getArtifact } from '$lib/server/db';
-import { generateDownloadUrl, getObjectText } from '$lib/server/s3';
-import { previewKindFor } from '$lib/artifacts';
-import { sanitizePreviewHtml } from '$lib/preview-sanitize';
-import { marked } from 'marked';
+import { e2eeOnlyResponse } from '$lib/server/e2ee-policy';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	const artifact = await getArtifact(params.id, locals.user!.id);
@@ -12,44 +9,5 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		return json({ error: 'Artifact not found' }, { status: 404 });
 	}
 
-	const kind = previewKindFor(artifact.filename, artifact.content_type);
-
-	if (kind === 'markdown' || kind === 'text' || kind === 'html') {
-		const text = await getObjectText(artifact.storage_key);
-		const content =
-			kind === 'markdown'
-				? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
-				: kind === 'html'
-					? sanitizePreviewHtml(text)
-					: `<pre>${escapeHtml(text)}</pre>`;
-		return json({
-			kind,
-			filename: artifact.filename,
-			contentType: artifact.content_type,
-			content
-		});
-	}
-
-	const previewUrl = await generateDownloadUrl(
-		artifact.storage_key,
-		artifact.filename,
-		artifact.content_type,
-		300,
-		{ inline: true }
-	);
-
-	return json({
-		kind,
-		filename: artifact.filename,
-		contentType: artifact.content_type,
-		previewUrl
-	});
+	return e2eeOnlyResponse('Artifact preview requires client-side decrypt via /api/artifacts/{id}/ciphertext.');
 };
-
-function escapeHtml(value: string): string {
-	return value
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;');
-}

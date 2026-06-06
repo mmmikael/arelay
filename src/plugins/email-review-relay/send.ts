@@ -42,20 +42,3 @@ export async function sendApprovedEmailDraft(input: {
 		}
 	});
 }
-
-export function emailDraftSendFieldsFromRecord(draft: EmailDraftRecord): EmailDraftSendFields {
-	if (!draft.to_address || !draft.from_email || !draft.subject || !draft.html) {
-		throw new Error('Email draft is missing plaintext send fields');
-	}
-
-	return {
-		to: draft.to_address,
-		from: {
-			email: draft.from_email,
-			name: draft.from_name ?? undefined
-		},
-		subject: draft.subject,
-		html: draft.html,
-		text: draft.text ?? undefined
-	};
-}

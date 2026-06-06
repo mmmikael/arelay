@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	isEncryptedEnvelope,
 	parseEmailDraftBody,
-	parseEmailDraftPayload,
 	parseEmailDraftSendFields
 } from './validate';
 
@@ -14,56 +13,13 @@ const envelope = {
 	ciphertext: 'cipher'
 };
 
-const validPayload = {
+const validApprovePayload = {
 	to: 'user@example.com',
 	from: { email: 'noreply@yourdomain.com', name: 'Your Company' },
 	subject: 'Hello',
 	html: '<p>Hi</p>',
-	text: 'Hi',
-	metadata: { campaign: 'welcome' },
-	idempotency_key: 'draft-1'
+	text: 'Hi'
 };
-
-describe('parseEmailDraftPayload', () => {
-	it('accepts a valid payload', () => {
-		const result = parseEmailDraftPayload(validPayload);
-		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-		expect(result.value).toEqual({
-			to: 'user@example.com',
-			from: { email: 'noreply@yourdomain.com', name: 'Your Company' },
-			subject: 'Hello',
-			html: '<p>Hi</p>',
-			text: 'Hi',
-			metadata: { campaign: 'welcome' },
-			idempotency_key: 'draft-1'
-		});
-	});
-
-	it('rejects invalid email addresses', () => {
-		expect(parseEmailDraftPayload({ ...validPayload, to: 'not-an-email' }).ok).toBe(false);
-		expect(parseEmailDraftPayload({ ...validPayload, from: { email: 'bad' } }).ok).toBe(false);
-	});
-
-	it('requires subject and html', () => {
-		expect(parseEmailDraftPayload({ ...validPayload, subject: '  ' }).ok).toBe(false);
-		expect(parseEmailDraftPayload({ ...validPayload, html: '' }).ok).toBe(false);
-	});
-
-	it('rejects oversized subject and html', () => {
-		expect(
-			parseEmailDraftPayload({ ...validPayload, subject: 'x'.repeat(501) }).ok
-		).toBe(false);
-		expect(parseEmailDraftPayload({ ...validPayload, html: 'x'.repeat(256 * 1024 + 1) }).ok).toBe(
-			false
-		);
-	});
-
-	it('rejects invalid metadata and idempotency_key', () => {
-		expect(parseEmailDraftPayload({ ...validPayload, metadata: [] }).ok).toBe(false);
-		expect(parseEmailDraftPayload({ ...validPayload, idempotency_key: '  ' }).ok).toBe(false);
-	});
-});
 
 describe('isEncryptedEnvelope', () => {
 	it('accepts valid envelopes', () => {
@@ -86,26 +42,33 @@ describe('parseEmailDraftBody', () => {
 			encrypted_html: envelope
 		});
 		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-		expect(result.encrypted).toBe(true);
 	});
 
-	it('routes plaintext payloads through parseEmailDraftPayload', () => {
-		const result = parseEmailDraftBody(validPayload);
-		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-		expect(result.encrypted).toBe(false);
+	it('rejects plaintext payloads', () => {
+		const result = parseEmailDraftBody(validApprovePayload);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toContain('encrypted must be true');
 	});
 });
 
 describe('parseEmailDraftSendFields', () => {
 	it('validates decrypted approve payloads', () => {
-		const result = parseEmailDraftSendFields({
-			to: 'user@example.com',
-			from: { email: 'noreply@yourdomain.com', name: 'Co' },
-			subject: 'Hello',
-			html: '<p>Hi</p>'
-		});
+		const result = parseEmailDraftSendFields(validApprovePayload);
 		expect(result.ok).toBe(true);
+	});
+
+	it('rejects invalid email addresses', () => {
+		expect(parseEmailDraftSendFields({ ...validApprovePayload, to: 'not-an-email' }).ok).toBe(
+			false
+		);
+		expect(parseEmailDraftSendFields({ ...validApprovePayload, from: { email: 'bad' } }).ok).toBe(
+			false
+		);
+	});
+
+	it('requires subject and html', () => {
+		expect(parseEmailDraftSendFields({ ...validApprovePayload, subject: '  ' }).ok).toBe(false);
+		expect(parseEmailDraftSendFields({ ...validApprovePayload, html: '' }).ok).toBe(false);
 	});
 });

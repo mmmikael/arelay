@@ -7,31 +7,6 @@ import {
 	getSessionDeliveryType,
 	getUserCloudflareEmail
 } from '$plugins/email-review-relay/server';
-import { previewKindFor } from '$lib/artifacts';
-import { sanitizePreviewHtml } from '$lib/preview-sanitize';
-import { getObjectText } from '$lib/server/s3';
-import { marked } from 'marked';
-
-type InlinePreviewResult = {
-	artifactId: string;
-	filename: string;
-	kind: 'markdown' | 'html';
-	doc: string;
-};
-
-async function loadInlinePreview(
-	artifactId: string,
-	filename: string,
-	storageKey: string,
-	kind: 'markdown' | 'html'
-): Promise<InlinePreviewResult> {
-	const text = await getObjectText(storageKey);
-	const doc =
-		kind === 'markdown'
-			? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
-			: sanitizePreviewHtml(text);
-	return { artifactId, filename, kind, doc };
-}
 
 export const load: PageServerLoad = async ({ locals, params, depends }) => {
 	depends('inbox:session');
@@ -48,30 +23,8 @@ export const load: PageServerLoad = async ({ locals, params, depends }) => {
 	const mappedArtifacts = artifacts.map((artifact) => ({
 		...artifact,
 		size_bytes: Number(artifact.size_bytes),
-		previewKind:
-			artifact.encryption_version === 'e2ee-v1'
-				? 'none'
-				: previewKindFor(artifact.filename, artifact.content_type)
+		previewKind: 'none' as const
 	}));
-
-	const inlineArtifact =
-		mappedArtifacts.length === 1 && mappedArtifacts[0].encryption_version !== 'e2ee-v1'
-			? mappedArtifacts[0]
-			: null;
-	const inlineKind =
-		inlineArtifact?.previewKind === 'markdown' || inlineArtifact?.previewKind === 'html'
-			? inlineArtifact.previewKind
-			: null;
-
-	const inlinePreview =
-		inlineArtifact && inlineKind
-			? loadInlinePreview(
-					inlineArtifact.id,
-					inlineArtifact.filename,
-					inlineArtifact.storage_key,
-					inlineKind
-				)
-			: null;
 
 	let emailDraft = null;
 	let cloudflareEmailConfigured = false;
@@ -86,7 +39,6 @@ export const load: PageServerLoad = async ({ locals, params, depends }) => {
 	return {
 		session,
 		artifacts: mappedArtifacts,
-		inlinePreview: emailDraft ? null : inlinePreview,
 		plugins: {
 			emailReviewRelay: isEmailReviewRelayEnabled()
 		},

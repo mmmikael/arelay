@@ -38,7 +38,12 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import { formatBytes } from '$lib/artifacts';
-	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
+	import {
+		ENSURE_E2EE_UNLOCK_KEY,
+		OPEN_E2EE_DIALOG_KEY,
+		type EnsureE2eeUnlock,
+		type OpenE2eeDialog
+	} from '$lib/portal-context';
 	import {
 		forgetSessionPrefetch,
 		markSessionPrefetched,
@@ -94,7 +99,8 @@
 
 	const activeSessionId = $derived($page.params.sessionId ?? null);
 	const isAccountPage = $derived($page.url.pathname === '/portal/account');
-	const showMobileDetail = $derived(Boolean(activeSessionId) || isAccountPage);
+	const isSetupPage = $derived($page.url.pathname === '/portal/setup');
+	const showMobileDetail = $derived(Boolean(activeSessionId) || isAccountPage || isSetupPage);
 	const navigatingToSessionId = $derived.by(() => {
 		const pathname = $navigating?.to?.url.pathname;
 		if (!pathname?.startsWith('/portal/')) return null;
@@ -195,12 +201,10 @@
 	}
 
 	function displaySessionTitle(session: LayoutData['sessions'][number]): string {
-		if (!isEncryptedSession(session)) return session.title;
 		return decryptedSessions[session.id]?.title ?? 'Encrypted delivery';
 	}
 
 	function displaySessionSummary(session: LayoutData['sessions'][number]): string | null {
-		if (!isEncryptedSession(session)) return session.summary;
 		return decryptedSessions[session.id]?.summary ?? 'Unlock encryption to view this message.';
 	}
 
@@ -230,6 +234,8 @@
 		recoveryKeyInput = '';
 		e2eeDialog = $e2eeConfig.configured ? 'unlock' : 'setup';
 	}
+
+	setContext(OPEN_E2EE_DIALOG_KEY, openE2eeDialog);
 
 	async function saveE2eeSetup(
 		keyring: Awaited<ReturnType<typeof createE2eeKeyring>>,
@@ -1015,7 +1021,16 @@
 							>
 								Copy
 							</Button>
-							<Button size="sm" onclick={() => (e2eeDialog = null)}>Done</Button>
+							<Button
+								size="sm"
+								onclick={async () => {
+									e2eeDialog = null;
+									if (isSetupPage) {
+										await invalidate('account:e2ee');
+										await goto('/portal');
+									}
+								}}
+							>Done</Button>
 						</div>
 					</div>
 				{:else}

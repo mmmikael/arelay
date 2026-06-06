@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
-import { getE2eeConfig } from '$lib/server/db';
+import {
+	isE2eePolicyResponse,
+	requireOwnerE2eeForAgent
+} from '$lib/server/e2ee-policy';
 import {
 	createEmailDraft,
 	getEmailDraftByIdempotencyKey,
@@ -29,23 +32,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	}
 
 	const ownerUserId = locals.agentUser!.id;
-	const e2eeConfig = await getE2eeConfig(ownerUserId);
-
-	if (parsed.encrypted) {
-		if (!e2eeConfig) {
-			return json(
-				{ error: 'E2EE is not configured for this account. Enable encryption in the portal first.' },
-				{ status: 428 }
-			);
-		}
-	} else if (e2eeConfig) {
-		return json(
-			{
-				error:
-					'Plaintext email drafts are not allowed when E2EE is enabled. Submit encrypted: true drafts instead.'
-			},
-			{ status: 428 }
-		);
+	const policy = await requireOwnerE2eeForAgent(ownerUserId);
+	if (isE2eePolicyResponse(policy)) {
+		return policy;
 	}
 
 	if (parsed.value.idempotency_key) {
@@ -72,8 +61,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			sessionId,
 			draftId,
 			ownerUserId,
-			payload: parsed.value,
-			encrypted: parsed.encrypted
+			payload: parsed.value
 		});
 
 		return json(

@@ -181,11 +181,12 @@
 			</p>
 			<h1>Your agents have something for you.</h1>
 			<p class="login-intro">
-				Reports, files, and finished work arrive in one quiet inbox, ready when you are.
+				Reports, files, and finished work arrive encrypted in one quiet inbox, ready when you
+				are.
 			</p>
 			<ul class="login-proof" aria-label="Agent Relay features">
 				<li><KeyRound class="h-4 w-4 text-blue-600" />Passkey access</li>
-				<li><ShieldCheck class="h-4 w-4 text-emerald-600" />Optional E2EE</li>
+				<li><ShieldCheck class="h-4 w-4 text-emerald-600" />End-to-end encrypted</li>
 				<li><Github class="h-4 w-4 text-violet-600" />Self-hostable</li>
 			</ul>
 		</section>
@@ -216,7 +217,7 @@
 							<p>
 								{authMode === 'signin'
 									? 'Use your passkey to continue'
-									: 'Verify your email, then create a passkey'}
+									: 'Verify your email, create a passkey, then set up encryption'}
 							</p>
 						</div>
 					</div>
