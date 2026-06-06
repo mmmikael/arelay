@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
+import { toSessionView } from '$lib/session-view';
 import {
 	isE2eePolicyResponse,
 	requireOwnerE2eeForAgent
@@ -45,7 +46,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		if (existing) {
 			return json(
 				{
-					session: existing.session,
+					session: toSessionView(existing.session),
 					draft: toAgentEmailDraftView(existing.draft)
 				},
 				{ status: 200 }
@@ -66,7 +67,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
 		return json(
 			{
-				session: created.session,
+				session: toSessionView(created.session),
 				draft: toAgentEmailDraftView(created.draft)
 			},
 			{ status: 201 }
@@ -80,7 +81,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			if (existing) {
 				return json(
 					{
-						session: existing.session,
+						session: toSessionView(existing.session),
 						draft: toAgentEmailDraftView(existing.draft)
 					},
 					{ status: 200 }

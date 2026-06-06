@@ -41,8 +41,6 @@ CREATE TABLE IF NOT EXISTS agent_api_tokens (
 CREATE TABLE IF NOT EXISTS inbox_sessions (
 	id UUID PRIMARY KEY,
 	owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-	title TEXT NOT NULL,
-	summary TEXT,
 	encryption_version TEXT NOT NULL DEFAULT 'e2ee-v1',
 	encrypted_title JSONB,
 	encrypted_summary JSONB,
@@ -52,6 +50,8 @@ CREATE TABLE IF NOT EXISTS inbox_sessions (
 );
 
 ALTER TABLE inbox_sessions ALTER COLUMN encryption_version SET DEFAULT 'e2ee-v1';
+ALTER TABLE inbox_sessions DROP COLUMN IF EXISTS title;
+ALTER TABLE inbox_sessions DROP COLUMN IF EXISTS summary;
 
 CREATE TABLE IF NOT EXISTS inbox_artifacts (
 	id UUID PRIMARY KEY,

@@ -46,8 +46,6 @@ export async function ensureSchema(): Promise<void> {
 export type InboxSession = {
 	id: string;
 	owner_user_id: string | null;
-	title: string;
-	summary: string | null;
 	encryption_version: string;
 	encrypted_title: JsonObject | null;
 	encrypted_summary: JsonObject | null;
@@ -156,8 +154,6 @@ export async function listSessions(ownerUserId: string): Promise<InboxSession[]>
 		SELECT
 			s.id,
 			s.owner_user_id,
-			s.title,
-			s.summary,
 			s.encryption_version,
 			s.encrypted_title,
 			s.encrypted_summary,
@@ -186,8 +182,6 @@ export async function getSession(id: string, ownerUserId?: string): Promise<Inbo
 		SELECT
 			id,
 			owner_user_id,
-			title,
-			summary,
 			encryption_version,
 			encrypted_title,
 			encrypted_summary,
@@ -203,8 +197,6 @@ export async function getSession(id: string, ownerUserId?: string): Promise<Inbo
 		SELECT
 			id,
 			owner_user_id,
-			title,
-			summary,
 			encryption_version,
 			encrypted_title,
 			encrypted_summary,
@@ -232,8 +224,6 @@ export async function createEncryptedSession(input: {
 		INSERT INTO inbox_sessions (
 			id,
 			owner_user_id,
-			title,
-			summary,
 			encryption_version,
 			encrypted_title,
 			encrypted_summary
@@ -241,8 +231,6 @@ export async function createEncryptedSession(input: {
 		VALUES (
 			${input.id},
 			${input.ownerUserId},
-			${'Encrypted delivery'},
-			${null},
 			${'e2ee-v1'},
 			${db.json(input.encryptedTitle)},
 			${encryptedSummary ? db.json(encryptedSummary) : null}
@@ -250,8 +238,6 @@ export async function createEncryptedSession(input: {
 		RETURNING
 			id,
 			owner_user_id,
-			title,
-			summary,
 			encryption_version,
 			encrypted_title,
 			encrypted_summary,
@@ -289,8 +275,6 @@ export async function updateEncryptedSession(
 		RETURNING
 			id,
 			owner_user_id,
-			title,
-			summary,
 			encryption_version,
 			encrypted_title,
 			encrypted_summary,
@@ -316,8 +300,6 @@ export async function setSessionReadState(
 		RETURNING
 			id,
 			owner_user_id,
-			title,
-			summary,
 			encryption_version,
 			encrypted_title,
 			encrypted_summary,

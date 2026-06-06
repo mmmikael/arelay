@@ -59,8 +59,6 @@ export async function getEmailDraftByIdempotencyKey(
 			EmailDraftRecord & {
 				session_id_join: string;
 				owner_user_id_join: string | null;
-				title: string;
-				summary: string | null;
 				session_encryption_version: string;
 				encrypted_title: JsonObject | null;
 				encrypted_summary: JsonObject | null;
@@ -75,8 +73,6 @@ export async function getEmailDraftByIdempotencyKey(
 			d.*,
 			s.id AS session_id_join,
 			s.owner_user_id AS owner_user_id_join,
-			s.title,
-			s.summary,
 			s.encryption_version AS session_encryption_version,
 			s.encrypted_title,
 			s.encrypted_summary,
@@ -98,8 +94,6 @@ export async function getEmailDraftByIdempotencyKey(
 	const session: InboxSession = {
 		id: row.session_id_join,
 		owner_user_id: row.owner_user_id_join,
-		title: row.title,
-		summary: row.summary,
 		encryption_version: row.session_encryption_version,
 		encrypted_title: row.encrypted_title,
 		encrypted_summary: row.encrypted_summary,
@@ -127,8 +121,6 @@ async function createEncryptedEmailDraft(input: {
 			INSERT INTO inbox_sessions (
 				id,
 				owner_user_id,
-				title,
-				summary,
 				delivery_type,
 				encryption_version,
 				encrypted_title,
@@ -137,8 +129,6 @@ async function createEncryptedEmailDraft(input: {
 			VALUES (
 				${input.sessionId},
 				${input.ownerUserId},
-				${'Encrypted email draft'},
-				${null},
 				'email_draft',
 				'e2ee-v1',
 				${tx.json(payload.encrypted_subject)},
@@ -147,8 +137,6 @@ async function createEncryptedEmailDraft(input: {
 			RETURNING
 				id,
 				owner_user_id,
-				title,
-				summary,
 				encryption_version,
 				encrypted_title,
 				encrypted_summary,
