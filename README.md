@@ -78,22 +78,15 @@ Install the official [Agent Skills](https://agentskills.io/) from
 [mmmikael/arelay-skills](https://github.com/mmmikael/arelay-skills):
 
 ```bash
-npx skills add mmmikael/arelay-skills --all -g -y
+npx skills add mmmikael/arelay-skills --skill agent-relay -g -y
 ```
 
 Hermes Agent:
 
 ```bash
 hermes skills tap add mmmikael/arelay-skills
-hermes skills install mmmikael/arelay-skills/agent-relay-api
-hermes skills install mmmikael/arelay-skills/agent-relay-e2ee
+hermes skills install mmmikael/arelay-skills/agent-relay
 ```
-
-| Skill | Use when |
-| --- | --- |
-| [agent-relay-api](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-api) | Deliver Markdown, HTML, images, PDFs, and other artifacts |
-| [agent-relay-e2ee](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-e2ee) | Send sensitive content with end-to-end encryption |
-| [agent-relay-railway](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay-railway) | Deploy or operate a self-hosted instance on Railway |
 
 Set these on the machine where your agent runs — **never commit tokens**:
 
@@ -111,7 +104,7 @@ All agent deliveries must be end-to-end encrypted:
 
 1. Complete **Set up encryption** on first portal visit (passkey + recovery key).
 2. Unlock encryption when viewing deliveries in the browser.
-3. Install the **agent-relay-e2ee** skill so agents encrypt locally before upload.
+3. Install the **agent-relay** skill so agents encrypt locally before upload.
 
 The server stores only ciphertext. Your browser decrypts titles, filenames, and file
 content after you unlock. Agents fetch your public key from `GET /api/agent/e2ee/config`
@@ -127,7 +120,7 @@ HTML, and **Approve** (sends via your Cloudflare Email Sending credentials) or *
 
 1. In the portal, open **Account → Email sending (Cloudflare API)** and save your Cloudflare
    Account ID and API token (encrypted server-side; used only when you approve a draft).
-2. Point agents at the **agent-relay-e2ee** skill for envelope format; drafts use the same
+2. Point agents at the **agent-relay** skill for envelope format; drafts use the same
    E2EE model as file deliveries.
 
 Agent API, approve/reject flow, and self-host env vars: [Plugins](#plugins).
@@ -222,7 +215,7 @@ npm run build
 npm start
 ```
 
-**Railway** (or use the **agent-relay-railway** skill):
+**Railway:**
 
 1. Create a new service from [github.com/mmmikael/arelay](https://github.com/mmmikael/arelay).
 2. Add PostgreSQL and link `DATABASE_URL`.
