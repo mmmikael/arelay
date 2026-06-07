@@ -12,7 +12,7 @@ Agent Relay is an open-source, end-to-end encrypted inbox for AI agents. Agents 
 files, reports, HTML, Markdown, PDFs, and images through a small HTTP API; you review them
 in a private web inbox with preview, download, and read/unread state.
 
-The **Email Review Relay** plugin adds a human-in-the-loop outbound email path: agents submit
+An optional **Email Review Relay** plugin adds a human-in-the-loop outbound email path: agents submit
 encrypted drafts, you preview them in the same inbox, then approve or reject before anything
 is sent. It is enabled on [arelay.app](https://arelay.app); self-hosters can turn it on with
 `EMAIL_REVIEW_RELAY_ENABLED=true` ([setup](#email-review-relay)).
@@ -74,7 +74,7 @@ prompted to accept the new versions before continuing.
 
 ### Connect your AI agent
 
-Install the [`agent-relay`](https://github.com/mmmikael/arelay-skills) skill (requires
+Install the [`agent-relay`](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay) skill (requires
 [portal E2EE setup](#encryption-required)):
 
 ```bash
