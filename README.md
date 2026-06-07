@@ -88,12 +88,33 @@ hermes skills tap add mmmikael/arelay-skills
 hermes skills install mmmikael/arelay-skills/agent-relay
 ```
 
-For Hermes cron delivery to your inbox (`--deliver arelay`), install
-[arelay-hermes-plugin](https://github.com/mmmikael/arelay-hermes-plugin):
+For Hermes **cron** delivery to your inbox (`--deliver arelay`), install
+[arelay-hermes-plugin](https://github.com/mmmikael/arelay-hermes-plugin) and configure
+the gateway (cron runs in the gateway process, not your interactive Hermes CLI session):
 
 ```bash
 hermes plugins install mmmikael/arelay-hermes-plugin --enable
+```
+
+Add credentials to `~/.hermes/.env`:
+
+```bash
+AGENT_API_TOKEN=ar_...
+AGENT_RELAY_URL=https://arelay.app
+AGENT_RELAY_HOME_CHANNEL=https://arelay.app
+```
+
+Complete **Set up encryption** in the portal ([below](#encryption-required)), then restart
+the gateway so cron picks up the plugin and env vars:
+
+```bash
 hermes gateway start
+```
+
+Create a scheduled job that delivers to Agent Relay:
+
+```bash
+/cron add "0 9 * * *" "Generate the morning report. Never use [SILENT]." --deliver arelay
 ```
 
 Set these on the machine where your agent runs — **never commit tokens**:
