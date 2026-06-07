@@ -88,6 +88,14 @@ hermes skills tap add mmmikael/arelay-skills
 hermes skills install mmmikael/arelay-skills/agent-relay
 ```
 
+For Hermes cron delivery to your inbox (`--deliver arelay`), install
+[arelay-hermes-plugin](https://github.com/mmmikael/arelay-hermes-plugin):
+
+```bash
+hermes plugins install mmmikael/arelay-hermes-plugin --enable
+hermes gateway start
+```
+
 Set these on the machine where your agent runs — **never commit tokens**:
 
 | Variable | Value for hosted |
