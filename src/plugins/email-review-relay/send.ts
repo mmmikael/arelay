@@ -1,6 +1,7 @@
-import { sanitizePreviewHtml } from '$lib/preview-sanitize';
+import { prepareHtmlBodyForEmail } from '$lib/preview-doc';
 import { decryptSecret } from '$lib/server/secret-crypto';
 import { sendViaCloudflare } from '$lib/server/email-send';
+import { decryptCloudflareAccountId, isUserCloudflareEmailConfigured } from './credentials';
 import { getUserCloudflareEmail } from './db';
 import type { EmailDraftRecord, EmailDraftSendFields } from './types';
 
@@ -8,7 +9,7 @@ import type { EmailDraftRecord, EmailDraftSendFields } from './types';
 export function prepareEmailDraftSendFields(fields: EmailDraftSendFields): EmailDraftSendFields {
 	return {
 		...fields,
-		html: sanitizePreviewHtml(fields.html)
+		html: prepareHtmlBodyForEmail(fields.html)
 	};
 }
 
@@ -19,12 +20,19 @@ export async function sendApprovedEmailDraft(input: {
 	origin: string;
 }): Promise<void> {
 	const credentials = await getUserCloudflareEmail(input.userId);
-	if (!credentials) {
-		throw new Error('Cloudflare Email Sending is not configured for this account.');
+	if (!isUserCloudflareEmailConfigured(credentials)) {
+		throw new Error(
+			'Cloudflare Email Sending is not configured for this account. Re-save your Account ID and API token in Account settings.'
+		);
 	}
 
 	const fields = prepareEmailDraftSendFields(input.fields);
-	const accountId = decryptSecret(credentials.account_id_ciphertext);
+	const accountId = decryptCloudflareAccountId(credentials);
+	if (!accountId) {
+		throw new Error(
+			'Cloudflare Account ID could not be read. Re-save your Account ID and API token in Account settings.'
+		);
+	}
 	const apiToken = decryptSecret(credentials.api_token_ciphertext);
 	await sendViaCloudflare({
 		accountId,

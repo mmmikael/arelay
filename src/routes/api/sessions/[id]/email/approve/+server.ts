@@ -5,9 +5,10 @@ import { getSession } from '$lib/server/db';
 import {
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
-	parseEmailDraftSendFields,
+	parseEmailDraftApproveFields,
 	sendApprovedEmailDraft,
-	transitionEmailDraftStatus
+	transitionEmailDraftStatus,
+	saveEmailDraftSentSnapshot
 } from '$plugins/email-review-relay/server';
 
 const APPROVABLE_STATUSES = new Set(['pending', 'failed']);
@@ -48,11 +49,18 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 			{ status: 400 }
 		);
 	}
-	const parsed = parseEmailDraftSendFields(body);
+	const parsed = parseEmailDraftApproveFields(body);
 	if (!parsed.ok) {
 		return json({ error: parsed.error }, { status: 400 });
 	}
-	const sendFields = parsed.value;
+	const approveFields = parsed.value;
+	const sendFields = {
+		to: approveFields.to,
+		from: approveFields.from,
+		subject: approveFields.subject,
+		html: approveFields.html,
+		text: approveFields.text
+	};
 
 	const approved = await transitionEmailDraftStatus({
 		draftId: draft.id,
@@ -100,6 +108,14 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		sentAt: new Date(),
 		sendError: null
 	});
+
+	if (sent && approveFields.encrypted_sent) {
+		await saveEmailDraftSentSnapshot({
+			draftId: sent.id,
+			ownerUserId: userId,
+			encryptedSent: approveFields.encrypted_sent
+		});
+	}
 
 	return json({ draft: sent });
 };

@@ -5,7 +5,8 @@ import { getSession, listArtifacts } from '$lib/server/db';
 import {
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
-	getUserCloudflareEmail
+	getUserCloudflareEmail,
+	isUserCloudflareEmailConfigured
 } from '$plugins/email-review-relay/server';
 
 export const load: PageServerLoad = async ({ locals, params, depends }) => {
@@ -33,7 +34,9 @@ export const load: PageServerLoad = async ({ locals, params, depends }) => {
 		if (deliveryType === 'email_draft') {
 			emailDraft = await getEmailDraftBySessionId(params.sessionId, locals.user!.id);
 		}
-		cloudflareEmailConfigured = Boolean(await getUserCloudflareEmail(locals.user!.id));
+		cloudflareEmailConfigured = isUserCloudflareEmailConfigured(
+			await getUserCloudflareEmail(locals.user!.id)
+		);
 	}
 
 	return {

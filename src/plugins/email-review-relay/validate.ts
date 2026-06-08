@@ -1,7 +1,7 @@
 import { isEncryptedEnvelope } from '$lib/e2ee-envelope';
 import { normalizeEmail } from '$lib/server/email-verification';
 import type { JsonObject } from '$lib/server/db';
-import type { EmailDraftSendFields, EncryptedEmailDraftPayload } from './types';
+import type { EmailDraftApproveFields, EmailDraftSendFields, EncryptedEmailDraftPayload } from './types';
 
 const MAX_SUBJECT_LENGTH = 500;
 const MAX_HTML_LENGTH = 256 * 1024;
@@ -168,6 +168,54 @@ export function parseEmailDraftSendFields(body: unknown):
 	}
 
 	return parsePlaintextEmailFields(body as Record<string, unknown>);
+}
+
+export function parseEmailDraftApproveFields(body: unknown):
+	| { ok: true; value: EmailDraftApproveFields }
+	| { ok: false; error: string } {
+	if (!body || typeof body !== 'object') {
+		return { ok: false, error: 'JSON body required' };
+	}
+
+	const record = body as Record<string, unknown>;
+	const parsed = parsePlaintextEmailFields(record);
+	if (!parsed.ok) return parsed;
+
+	const encryptedSent = optionalEncryptedField(record, 'encrypted_sent');
+	if (!encryptedSent.ok) return encryptedSent;
+
+	return {
+		ok: true,
+		value: {
+			...parsed.value,
+			encrypted_sent: encryptedSent.value
+		}
+	};
+}
+
+export function parseEmailDraftReviewBody(body: unknown):
+	| { ok: true; value: { encrypted_review: JsonObject | null } }
+	| { ok: false; error: string } {
+	if (!body || typeof body !== 'object') {
+		return { ok: false, error: 'JSON body required' };
+	}
+
+	const record = body as Record<string, unknown>;
+	if (record.encrypted !== true) {
+		return { ok: false, error: 'encrypted must be true' };
+	}
+
+	if (record.encrypted_review === null) {
+		return { ok: true, value: { encrypted_review: null } };
+	}
+
+	const encryptedReview = requireEncryptedField(record, 'encrypted_review');
+	if (!encryptedReview.ok) return encryptedReview;
+
+	return {
+		ok: true,
+		value: { encrypted_review: encryptedReview.value }
+	};
 }
 
 export function parseEmailDraftBody(body: unknown):

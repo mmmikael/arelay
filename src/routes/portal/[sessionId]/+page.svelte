@@ -28,6 +28,8 @@
 	import {
 		PDF_PREVIEW_SANDBOX,
 		PREVIEW_REFERRER_POLICY,
+		HTML_ARTIFACT_PREVIEW_SANDBOX,
+		HTML_PREVIEW_REFERRER_POLICY,
 		STRICT_PREVIEW_SANDBOX
 	} from '$lib/preview-sandbox';
 	import { getContext, onMount } from 'svelte';
@@ -380,7 +382,7 @@
 						? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
 						: kind === 'text'
 							? `<pre>${escapeHtml(text)}</pre>`
-							: sanitizePreviewHtml(text);
+							: text;
 				previewSourceDoc = content;
 				previewDoc = buildPreviewContent(kind, content, darkMode);
 			} else {
@@ -561,7 +563,15 @@
 					referrerpolicy={PREVIEW_REFERRER_POLICY}
 					class="h-full w-full border-0 bg-white dark:bg-slate-950"
 				></iframe>
-			{:else if (previewKind === 'html' || previewKind === 'markdown' || previewKind === 'text') && previewDoc}
+			{:else if previewKind === 'html' && previewDoc}
+				<iframe
+					srcdoc={previewDoc}
+					title={previewFilename}
+					sandbox={HTML_ARTIFACT_PREVIEW_SANDBOX}
+					referrerpolicy={HTML_PREVIEW_REFERRER_POLICY}
+					class="min-h-0 flex-1 w-full border-0 bg-white dark:bg-slate-950"
+				></iframe>
+			{:else if (previewKind === 'markdown' || previewKind === 'text') && previewDoc}
 				<iframe
 					srcdoc={previewDoc}
 					title={previewFilename}

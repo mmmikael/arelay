@@ -1,4 +1,4 @@
-import { sanitizePreviewHtml } from '$lib/preview-sanitize';
+import { sanitizeArtifactPreviewHtml, sanitizePreviewHtml } from '$lib/preview-sanitize';
 
 const PREVIEW_STYLES = `
 	:root { color-scheme: light; }
@@ -36,6 +36,45 @@ const PREVIEW_STYLES = `
 	:root.dark td {
 		border-color: #334155;
 	}
+	pre.plain-text-body {
+		white-space: pre-wrap;
+		word-break: break-word;
+		font-family: ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		background: transparent;
+		padding: 0;
+		margin: 0;
+		border-radius: 0;
+	}
+	:root.dark pre.plain-text-body {
+		background: transparent;
+	}
+`;
+
+const PLAIN_TEXT_PREVIEW_STYLES = `
+	:root { color-scheme: light; }
+	:root.dark { color-scheme: dark; }
+	body {
+		margin: 0;
+		padding: 1rem;
+		font-family: ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		color: #0f172a;
+		background: #fff;
+	}
+	pre.plain-text-body {
+		white-space: pre-wrap;
+		word-break: break-word;
+		margin: 0;
+		padding: 0;
+		font: inherit;
+	}
+	:root.dark body {
+		color: #e2e8f0;
+		background: #020617;
+	}
 `;
 
 export function isFullHtmlDocument(html: string): boolean {
@@ -43,20 +82,86 @@ export function isFullHtmlDocument(html: string): boolean {
 	return /^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed);
 }
 
+/** True when body has no HTML markup (plain text stored in the html field). */
+export function looksLikePlainTextBody(html: string): boolean {
+	const trimmed = html.trim();
+	if (!trimmed) return false;
+	if (isFullHtmlDocument(trimmed)) return false;
+	return !/<\s*\/?[a-z!?]/i.test(trimmed);
+}
+
+function escapeHtml(value: string): string {
+	return value
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;');
+}
+
+export function plainTextBodyToPreviewHtml(text: string): string {
+	return `<pre class="plain-text-body">${escapeHtml(text)}</pre>`;
+}
+
+/** Minimal HTML document for sending plain-text bodies as html. */
+export function plainTextBodyToEmailHtml(text: string): string {
+	const escaped = escapeHtml(text);
+	return `<!DOCTYPE html><html><body><pre style="white-space:pre-wrap;font-family:ui-monospace,Menlo,Monaco,monospace;margin:0">${escaped}</pre></body></html>`;
+}
+
+/** Preconnect hints for Google Fonts when agent HTML references them. */
+const FONT_PREVIEW_HEAD =
+	'<link rel="preconnect" href="https://fonts.googleapis.com">' +
+	'<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+
+export function injectPreviewFontHints(html: string): string {
+	if (/<head[\s>]/i.test(html)) {
+		return html.replace(/<head(\s[^>]*)?>/i, (match) => `${match}${FONT_PREVIEW_HEAD}`);
+	}
+	if (/<html[\s>]/i.test(html)) {
+		return html.replace(/<html(\s[^>]*)?>/i, (match) => `${match}<head>${FONT_PREVIEW_HEAD}</head>`);
+	}
+	return html;
+}
+
 /**
- * Wrap server-rendered HTML in a styled document for a sandboxed iframe.
+ * Wrap sanitized HTML in a styled document for a sandboxed iframe.
  * Content is sanitized before rendering; scripts remain inert via `sandbox=""`.
  */
 export function buildPreviewDoc(innerHtml: string, dark = false): string {
-	const sanitized = sanitizePreviewHtml(innerHtml);
+	return buildPreviewDocFromSanitized(sanitizePreviewHtml(innerHtml), dark);
+}
+
+function buildPreviewDocFromSanitized(sanitized: string, dark = false): string {
 	const styleTag = `<style>${PREVIEW_STYLES}</style>`;
 	const className = dark ? ' class="dark"' : '';
-	return `<!doctype html><html${className}><head><meta charset="utf-8">${styleTag}</head><body><div class="wrap">${sanitized}</div></body></html>`;
+	return `<!doctype html><html${className}><head><meta charset="utf-8">${FONT_PREVIEW_HEAD}${styleTag}</head><body><div class="wrap">${sanitized}</div></body></html>`;
+}
+
+function buildPlainTextPreviewDoc(text: string, dark = false): string {
+	const styleTag = `<style>${PLAIN_TEXT_PREVIEW_STYLES}</style>`;
+	const className = dark ? ' class="dark"' : '';
+	return `<!doctype html><html${className}><head><meta charset="utf-8">${styleTag}</head><body>${plainTextBodyToPreviewHtml(text)}</body></html>`;
 }
 
 /** Sanitize agent HTML and preserve full documents; wrap fragments for preview styling. */
 export function toPreviewHtmlDocument(html: string, dark = false): string {
-	const sanitized = sanitizePreviewHtml(html);
-	if (isFullHtmlDocument(sanitized)) return sanitized;
-	return buildPreviewDoc(sanitized, dark);
+	if (isFullHtmlDocument(html)) {
+		return injectPreviewFontHints(sanitizeArtifactPreviewHtml(html));
+	}
+	if (looksLikePlainTextBody(html)) {
+		return buildPlainTextPreviewDoc(html, dark);
+	}
+	const sanitized = sanitizeArtifactPreviewHtml(html);
+	return buildPreviewDocFromSanitized(sanitized, dark);
+}
+
+/** Prepare html field for outbound email (preview parity). */
+export function prepareHtmlBodyForEmail(html: string): string {
+	if (isFullHtmlDocument(html)) {
+		return sanitizeArtifactPreviewHtml(html);
+	}
+	if (looksLikePlainTextBody(html)) {
+		return plainTextBodyToEmailHtml(html);
+	}
+	return sanitizeArtifactPreviewHtml(html);
 }

@@ -9,11 +9,12 @@ import {
 	listSessions
 } from '$lib/server/db';
 import {
+	decryptCloudflareAccountId,
 	getUserCloudflareEmail,
+	isUserCloudflareEmailConfigured,
 	listEmailDraftSummariesForUser,
 	type EmailDraftStatus
 } from '$plugins/email-review-relay/server';
-import { decryptSecret } from '$lib/server/secret-crypto';
 import { resolvePortalE2eeRedirect } from '$lib/server/portal-gate';
 import { MAX_ACCOUNT_STORAGE_BYTES, MAX_ARTIFACT_BYTES } from '$lib/storage-limits';
 
@@ -65,10 +66,8 @@ export const load: LayoutServerLoad = async ({ depends, locals, url }) => {
 			emailReviewRelay: emailReviewRelayEnabled
 		},
 		cloudflareEmail: {
-			configured: Boolean(cloudflareEmail),
-			accountId: cloudflareEmail
-				? decryptSecret(cloudflareEmail.account_id_ciphertext)
-				: null
+			configured: isUserCloudflareEmailConfigured(cloudflareEmail),
+			accountId: cloudflareEmail ? decryptCloudflareAccountId(cloudflareEmail) : null
 		},
 		storage: {
 			usedBytes,
