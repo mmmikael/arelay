@@ -14,6 +14,8 @@ export type EmailDraftRecord = {
 	encrypted_html: JsonObject;
 	encrypted_text: JsonObject | null;
 	encrypted_metadata: JsonObject | null;
+	encrypted_review: JsonObject | null;
+	encrypted_sent: JsonObject | null;
 	idempotency_key: string | null;
 	status: EmailDraftStatus;
 	reviewed_at: Date | null;
@@ -25,7 +27,7 @@ export type EmailDraftRecord = {
 
 export type UserCloudflareEmailRecord = {
 	user_id: string;
-	account_id_ciphertext: string;
+	account_id_ciphertext: string | null;
 	api_token_ciphertext: string;
 	created_at: Date;
 	updated_at: Date;
@@ -49,6 +51,10 @@ export type EmailDraftSendFields = {
 	subject: string;
 	html: string;
 	text?: string;
+};
+
+export type EmailDraftApproveFields = EmailDraftSendFields & {
+	encrypted_sent?: JsonObject;
 };
 
 export function isEncryptedEmailDraft(draft: EmailDraftRecord): boolean {

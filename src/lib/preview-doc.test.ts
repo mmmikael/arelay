@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPreviewDoc, isFullHtmlDocument, toPreviewHtmlDocument } from './preview-doc';
+import { buildPreviewDoc, injectPreviewFontHints, isFullHtmlDocument, toPreviewHtmlDocument } from './preview-doc';
 
 describe('isFullHtmlDocument', () => {
 	it('detects full HTML documents', () => {
@@ -23,5 +23,22 @@ describe('toPreviewHtmlDocument', () => {
 	it('strips external resources from wrapped fragments', () => {
 		const doc = buildPreviewDoc('<img src="https://evil.com/x.png">', false);
 		expect(doc).not.toContain('https://evil.com');
+	});
+
+	it('preserves author CSS in full HTML documents', () => {
+		const doc = toPreviewHtmlDocument(
+			'<!doctype html><html><head><style>.card { padding: 2rem; }</style></head><body><div class="card">News</div></body></html>',
+			false
+		);
+		expect(doc).toContain('.card { padding: 2rem; }');
+		expect(doc).toContain('class="card"');
+	});
+
+	it('preserves line breaks in plain text bodies', () => {
+		const doc = toPreviewHtmlDocument('Line one\n\nLine two', false);
+		expect(doc).toContain('plain-text-body');
+		expect(doc).toContain('Line one');
+		expect(doc).toContain('Line two');
+		expect(doc).not.toContain('class="wrap"');
 	});
 });

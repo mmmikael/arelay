@@ -8,10 +8,14 @@ export {
 	getUserCloudflareEmail,
 	listEmailDraftSummariesForUser,
 	transitionEmailDraftStatus,
+	updateEmailDraftReview,
+	saveEmailDraftSentSnapshot,
 	upsertUserCloudflareEmail
 } from './db';
+export { decryptCloudflareAccountId, isUserCloudflareEmailConfigured } from './credentials';
 export { prepareEmailDraftSendFields, sendApprovedEmailDraft } from './send';
 export type {
+	EmailDraftApproveFields,
 	EmailDraftRecord,
 	EmailDraftSendFields,
 	EmailDraftStatus,
@@ -21,7 +25,9 @@ export type {
 export { isEncryptedEmailDraft, toAgentEmailDraftView } from './types';
 export {
 	isEncryptedEnvelope,
+	parseEmailDraftApproveFields,
 	parseEmailDraftBody,
+	parseEmailDraftReviewBody,
 	parseEmailDraftSendFields,
 	parseEncryptedEmailDraftPayload
 } from './validate';

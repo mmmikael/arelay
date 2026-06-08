@@ -4,8 +4,10 @@ import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { decryptSecret, encryptSecret } from '$lib/server/secret-crypto';
 import { validateCloudflareEmailCredentials } from '$lib/server/email-send';
 import {
+	decryptCloudflareAccountId,
 	deleteUserCloudflareEmail,
 	getUserCloudflareEmail,
+	isUserCloudflareEmailConfigured,
 	upsertUserCloudflareEmail
 } from '$plugins/email-review-relay/server';
 
@@ -14,8 +16,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 	const record = await getUserCloudflareEmail(locals.user!.id);
 	return json({
-		configured: Boolean(record),
-		accountId: record ? decryptSecret(record.account_id_ciphertext) : null
+		configured: isUserCloudflareEmailConfigured(record),
+		accountId: record ? decryptCloudflareAccountId(record) : null
 	});
 };
 
@@ -52,7 +54,7 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 
 	return json({
 		configured: true,
-		accountId: decryptSecret(record.account_id_ciphertext)
+		accountId: decryptCloudflareAccountId(record)
 	});
 };
 

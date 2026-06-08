@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS email_drafts (
 	encrypted_html JSONB NOT NULL,
 	encrypted_text JSONB,
 	encrypted_metadata JSONB,
+	encrypted_review JSONB,
+	encrypted_sent JSONB,
 	idempotency_key TEXT,
 	status TEXT NOT NULL DEFAULT 'pending',
 	reviewed_at TIMESTAMPTZ,
@@ -61,6 +63,11 @@ ALTER TABLE email_drafts ALTER COLUMN encrypted_to SET NOT NULL;
 ALTER TABLE email_drafts ALTER COLUMN encrypted_from_email SET NOT NULL;
 ALTER TABLE email_drafts ALTER COLUMN encrypted_subject SET NOT NULL;
 ALTER TABLE email_drafts ALTER COLUMN encrypted_html SET NOT NULL;
+
+ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_review JSONB;
+ALTER TABLE email_drafts ADD COLUMN IF NOT EXISTS encrypted_sent JSONB;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS encrypted_review_html;
+ALTER TABLE email_drafts DROP COLUMN IF EXISTS encrypted_sent_html;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_drafts_idempotency
 	ON email_drafts(owner_user_id, idempotency_key)

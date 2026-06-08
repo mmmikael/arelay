@@ -1,12 +1,30 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
-	import { sanitizePreviewHtml } from '$lib/preview-sanitize';
-	import { toPreviewHtmlDocument } from '$lib/preview-doc';
+	import { encryptString } from '$lib/e2ee';
+	import { e2eeConfig } from '$lib/e2ee-store';
+	import {
+		emailDraftAgentFields,
+		emailDraftDisplayFields
+	} from '$lib/email-draft-decrypt';
+	import {
+		agentFieldsToBundle,
+		bundleMatchesAgent,
+		bundlesEqual,
+		mergeEmailDraftBundle,
+		type EmailDraftBundle
+	} from '$lib/email-draft-bundle';
+	import { looksLikePlainTextBody, prepareHtmlBodyForEmail, toPreviewHtmlDocument } from '$lib/preview-doc';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import Input from '$lib/components/ui/input/input.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import type { DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
 	import type { EmailDraftRecord } from '$plugins/email-review-relay/server';
-	import { PREVIEW_REFERRER_POLICY, STRICT_PREVIEW_SANDBOX } from '$lib/preview-sandbox';
+	import {
+		HTML_ARTIFACT_PREVIEW_SANDBOX,
+		HTML_PREVIEW_REFERRER_POLICY
+	} from '$lib/preview-sandbox';
+
+	const REVIEW_AUTOSAVE_MS = 800;
 
 	type Props = {
 		emailDraft: EmailDraftRecord;
@@ -33,12 +51,208 @@
 	let emailActionBusy = $state(false);
 	let emailActionError = $state('');
 	let approveDialogOpen = $state(false);
+	let editableTo = $state('');
+	let editableFromEmail = $state('');
+	let editableFromName = $state('');
+	let editableSubject = $state('');
+	let editableHtml = $state('');
+	let editingBody = $state(false);
+	let bodyView = $state<'preview' | 'code'>('preview');
+	let loadedDraftKey = $state('');
+	let loadedReviewKey = $state('');
+	let reviewSaveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let reviewSaveError = $state('');
+	let reviewSaveTimer: ReturnType<typeof setTimeout> | undefined;
+	let lastPersistedReview = $state<EmailDraftBundle | null>(null);
+
+	const canEditDraft = $derived(
+		Boolean(activeEmailDraft?.html) &&
+			!emailDraftNeedsUnlock &&
+			(emailDraft.status === 'pending' || emailDraft.status === 'failed')
+	);
+
+	const agentBundle = $derived(
+		activeEmailDraft ? agentFieldsToBundle(emailDraftAgentFields(activeEmailDraft)) : null
+	);
+
+	const editableBundle = $derived(
+		buildEditableBundle({
+			to: editableTo,
+			from_email: editableFromEmail,
+			from_name: editableFromName.trim() ? editableFromName.trim() : null,
+			subject: editableSubject,
+			html: editableHtml
+		})
+	);
+
+	const draftWasEdited = $derived(
+		Boolean(agentBundle) && !bundleMatchesAgent(editableBundle, agentBundle!)
+	);
+
+	const bodyIsPlainText = $derived(
+		Boolean(editableHtml.trim()) && looksLikePlainTextBody(editableHtml)
+	);
+
+	const editBodyLabel = $derived(bodyIsPlainText ? 'Edit text' : 'Edit HTML');
+
+	function buildEditableBundle(input: {
+		to: string;
+		from_email: string;
+		from_name: string | null;
+		subject: string;
+		html: string;
+	}): EmailDraftBundle {
+		return {
+			to: input.to.trim(),
+			from_email: input.from_email.trim(),
+			from_name: input.from_name,
+			subject: input.subject.trim(),
+			html: input.html
+		};
+	}
+
+	function reviewOverlayKey(review: DecryptedEmailDraftFields['review']): string {
+		return review ? JSON.stringify(review) : '';
+	}
+
+	$effect(() => {
+		const draftKey = `${sessionId}:${emailDraft.id}:${emailDraft.status}`;
+
+		if (!activeEmailDraft) {
+			loadedDraftKey = '';
+			loadedReviewKey = '';
+			editableTo = '';
+			editableFromEmail = '';
+			editableFromName = '';
+			editableSubject = '';
+			editableHtml = '';
+			editingBody = false;
+			bodyView = 'preview';
+			reviewSaveStatus = 'idle';
+			reviewSaveError = '';
+			lastPersistedReview = null;
+			return;
+		}
+
+		const reviewKey = reviewOverlayKey(activeEmailDraft.review);
+		if (draftKey === loadedDraftKey && reviewKey === loadedReviewKey) {
+			return;
+		}
+
+		const reviewOverlayRefreshed =
+			draftKey === loadedDraftKey && reviewKey !== loadedReviewKey;
+
+		loadedDraftKey = draftKey;
+		loadedReviewKey = reviewKey;
+
+		if (reviewOverlayRefreshed && editingBody) {
+			const agent = emailDraftAgentFields(activeEmailDraft);
+			if (activeEmailDraft.review) {
+				const reviewBundle = mergeEmailDraftBundle(agent, activeEmailDraft.review);
+				lastPersistedReview = bundleMatchesAgent(reviewBundle, agent) ? null : reviewBundle;
+			} else {
+				lastPersistedReview = null;
+			}
+			return;
+		}
+
+		const display = emailDraftDisplayFields(activeEmailDraft, emailDraft.status);
+		editableTo = display.to;
+		editableFromEmail = display.from_email;
+		editableFromName = display.from_name ?? '';
+		editableSubject = display.subject;
+		editableHtml = display.html;
+
+		const agent = emailDraftAgentFields(activeEmailDraft);
+		if (activeEmailDraft.review) {
+			const reviewBundle = mergeEmailDraftBundle(agent, activeEmailDraft.review);
+			lastPersistedReview = bundleMatchesAgent(reviewBundle, agent) ? null : reviewBundle;
+		} else {
+			lastPersistedReview = null;
+		}
+
+		editingBody = false;
+		bodyView = 'preview';
+		reviewSaveStatus = 'idle';
+		reviewSaveError = '';
+	});
+
+	function scheduleReviewSave() {
+		if (!canEditDraft || !activeEmailDraft) return;
+		if (reviewSaveTimer) clearTimeout(reviewSaveTimer);
+		reviewSaveTimer = setTimeout(() => {
+			reviewSaveTimer = undefined;
+			void persistReview();
+		}, REVIEW_AUTOSAVE_MS);
+	}
+
+	function handleDraftInput() {
+		scheduleReviewSave();
+	}
+
+	function reviewPayloadNeeded(): EmailDraftBundle | null {
+		if (!agentBundle) return null;
+		return bundleMatchesAgent(editableBundle, agentBundle) ? null : editableBundle;
+	}
+
+	async function persistReview(): Promise<boolean> {
+		if (!canEditDraft || !activeEmailDraft || !agentBundle) return false;
+
+		const payload = reviewPayloadNeeded();
+		const unchanged =
+			payload === null
+				? lastPersistedReview === null
+				: lastPersistedReview !== null && bundlesEqual(payload, lastPersistedReview);
+		if (unchanged) return true;
+
+		const publicKeyJwk = $e2eeConfig.publicKeyJwk;
+		if (!publicKeyJwk) {
+			reviewSaveStatus = 'error';
+			reviewSaveError = 'Encryption is not configured.';
+			return false;
+		}
+
+		reviewSaveStatus = 'saving';
+		reviewSaveError = '';
+
+		try {
+			const body =
+				payload === null
+					? { encrypted: true, encrypted_review: null }
+					: {
+							encrypted: true,
+							encrypted_review: await encryptString(JSON.stringify(payload), publicKeyJwk)
+						};
+
+			const res = await fetch(`/api/sessions/${sessionId}/email/review`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			const result = await res.json();
+			if (!res.ok) throw new Error(result.error || 'Could not save draft');
+
+			lastPersistedReview = payload;
+			reviewSaveStatus = 'saved';
+			await invalidate('inbox:session');
+			return true;
+		} catch (err) {
+			reviewSaveStatus = 'error';
+			reviewSaveError = err instanceof Error ? err.message : 'Could not save draft';
+			return false;
+		}
+	}
 
 	const emailPreviewDoc = $derived(
-		activeEmailDraft?.html
-			? toPreviewHtmlDocument(sanitizePreviewHtml(activeEmailDraft.html), darkMode)
-			: ''
+		editableHtml.trim() ? toPreviewHtmlDocument(editableHtml, darkMode) : ''
 	);
+
+	$effect(() => {
+		if (!canEditDraft && editingBody) {
+			editingBody = false;
+			bodyView = 'preview';
+		}
+	});
 
 	const canApprove = $derived(
 		(emailDraft.status === 'pending' || emailDraft.status === 'failed') &&
@@ -67,28 +281,73 @@
 		return draft.from_name ? `${draft.from_name} <${draft.from_email}>` : draft.from_email;
 	}
 
+	function startBodyEdit() {
+		if (!canEditDraft) return;
+		editingBody = true;
+		bodyView = 'code';
+	}
+
+	function showBodyPreview() {
+		bodyView = 'preview';
+	}
+
+	function showBodyCode() {
+		if (!canEditDraft) return;
+		bodyView = 'code';
+	}
+
 	async function approveEmailDraft() {
 		if (!activeEmailDraft || emailActionBusy || !canApprove) {
+			return;
+		}
+		if (!editableHtml.trim()) {
+			emailActionError = 'Email body cannot be empty.';
+			approveDialogOpen = false;
+			return;
+		}
+		if (!editableTo.trim() || !editableFromEmail.trim() || !editableSubject.trim()) {
+			emailActionError = 'To, From, and Subject are required.';
+			approveDialogOpen = false;
 			return;
 		}
 
 		emailActionBusy = true;
 		emailActionError = '';
 		try {
-			const sanitizedHtml = sanitizePreviewHtml(activeEmailDraft.html);
+			if (reviewSaveTimer) {
+				clearTimeout(reviewSaveTimer);
+				reviewSaveTimer = undefined;
+			}
+			if (draftWasEdited) {
+				const saved = await persistReview();
+				if (!saved && reviewSaveStatus === 'error') {
+					throw new Error(reviewSaveError || 'Could not save draft edits before sending');
+				}
+			}
+
+			const sanitizedHtml = prepareHtmlBodyForEmail(editableHtml);
+			const sentBundle: EmailDraftBundle = {
+				...editableBundle,
+				html: sanitizedHtml
+			};
 			const init: RequestInit = { method: 'POST' };
 			if (emailDraft.encryption_version === 'e2ee-v1') {
-				init.headers = { 'Content-Type': 'application/json' };
-				init.body = JSON.stringify({
-					to: activeEmailDraft.to,
+				const publicKeyJwk = $e2eeConfig.publicKeyJwk;
+				const payload: Record<string, unknown> = {
+					to: sentBundle.to,
 					from: {
-						email: activeEmailDraft.from_email,
-						name: activeEmailDraft.from_name ?? undefined
+						email: sentBundle.from_email,
+						name: sentBundle.from_name ?? undefined
 					},
-					subject: activeEmailDraft.subject,
+					subject: sentBundle.subject,
 					html: sanitizedHtml,
 					text: activeEmailDraft.text ?? undefined
-				});
+				};
+				if (publicKeyJwk) {
+					payload.encrypted_sent = await encryptString(JSON.stringify(sentBundle), publicKeyJwk);
+				}
+				init.headers = { 'Content-Type': 'application/json' };
+				init.body = JSON.stringify(payload);
 			}
 			const res = await fetch(`/api/sessions/${sessionId}/email/approve`, init);
 			const result = await res.json();
@@ -133,20 +392,75 @@
 >
 	<div class="space-y-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-6">
 		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div class="space-y-2 text-sm">
+			<div class="min-w-0 flex-1 space-y-3 text-sm">
 				{#if activeEmailDraft}
-					<p class="text-slate-900 dark:text-slate-100">
-						<span class="font-semibold">To:</span>
-						{activeEmailDraft.to}
-					</p>
-					<p class="text-slate-900 dark:text-slate-100">
-						<span class="font-semibold">From:</span>
-						{formatEmailFrom(activeEmailDraft)}
-					</p>
-					<p class="text-slate-900 dark:text-slate-100">
-						<span class="font-semibold">Subject:</span>
-						{activeEmailDraft.subject}
-					</p>
+					{#if canEditDraft}
+						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+							<label for="draft-to" class="font-semibold text-slate-900 dark:text-slate-100">To</label>
+							<Input
+								id="draft-to"
+								type="email"
+								bind:value={editableTo}
+								oninput={handleDraftInput}
+								disabled={emailActionBusy}
+								class="h-9"
+							/>
+						</div>
+						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+							<label for="draft-from-email" class="font-semibold text-slate-900 dark:text-slate-100"
+								>From</label
+							>
+							<div class="grid gap-2 sm:grid-cols-2">
+								<Input
+									id="draft-from-email"
+									type="email"
+									bind:value={editableFromEmail}
+									oninput={handleDraftInput}
+									disabled={emailActionBusy}
+									placeholder="email@yourdomain.com"
+									class="h-9"
+								/>
+								<Input
+									id="draft-from-name"
+									type="text"
+									bind:value={editableFromName}
+									oninput={handleDraftInput}
+									disabled={emailActionBusy}
+									placeholder="Display name (optional)"
+									class="h-9"
+								/>
+							</div>
+						</div>
+						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+							<label for="draft-subject" class="font-semibold text-slate-900 dark:text-slate-100"
+								>Subject</label
+							>
+							<Input
+								id="draft-subject"
+								type="text"
+								bind:value={editableSubject}
+								oninput={handleDraftInput}
+								disabled={emailActionBusy}
+								class="h-9"
+							/>
+						</div>
+					{:else}
+						<p class="text-slate-900 dark:text-slate-100">
+							<span class="font-semibold">To:</span>
+							{editableTo || activeEmailDraft.to}
+						</p>
+						<p class="text-slate-900 dark:text-slate-100">
+							<span class="font-semibold">From:</span>
+							{formatEmailFrom({
+								from_email: editableFromEmail || activeEmailDraft.from_email,
+								from_name: editableFromName.trim() || activeEmailDraft.from_name
+							})}
+						</p>
+						<p class="text-slate-900 dark:text-slate-100">
+							<span class="font-semibold">Subject:</span>
+							{editableSubject || activeEmailDraft.subject}
+						</p>
+					{/if}
 				{:else if emailDraftNeedsUnlock}
 					<p class="text-slate-600 dark:text-slate-300">
 						Unlock encryption to preview this email draft.
@@ -164,6 +478,19 @@
 				{emailDraftStatusLabel(emailDraft.status)}
 			</span>
 		</div>
+
+		{#if canEditDraft && draftWasEdited}
+			<p class="text-xs text-slate-500 dark:text-slate-400">
+				Draft modified — approve sends your edits.
+				{#if reviewSaveStatus === 'saving'}
+					Saving…
+				{:else if reviewSaveStatus === 'saved'}
+					Saved.
+				{:else if reviewSaveStatus === 'error'}
+					<span class="text-red-600 dark:text-red-400">{reviewSaveError}</span>
+				{/if}
+			</p>
+		{/if}
 
 		{#if emailDraft.status === 'pending' || emailDraft.status === 'failed'}
 			<div class="flex flex-wrap items-center gap-2">
@@ -205,13 +532,39 @@
 		{/if}
 	</div>
 
-	<div class="px-4 pb-4 sm:px-6">
-		{#if activeEmailDraft?.html}
+	<div class="space-y-3 px-4 pb-4 sm:px-6">
+		{#if canEditDraft && (activeEmailDraft?.html || editingBody)}
+			<div class="flex flex-wrap items-center gap-2">
+				{#if !editingBody}
+					<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={startBodyEdit}>
+						{editBodyLabel}
+					</Button>
+				{:else if bodyView === 'code'}
+					<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyPreview}>
+						Preview
+					</Button>
+				{:else}
+					<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyCode}>
+						{bodyIsPlainText ? 'Edit text' : 'Edit'}
+					</Button>
+				{/if}
+			</div>
+		{/if}
+
+		{#if canEditDraft && editingBody && bodyView === 'code'}
+			<textarea
+				bind:value={editableHtml}
+				oninput={handleDraftInput}
+				spellcheck="false"
+				aria-label={bodyIsPlainText ? 'Email text body' : 'Email HTML body'}
+				class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 sm:h-[72vh] sm:min-h-[32rem]"
+			></textarea>
+		{:else if activeEmailDraft?.html || (editingBody && emailPreviewDoc)}
 			<iframe
 				srcdoc={emailPreviewDoc}
-				title={activeEmailDraft.subject}
-				sandbox={STRICT_PREVIEW_SANDBOX}
-				referrerpolicy={PREVIEW_REFERRER_POLICY}
+				title={editableSubject || activeEmailDraft?.subject || 'Email preview'}
+				sandbox={HTML_ARTIFACT_PREVIEW_SANDBOX}
+				referrerpolicy={HTML_PREVIEW_REFERRER_POLICY}
 				class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full border-0 bg-white dark:bg-slate-950 sm:h-[72vh] sm:min-h-[32rem]"
 			></iframe>
 		{:else}
@@ -231,8 +584,10 @@
 		<AlertDialog.Header>
 			<AlertDialog.Title>Approve and send email?</AlertDialog.Title>
 			<AlertDialog.Description>
-				This will send the draft to {activeEmailDraft?.to ?? 'the recipient'} using your Cloudflare
-				Email Sending credentials. The HTML body is sanitized to match the preview shown above.
+				This will send the draft to {editableTo || activeEmailDraft?.to || 'the recipient'} using your
+				Cloudflare Email Sending credentials.{draftWasEdited
+					? ' Your edits will be sent (HTML body sanitized to match the preview).'
+					: ' The HTML body is sanitized to match the preview shown above.'}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>

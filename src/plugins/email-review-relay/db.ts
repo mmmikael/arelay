@@ -245,6 +245,44 @@ export async function transitionEmailDraftStatus(input: {
 	return rows[0] ?? null;
 }
 
+export async function updateEmailDraftReview(input: {
+	draftId: string;
+	ownerUserId: string;
+	encryptedReview: JsonObject | null;
+}): Promise<EmailDraftRecord | null> {
+	const db = getDb();
+	const rows = await db<EmailDraftRecord[]>`
+		UPDATE email_drafts
+		SET
+			encrypted_review = ${input.encryptedReview ? db.json(input.encryptedReview) : null},
+			updated_at = NOW()
+		WHERE id = ${input.draftId}
+			AND owner_user_id = ${input.ownerUserId}
+			AND status IN ('pending', 'failed')
+		RETURNING *
+	`;
+	return rows[0] ?? null;
+}
+
+export async function saveEmailDraftSentSnapshot(input: {
+	draftId: string;
+	ownerUserId: string;
+	encryptedSent: JsonObject | null;
+}): Promise<EmailDraftRecord | null> {
+	const db = getDb();
+	const rows = await db<EmailDraftRecord[]>`
+		UPDATE email_drafts
+		SET
+			encrypted_sent = ${input.encryptedSent ? db.json(input.encryptedSent) : null},
+			encrypted_review = NULL,
+			updated_at = NOW()
+		WHERE id = ${input.draftId}
+			AND owner_user_id = ${input.ownerUserId}
+		RETURNING *
+	`;
+	return rows[0] ?? null;
+}
+
 export async function listEmailDraftSummariesForUser(
 	ownerUserId: string
 ): Promise<Record<string, { status: EmailDraftStatus; encryption_version: string }>> {

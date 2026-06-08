@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	isEncryptedEnvelope,
+	parseEmailDraftApproveFields,
 	parseEmailDraftBody,
+	parseEmailDraftReviewBody,
 	parseEmailDraftSendFields
 } from './validate';
 
@@ -70,5 +72,30 @@ describe('parseEmailDraftSendFields', () => {
 	it('requires subject and html', () => {
 		expect(parseEmailDraftSendFields({ ...validApprovePayload, subject: '  ' }).ok).toBe(false);
 		expect(parseEmailDraftSendFields({ ...validApprovePayload, html: '' }).ok).toBe(false);
+	});
+});
+
+describe('parseEmailDraftApproveFields', () => {
+	it('accepts optional encrypted_sent envelope', () => {
+		const result = parseEmailDraftApproveFields({
+			...validApprovePayload,
+			encrypted_sent: envelope
+		});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.encrypted_sent).toEqual(envelope);
+	});
+});
+
+describe('parseEmailDraftReviewBody', () => {
+	it('accepts encrypted review bundle and null clears', () => {
+		expect(parseEmailDraftReviewBody({ encrypted: true, encrypted_review: envelope }).ok).toBe(
+			true
+		);
+		expect(parseEmailDraftReviewBody({ encrypted: true, encrypted_review: null }).ok).toBe(true);
+	});
+
+	it('requires encrypted true', () => {
+		expect(parseEmailDraftReviewBody({ encrypted_review: envelope }).ok).toBe(false);
 	});
 });
