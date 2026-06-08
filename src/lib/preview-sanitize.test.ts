@@ -101,8 +101,9 @@ describe('sanitizeArtifactPreviewHtml', () => {
 });
 
 describe('isDangerousUrl', () => {
-	it('flags script protocols', () => {
+	it('flags script protocols and data URLs', () => {
 		expect(isDangerousUrl('javascript:alert(1)')).toBe(true);
+		expect(isDangerousUrl('data:text/html,<script>alert(1)</script>')).toBe(true);
 		expect(isDangerousUrl('https://example.com')).toBe(false);
 	});
 });

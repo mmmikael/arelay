@@ -23,6 +23,8 @@ function makeDraft(status: EmailDraftStatus): EmailDraftRecord {
 		encrypted_html: envelope,
 		encrypted_text: null,
 		encrypted_metadata: null,
+		encrypted_review: null,
+		encrypted_sent: null,
 		idempotency_key: null,
 		status,
 		reviewed_at: null,

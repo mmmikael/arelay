@@ -102,7 +102,11 @@ function stripNonStylesheetLinks(html: string): string {
 
 export function isDangerousUrl(value: string): boolean {
 	const url = value.trim().toLowerCase();
-	return url.startsWith('javascript:') || url.startsWith('vbscript:');
+	return (
+		url.startsWith('javascript:') ||
+		url.startsWith('vbscript:') ||
+		url.startsWith('data:')
+	);
 }
 
 function stripEventHandlers(html: string): string {

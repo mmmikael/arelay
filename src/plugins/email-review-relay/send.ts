@@ -27,7 +27,7 @@ export async function sendApprovedEmailDraft(input: {
 	}
 
 	const fields = prepareEmailDraftSendFields(input.fields);
-	const accountId = decryptCloudflareAccountId(credentials!);
+	const accountId = decryptCloudflareAccountId(credentials);
 	if (!accountId) {
 		throw new Error(
 			'Cloudflare Account ID could not be read. Re-save your Account ID and API token in Account settings.'

@@ -1,7 +1,9 @@
 import { decryptSecret } from '$lib/server/secret-crypto';
 import type { UserCloudflareEmailRecord } from './types';
 
-export function isUserCloudflareEmailConfigured(record: UserCloudflareEmailRecord | null): boolean {
+export function isUserCloudflareEmailConfigured(
+	record: UserCloudflareEmailRecord | null
+): record is UserCloudflareEmailRecord {
 	return Boolean(record?.account_id_ciphertext?.trim() && record?.api_token_ciphertext?.trim());
 }
 
