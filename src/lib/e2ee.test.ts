@@ -7,6 +7,9 @@ import {
 	encryptString,
 	envelopeToPayload,
 	payloadToEnvelope,
+	unlockPrivateKeyWithLoginPrfOutputs,
+	usesDeterministicPasskeySalt,
+	wrapPrivateKeyWithPrfOutput,
 	type EncryptedEnvelope
 } from './e2ee';
 
@@ -49,5 +52,26 @@ describe('e2ee roundtrip', () => {
 		await expect(decryptString(envelope, keyring.privateKey)).rejects.toThrow(
 			'Unsupported encrypted payload format'
 		);
+	});
+
+	it('unlocks deterministic passkey wraps from login PRF output', async () => {
+		const keyring = await createE2eeKeyring('ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567');
+		const prfOutput = new Uint8Array(32).fill(7);
+		const wrappedPrivateKey = await wrapPrivateKeyWithPrfOutput(
+			'credential-id',
+			keyring.privateKey,
+			prfOutput
+		);
+
+		expect(usesDeterministicPasskeySalt(wrappedPrivateKey)).toBe(true);
+
+		const { privateKey, migratedPrivateKey } = await unlockPrivateKeyWithLoginPrfOutputs(
+			wrappedPrivateKey,
+			{ first: prfOutput, second: null }
+		);
+		const encrypted = await encryptString('login unlock', keyring.publicKeyJwk);
+
+		expect(migratedPrivateKey).toBeNull();
+		await expect(decryptString(encrypted, privateKey)).resolves.toBe('login unlock');
 	});
 });

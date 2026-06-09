@@ -6,14 +6,14 @@
 		type PublicKeyCredentialRequestOptionsJSON
 	} from '@simplewebauthn/browser';
 	import {
-		unlockPrivateKeyWithPasskey,
-		unlockPrivateKeyWithPrfOutput,
+		unlockPrivateKeyWithPasskeyMigration,
+		unlockPrivateKeyWithLoginPrfOutputs,
 		type PasskeyEncryptedPrivateKey
 	} from '$lib/e2ee';
+	import { persistMigratedPasskeyPrivateKey } from '$lib/e2ee-config-client';
 	import { e2eePrivateKey } from '$lib/e2ee-store';
 	import { readE2eePasskeyHint, saveE2eePasskeyHint } from '$lib/e2ee-passkey-hint';
 	import {
-		clearLoginHints,
 		readLastLoginCredentialId,
 		readLastLoginEmail,
 		saveLastLoginCredentialId,
@@ -21,7 +21,7 @@
 	} from '$lib/login-hint';
 	import { PASSKEY_STORAGE_HINT, shouldShowPasskeyStorageHint } from '$lib/passkey-hints';
 	import {
-		getPrfFromAuthResponse,
+		getPrfOutputsFromAuthResponse,
 		withPasskeyPrfAuthExtension,
 		withPasskeyPrfExtension
 	} from '$lib/passkey-prf';
@@ -84,12 +84,20 @@
 			return false;
 		}
 
-		const prfOutput = getPrfFromAuthResponse(response);
+		const prfOutput = getPrfOutputsFromAuthResponse(response);
 		if (prfOutput) {
 			try {
-				const privateKey = await unlockPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
+				const { privateKey, migratedPrivateKey } = await unlockPrivateKeyWithLoginPrfOutputs(
+					encryptedPrivateKey,
+					prfOutput
+				);
 				e2eePrivateKey.set(privateKey);
-				saveE2eePasskeyHint(encryptedPrivateKey);
+				if (migratedPrivateKey) {
+					const migrated = await persistMigratedPasskeyPrivateKey(migratedPrivateKey);
+					saveE2eePasskeyHint(migrated?.passkeyEncryptedPrivateKey ?? encryptedPrivateKey);
+				} else {
+					saveE2eePasskeyHint(encryptedPrivateKey);
+				}
 				return true;
 			} catch {
 				// Fall through to a direct passkey unlock attempt.
@@ -97,9 +105,15 @@
 		}
 
 		try {
-			const privateKey = await unlockPrivateKeyWithPasskey(encryptedPrivateKey);
+			const { privateKey, migratedPrivateKey } =
+				await unlockPrivateKeyWithPasskeyMigration(encryptedPrivateKey);
 			e2eePrivateKey.set(privateKey);
-			saveE2eePasskeyHint(encryptedPrivateKey);
+			if (migratedPrivateKey) {
+				const migrated = await persistMigratedPasskeyPrivateKey(migratedPrivateKey);
+				saveE2eePasskeyHint(migrated?.passkeyEncryptedPrivateKey ?? encryptedPrivateKey);
+			} else {
+				saveE2eePasskeyHint(encryptedPrivateKey);
+			}
 			return true;
 		} catch {
 			return false;
