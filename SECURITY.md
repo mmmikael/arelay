@@ -21,4 +21,6 @@ appropriate.
 
 Agent Relay is designed so encrypted delivery content is decrypted in the user's browser.
 Self-hosted operators remain responsible for securing their deployment: database access,
-object storage credentials, SMTP, `SESSION_SECRET`, TLS, and backups.
+object storage credentials, SMTP, `SESSION_SECRET`, TLS, and backups. See the
+[Backup and restore (self-hosting)](README.md#backup-and-restore-self-hosting) section in
+README.md for the minimum Postgres + S3 procedure.

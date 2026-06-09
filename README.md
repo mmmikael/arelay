@@ -250,6 +250,41 @@ you are rebuilding from scratch, copy only `users`, `webauthn_credentials`, `e2e
 
 Point agents at your deployment URL: `AGENT_RELAY_URL=https://your-domain.example`.
 
+### Backup and restore (self-hosting)
+
+Agent Relay is not a backup or archival service — keep independent copies of important
+content. Self-hosted operators are responsible for backups (see [SECURITY.md](SECURITY.md)).
+
+Back up **both** stores; restoring only one leaves the deployment broken:
+
+| Store | Contents |
+| --- | --- |
+| PostgreSQL | Accounts, passkeys, E2EE config, API tokens, inbox session metadata, email drafts |
+| S3 (`S3_BUCKET` / `S3_PREFIX`) | Encrypted artifact blobs referenced by `inbox_artifacts.storage_key` |
+
+**Backup**
+
+```bash
+# PostgreSQL (custom format; adjust connection string)
+pg_dump "$DATABASE_URL" -Fc -f agent-relay-$(date +%Y%m%d).dump
+
+# S3 prefix (AWS CLI example; use your provider's equivalent)
+aws s3 sync "s3://${S3_BUCKET}/${S3_PREFIX}/" "./agent-relay-s3-$(date +%Y%m%d)/"
+```
+
+Use your host's managed snapshots (Railway Postgres, S3 versioning, etc.) when available.
+
+**Restore**
+
+1. Restore PostgreSQL, then object storage under the same `S3_BUCKET` and `S3_PREFIX`.
+2. Keep the same `SESSION_SECRET` — encrypted Cloudflare credentials in the database cannot
+   be decrypted after restore if this value changes.
+3. Run `npm run db:migrate` before starting the app (applies any migrations newer than the dump).
+4. Spot-check: sign in with a passkey, open a session, download an artifact.
+
+Delivered content stays E2EE-encrypted in backups. Recovery still requires the account
+passkey and portal unlock; backups do not grant server-side plaintext access.
+
 ### Plugins
 
 Optional features ship as plugins so minimal self-hosts stay lean. Plugin tables are
