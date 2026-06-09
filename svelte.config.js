@@ -1,7 +1,10 @@
 import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+// svelte.config.js is evaluated before Vite sets NODE_ENV during `vite dev`, so do not
+// gate dev-only CSP on NODE_ENV here — dev CSP fixes live in hooks.server.ts instead.
+const isProductionBuild =
+	process.env.NODE_ENV === 'production' || process.argv.includes('preview');
 
 const config = {
 	preprocess: vitePreprocess(),
@@ -15,7 +18,7 @@ const config = {
 			directives: {
 				'default-src': ['self'],
 				'base-uri': ['none'],
-				'connect-src': ['self', ...(isDevelopment ? ['ws:'] : [])],
+				'connect-src': ['self', 'ws:', 'wss:'],
 				'font-src': ['self', 'https://fonts.gstatic.com'],
 				'form-action': ['self'],
 				'frame-ancestors': ['none'],
@@ -27,7 +30,7 @@ const config = {
 				'script-src': ['self'],
 				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
 				'worker-src': ['self', 'blob:'],
-				'upgrade-insecure-requests': true
+				...(isProductionBuild ? { 'upgrade-insecure-requests': true } : {})
 			}
 		}
 	}

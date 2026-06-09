@@ -1,47 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import postgres from 'postgres';
-import { env } from '$env/dynamic/private';
-import { getPluginSchemaSql } from '$lib/plugins';
-import { SCHEMA_LOCK_ID, SCHEMA_LOCK_NAMESPACE, SCHEMA_SQL } from './schema';
+import { getDb } from './db-connection';
+import { ensureSchema } from './db-schema-check';
 
-let sql: ReturnType<typeof postgres> | null = null;
-let migrated = false;
+export { getDb } from './db-connection';
+export { ensureSchema } from './db-schema-check';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
-
-export function getDb() {
-	const url = env.DATABASE_URL;
-	if (!url) {
-		throw new Error('DATABASE_URL is not set');
-	}
-	if (!sql) {
-		sql = postgres(url, {
-			max: 10,
-			prepare: false,
-			idle_timeout: 20,
-			connect_timeout: 10,
-			onnotice: () => undefined
-		});
-	}
-	return sql;
-}
-
-export async function ensureSchema(): Promise<void> {
-	if (migrated) return;
-	const db = getDb();
-	await db`SELECT pg_advisory_lock(${SCHEMA_LOCK_NAMESPACE}, ${SCHEMA_LOCK_ID})`;
-	try {
-		await db.unsafe(SCHEMA_SQL);
-		const pluginSchemaSql = getPluginSchemaSql();
-		if (pluginSchemaSql.trim()) {
-			await db.unsafe(pluginSchemaSql);
-		}
-		migrated = true;
-	} finally {
-		await db`SELECT pg_advisory_unlock(${SCHEMA_LOCK_NAMESPACE}, ${SCHEMA_LOCK_ID})`;
-	}
-}
 
 export type InboxSession = {
 	id: string;

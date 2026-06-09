@@ -33,7 +33,7 @@ git clone https://github.com/mmmikael/arelay.git
 cd arelay
 npm install
 cp .env.example .env
-npm run db:setup
+npm run db:migrate:local
 npm run dev
 ```
 
@@ -45,6 +45,8 @@ verification codes are printed to the server console.
 
 - Keep changes focused and consistent with the existing SvelteKit and TypeScript code.
 - Preserve account isolation and the end-to-end encryption boundary.
+- For schema changes, edit the Drizzle schema, run `npm run db:generate`, review the SQL,
+  and apply it with `npm run db:migrate:local`.
 - Add or update tests when behavior changes.
 - Update documentation when configuration, APIs, or user workflows change.
 - Avoid unrelated refactors in the same pull request.
@@ -56,6 +58,9 @@ npm run check
 npm test
 npm run build
 ```
+
+If a disposable empty PostgreSQL database is available, set `TEST_DATABASE_URL` and run
+`npm run db:smoke` to verify migrations from scratch.
 
 ## Pull requests
 
