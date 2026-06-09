@@ -1,3 +1,5 @@
+import { DETERMINISTIC_PRF_SALT_B64URL, deterministicPrfSaltBytes } from './e2ee-passkey-salt';
+
 export type JsonWebKeyEnvelope = JsonWebKey & { kty: string };
 
 export type EncryptedEnvelope = {
@@ -40,7 +42,6 @@ const TEXT_DECODER = new TextDecoder();
 const RECOVERY_KEY_BYTES = 32;
 const RECOVERY_KEY_GROUP = 4;
 const PBKDF2_ITERATIONS = 600_000;
-const PASSKEY_PRF_SALT_BYTES = 32;
 const PASSKEY_TIMEOUT_MS = 60_000;
 const PASSKEY_WRAP_HKDF_SALT = 'Agent Relay passkey PRF private-key wrap v1';
 const PASSKEY_WRAP_HKDF_INFO = 'private-key-wrap';
@@ -53,6 +54,11 @@ type PrfClientExtensionResults = {
 			second?: ArrayBuffer;
 		};
 	};
+};
+
+export type PrfEvaluationResult = {
+	first: Uint8Array;
+	second: Uint8Array | null;
 };
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -240,15 +246,30 @@ export function canAttemptPasskeyPrf(): boolean {
 	);
 }
 
-function getPrfFirstResult(credential: PublicKeyCredential): Uint8Array | null {
+function getPrfResults(credential: PublicKeyCredential): PrfEvaluationResult | null {
 	const results = credential.getClientExtensionResults() as PrfClientExtensionResults;
 	const first = results.prf?.results?.first;
-	return first ? new Uint8Array(first) : null;
+	if (!first) return null;
+	const second = results.prf?.results?.second;
+	return {
+		first: new Uint8Array(first),
+		second: second ? new Uint8Array(second) : null
+	};
 }
 
-async function evaluatePasskeyPrf(credentialId: string, salt: Uint8Array): Promise<Uint8Array> {
+async function evaluatePasskeyPrf(
+	credentialId: string,
+	salt: Uint8Array,
+	secondSalt?: Uint8Array
+): Promise<PrfEvaluationResult> {
 	if (!canAttemptPasskeyPrf()) {
 		throw new Error('Passkeys are not available in this browser context');
+	}
+	const prfInput: { first: ArrayBuffer; second?: ArrayBuffer } = {
+		first: toArrayBuffer(salt)
+	};
+	if (secondSalt) {
+		prfInput.second = toArrayBuffer(secondSalt);
 	}
 
 	const credential = (await navigator.credentials.get({
@@ -265,7 +286,7 @@ async function evaluatePasskeyPrf(credentialId: string, salt: Uint8Array): Promi
 			extensions: {
 				prf: {
 					evalByCredential: {
-						[credentialId]: { first: toArrayBuffer(salt) }
+						[credentialId]: prfInput
 					}
 				}
 			}
@@ -273,9 +294,50 @@ async function evaluatePasskeyPrf(credentialId: string, salt: Uint8Array): Promi
 	})) as PublicKeyCredential | null;
 
 	if (!credential) throw new Error('Passkey unlock was cancelled');
-	const output = getPrfFirstResult(credential);
+	const output = getPrfResults(credential);
 	if (!output) throw new Error('This passkey did not return a PRF result');
 	return output;
+}
+
+function getDeterministicPrfSalt(): Uint8Array {
+	return deterministicPrfSaltBytes();
+}
+
+export function usesDeterministicPasskeySalt(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+): boolean {
+	return encryptedPrivateKey.salt === DETERMINISTIC_PRF_SALT_B64URL;
+}
+
+async function encryptPrivateKeyWithPrfOutput(
+	credentialId: string,
+	privateKey: CryptoKey,
+	prfOutput: Uint8Array
+): Promise<PasskeyEncryptedPrivateKey> {
+	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
+	const iv = randomBytes(12);
+	const ciphertext = await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
+		wrappingKey,
+		toArrayBuffer(await exportPrivateKeyBytes(privateKey))
+	);
+
+	return {
+		v: 1,
+		alg: 'WebAuthnPRF-HKDF-SHA256-A256GCM',
+		credentialId,
+		salt: DETERMINISTIC_PRF_SALT_B64URL,
+		iv: bytesToBase64Url(iv),
+		ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
+	};
+}
+
+export async function wrapPrivateKeyWithPrfOutput(
+	credentialId: string,
+	privateKey: CryptoKey,
+	prfOutput: Uint8Array
+): Promise<PasskeyEncryptedPrivateKey> {
+	return encryptPrivateKeyWithPrfOutput(credentialId, privateKey, prfOutput);
 }
 
 export async function createEncryptionPasskeyPrivateKey(
@@ -285,7 +347,7 @@ export async function createEncryptionPasskeyPrivateKey(
 		throw new Error('Passkeys are not available in this browser context');
 	}
 
-	const prfSalt = randomBytes(PASSKEY_PRF_SALT_BYTES);
+	const prfSalt = getDeterministicPrfSalt();
 	const credential = (await navigator.credentials.create({
 		publicKey: {
 			challenge: toArrayBuffer(randomBytes(32)),
@@ -315,23 +377,9 @@ export async function createEncryptionPasskeyPrivateKey(
 	if (!credential) throw new Error('Passkey creation was cancelled');
 
 	const credentialId = bytesToBase64Url(new Uint8Array(credential.rawId));
-	const prfOutput = getPrfFirstResult(credential) ?? (await evaluatePasskeyPrf(credentialId, prfSalt));
-	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
-	const iv = randomBytes(12);
-	const ciphertext = await crypto.subtle.encrypt(
-		{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
-		wrappingKey,
-		toArrayBuffer(await exportPrivateKeyBytes(privateKey))
-	);
-
-	return {
-		v: 1,
-		alg: 'WebAuthnPRF-HKDF-SHA256-A256GCM',
-		credentialId,
-		salt: bytesToBase64Url(prfSalt),
-		iv: bytesToBase64Url(iv),
-		ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
-	};
+	const prfOutput =
+		getPrfResults(credential)?.first ?? (await evaluatePasskeyPrf(credentialId, prfSalt)).first;
+	return encryptPrivateKeyWithPrfOutput(credentialId, privateKey, prfOutput);
 }
 
 export async function wrapPrivateKeyWithPasskey(
@@ -342,24 +390,8 @@ export async function wrapPrivateKeyWithPasskey(
 		throw new Error('Passkeys are not available in this browser context');
 	}
 
-	const prfSalt = randomBytes(PASSKEY_PRF_SALT_BYTES);
-	const prfOutput = await evaluatePasskeyPrf(credentialId, prfSalt);
-	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
-	const iv = randomBytes(12);
-	const ciphertext = await crypto.subtle.encrypt(
-		{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
-		wrappingKey,
-		toArrayBuffer(await exportPrivateKeyBytes(privateKey))
-	);
-
-	return {
-		v: 1,
-		alg: 'WebAuthnPRF-HKDF-SHA256-A256GCM',
-		credentialId,
-		salt: bytesToBase64Url(prfSalt),
-		iv: bytesToBase64Url(iv),
-		ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
-	};
+	const prfOutput = await evaluatePasskeyPrf(credentialId, getDeterministicPrfSalt());
+	return encryptPrivateKeyWithPrfOutput(credentialId, privateKey, prfOutput.first);
 }
 
 async function decryptPrivateKeyWithPrfOutput(
@@ -387,7 +419,7 @@ export async function unlockPrivateKeyWithPasskey(
 ): Promise<CryptoKey> {
 	const salt = base64UrlToBytes(encryptedPrivateKey.salt);
 	const prfOutput = await evaluatePasskeyPrf(encryptedPrivateKey.credentialId, salt);
-	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
+	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput.first);
 }
 
 export async function unlockPrivateKeyWithPrfOutput(
@@ -395,6 +427,47 @@ export async function unlockPrivateKeyWithPrfOutput(
 	prfOutput: Uint8Array
 ): Promise<CryptoKey> {
 	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
+}
+
+export async function unlockPrivateKeyWithLoginPrfOutputs(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey,
+	prfOutputs: PrfEvaluationResult
+): Promise<{ privateKey: CryptoKey; migratedPrivateKey: PasskeyEncryptedPrivateKey | null }> {
+	try {
+		const privateKey = await decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutputs.first);
+		return { privateKey, migratedPrivateKey: null };
+	} catch (firstError) {
+		if (!prfOutputs.second) throw firstError;
+		const privateKey = await decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutputs.second);
+		const migratedPrivateKey = await encryptPrivateKeyWithPrfOutput(
+			encryptedPrivateKey.credentialId,
+			privateKey,
+			prfOutputs.first
+		);
+		return { privateKey, migratedPrivateKey };
+	}
+}
+
+export async function unlockPrivateKeyWithPasskeyMigration(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+): Promise<{ privateKey: CryptoKey; migratedPrivateKey: PasskeyEncryptedPrivateKey | null }> {
+	const shouldMigrate = !usesDeterministicPasskeySalt(encryptedPrivateKey);
+	const prfOutput = await evaluatePasskeyPrf(
+		encryptedPrivateKey.credentialId,
+		base64UrlToBytes(encryptedPrivateKey.salt),
+		shouldMigrate ? getDeterministicPrfSalt() : undefined
+	);
+	const privateKey = await decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput.first);
+	const migratedPrivateKey =
+		shouldMigrate && prfOutput.second
+			? await encryptPrivateKeyWithPrfOutput(
+					encryptedPrivateKey.credentialId,
+					privateKey,
+					prfOutput.second
+				)
+			: null;
+
+	return { privateKey, migratedPrivateKey };
 }
 
 export async function encryptBytes(

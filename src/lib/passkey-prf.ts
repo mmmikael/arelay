@@ -15,6 +15,7 @@ type PasskeyPrfAuthenticationOptions = PublicKeyCredentialRequestOptionsJSON & {
 		prf?: {
 			eval?: {
 				first: string;
+				second?: string;
 			};
 		};
 	};
@@ -34,7 +35,8 @@ export function withPasskeyPrfExtension(
 
 export function withPasskeyPrfAuthExtension(
 	optionsJSON: PublicKeyCredentialRequestOptionsJSON,
-	saltBase64Url: string
+	saltBase64Url: string,
+	secondSaltBase64Url?: string
 ): PasskeyPrfAuthenticationOptions {
 	return {
 		...optionsJSON,
@@ -42,7 +44,8 @@ export function withPasskeyPrfAuthExtension(
 			...optionsJSON.extensions,
 			prf: {
 				eval: {
-					first: saltBase64Url
+					first: saltBase64Url,
+					...(secondSaltBase64Url ? { second: secondSaltBase64Url } : {})
 				}
 			}
 		}
@@ -53,13 +56,29 @@ type PrfAuthExtensionResults = {
 	prf?: {
 		results?: {
 			first?: ArrayBuffer;
+			second?: ArrayBuffer;
 		};
 	};
 };
 
-export function getPrfFromAuthResponse(response: AuthenticationResponseJSON): Uint8Array | null {
+export type PrfAuthOutputs = {
+	first: Uint8Array;
+	second: Uint8Array | null;
+};
+
+export function getPrfOutputsFromAuthResponse(
+	response: AuthenticationResponseJSON
+): PrfAuthOutputs | null {
 	const extensions = response.clientExtensionResults as PrfAuthExtensionResults | undefined;
 	const first = extensions?.prf?.results?.first;
 	if (!first) return null;
-	return new Uint8Array(first);
+	const second = extensions?.prf?.results?.second;
+	return {
+		first: new Uint8Array(first),
+		second: second ? new Uint8Array(second) : null
+	};
+}
+
+export function getPrfFromAuthResponse(response: AuthenticationResponseJSON): Uint8Array | null {
+	return getPrfOutputsFromAuthResponse(response)?.first ?? null;
 }

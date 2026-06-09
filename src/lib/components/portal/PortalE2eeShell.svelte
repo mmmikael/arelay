@@ -6,7 +6,7 @@
 		createEncryptionPasskeyPrivateKey,
 		wrapPrivateKeyWithPasskey,
 		unlockPrivateKey,
-		unlockPrivateKeyWithPasskey,
+		unlockPrivateKeyWithPasskeyMigration,
 		type EncryptedPrivateKey,
 		type PasskeyEncryptedPrivateKey
 	} from '$lib/e2ee';
@@ -17,6 +17,10 @@
 		shouldShowPasskeyStorageHint,
 		withPasskeyPrfFailureHint
 	} from '$lib/passkey-hints';
+	import {
+		loadE2eeConfigState,
+		persistMigratedPasskeyPrivateKey
+	} from '$lib/e2ee-config-client';
 	import { saveE2eePasskeyHint } from '$lib/e2ee-passkey-hint';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -53,6 +57,8 @@
 	let generatedRecoveryKey = $state('');
 	let usedDedicatedEncryptionPasskey = $state(false);
 	let e2eeOfferDedicatedPasskey = $state(false);
+	let e2eeConfigLoaded = $state(false);
+	let e2eeAutoUnlockAttempted = $state(false);
 
 	function accountPasskeyId(): string | null {
 		return passkeys.find((passkey) => passkey.isCurrent)?.id ?? passkeys[0]?.id ?? null;
@@ -72,14 +78,32 @@
 
 		e2eeBusy = true;
 		try {
-			const privateKey = await unlockPrivateKeyWithPasskey(encryptedPrivateKey);
+			const { privateKey, migratedPrivateKey } =
+				await unlockPrivateKeyWithPasskeyMigration(encryptedPrivateKey);
 			e2eePrivateKey.set(privateKey);
-			rememberPasskeyUnlockHint();
+			if (migratedPrivateKey) {
+				const migrated = await persistMigratedPasskeyPrivateKey(migratedPrivateKey, $e2eeConfig);
+				saveE2eePasskeyHint(migrated?.passkeyEncryptedPrivateKey ?? encryptedPrivateKey);
+			} else {
+				rememberPasskeyUnlockHint();
+			}
 			return true;
 		} catch {
 			return false;
 		} finally {
 			e2eeBusy = false;
+		}
+	}
+
+	async function attemptAutoE2eeUnlock(): Promise<void> {
+		if (e2eeBusy || $e2eePrivateKey || !$e2eeConfig.configured || e2eeAutoUnlockAttempted) {
+			return;
+		}
+
+		e2eeAutoUnlockAttempted = true;
+		if ($e2eeConfig.passkeyEncryptedPrivateKey) {
+			const unlocked = await unlockWithPasskeySilent();
+			if (unlocked) return;
 		}
 	}
 
@@ -121,18 +145,11 @@
 
 	export async function loadE2eeConfig() {
 		try {
-			const res = await fetch('/api/e2ee/config');
-			const config = await res.json();
-			e2eeConfig.set({
-				configured: Boolean(config.configured),
-				publicKeyJwk: config.publicKeyJwk ?? null,
-				encryptedPrivateKey: config.encryptedPrivateKey ?? null,
-				passkeyCredentialId: config.passkeyCredentialId ?? null,
-				passkeyEncryptedPrivateKey: config.passkeyEncryptedPrivateKey ?? null,
-				recoveryHint: config.recoveryHint ?? null
-			});
+			await loadE2eeConfigState();
 		} catch (err) {
 			console.error('[e2ee] config load failed:', err);
+		} finally {
+			e2eeConfigLoaded = true;
 		}
 	}
 
@@ -268,6 +285,17 @@
 
 	$effect(() => {
 		onShieldClickChange?.(handleShieldClick);
+	});
+
+	$effect(() => {
+		if ($e2eePrivateKey) {
+			e2eeAutoUnlockAttempted = false;
+			return;
+		}
+		if (!e2eeConfigLoaded || $e2eePrivateKey || !$e2eeConfig.configured || e2eeAutoUnlockAttempted) {
+			return;
+		}
+		void attemptAutoE2eeUnlock();
 	});
 </script>
 

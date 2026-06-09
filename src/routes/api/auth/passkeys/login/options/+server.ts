@@ -13,6 +13,7 @@ import {
 	getWebAuthnSettings,
 	setLoginChallenge
 } from '$lib/server/webauthn';
+import { DETERMINISTIC_PRF_SALT_B64URL } from '$lib/e2ee-passkey-salt';
 
 type LoginOptionsBody = {
 	email?: string;
@@ -26,16 +27,6 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 		typeof body.loginCredentialId === 'string' ? body.loginCredentialId.trim() : '';
 
 	let userId: string | null = null;
-	if (loginCredentialId) {
-		const credential = await getWebAuthnCredential(loginCredentialId);
-		userId = credential?.user_id ?? null;
-	}
-	if (!userId && email) {
-		const user = await getUserByEmail(email);
-		userId = user?.id ?? null;
-	}
-
-	let prfSalt: string | null = null;
 	let allowCredentials:
 		| Array<{
 				id: string;
@@ -43,28 +34,34 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 				transports?: AuthenticatorTransport[];
 		  }>
 		| undefined;
+	let legacyPrfSalt: string | null = null;
+
+	if (loginCredentialId) {
+		const credential = await getWebAuthnCredential(loginCredentialId);
+		userId = credential?.user_id ?? null;
+	}
+	if (email) {
+		const user = await getUserByEmail(email);
+		userId ??= user?.id ?? null;
+	}
+
+	if (userId) {
+		const passkeys = await listPasskeysForUser(userId);
+		if (passkeys.length > 0) {
+			allowCredentials = passkeys.map((passkey) => ({
+				id: passkey.id,
+				type: 'public-key' as const,
+				transports: passkey.transports as AuthenticatorTransport[] | undefined
+			}));
+		}
+	}
 
 	if (userId) {
 		const encryptedPrivateKey = parsePasskeyEncryptedPrivateKey(
 			(await getE2eeConfig(userId))?.passkey_encrypted_private_key
 		);
-		if (encryptedPrivateKey) {
-			const assumeSamePasskey =
-				!loginCredentialId || encryptedPrivateKey.credentialId === loginCredentialId;
-			if (assumeSamePasskey) {
-				prfSalt = encryptedPrivateKey.salt;
-			}
-		}
-
-		if (email) {
-			const passkeys = await listPasskeysForUser(userId);
-			if (passkeys.length > 0) {
-				allowCredentials = passkeys.map((passkey) => ({
-					id: passkey.id,
-					type: 'public-key' as const,
-					transports: passkey.transports as AuthenticatorTransport[] | undefined
-				}));
-			}
+		if (encryptedPrivateKey && encryptedPrivateKey.salt !== DETERMINISTIC_PRF_SALT_B64URL) {
+			legacyPrfSalt = encryptedPrivateKey.salt;
 		}
 	}
 
@@ -81,17 +78,14 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 		expiresAt: challengeExpiresAt()
 	});
 
-	if (!prfSalt) {
-		return json(options);
-	}
-
 	return json({
 		...options,
 		extensions: {
 			...options.extensions,
 			prf: {
 				eval: {
-					first: prfSalt
+					first: DETERMINISTIC_PRF_SALT_B64URL,
+					...(legacyPrfSalt ? { second: legacyPrfSalt } : {})
 				}
 			}
 		}
