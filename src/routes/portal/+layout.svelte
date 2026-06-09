@@ -41,19 +41,26 @@
 	import {
 		ENSURE_E2EE_UNLOCK_KEY,
 		OPEN_E2EE_DIALOG_KEY,
+		SESSION_UPDATED_AT_LOOKUP_KEY,
 		type EnsureE2eeUnlock,
-		type OpenE2eeDialog
+		type OpenE2eeDialog,
+		type SessionUpdatedAtLookup
 	} from '$lib/portal-context';
+	import { mergeSessionDetailCache, sessionDetailCacheKey } from '$lib/session-detail-cache';
 	import {
 		forgetSessionPrefetch,
 		markSessionPrefetched,
-		prefetchSessionPages
+		prefetchSessionOnIntent,
+		prefetchSessionPages,
+		resetSessionPrefetch,
+		warmPrefetchedSessions
 	} from '$lib/session-prefetch';
 	import { onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	const POLL_MS = 5000;
-	const NAV_PENDING_TIMEOUT_MS = 20_000;
+	// Fallback if navigation never starts or completes (e.g. blocked click).
+	const NAV_PENDING_TIMEOUT_MS = 5_000;
 	const SIDEBAR_KEY = 'agentRelay:sidebarCollapsed';
 	const SIDEBAR_WIDTH_KEY = 'agentRelay:sidebarWidth';
 	const SIDEBAR_MIN_WIDTH = 240;
@@ -126,6 +133,8 @@
 
 	async function logout() {
 		await fetch('/api/logout', { method: 'POST' });
+		e2eePrivateKey.set(null);
+		resetSessionPrefetch();
 		goto('/', { replaceState: true });
 	}
 
@@ -161,6 +170,10 @@
 		if (event && event.button !== 0) return;
 		if (activeSessionId === id) return;
 		pendingSessionId = id;
+		const session = data.sessions.find((entry) => entry.id === id);
+		if (session) {
+			prefetchSessionOnIntent(session);
+		}
 	}
 
 	async function unlockWithPasskeySilent(): Promise<boolean> {
@@ -195,6 +208,10 @@
 	};
 
 	setContext(ENSURE_E2EE_UNLOCK_KEY, ensureE2eeUnlocked);
+
+	const sessionUpdatedAtLookup: SessionUpdatedAtLookup = (sessionId) =>
+		data.sessions.find((entry) => entry.id === sessionId)?.updated_at;
+	setContext(SESSION_UPDATED_AT_LOOKUP_KEY, sessionUpdatedAtLookup);
 
 	function isEncryptedSession(session: LayoutData['sessions'][number]): boolean {
 		return session.encryption_version === 'e2ee-v1';
@@ -564,7 +581,7 @@
 	});
 
 	$effect(() => {
-		void prefetchSessionPages(data.sessions);
+		void prefetchSessionPages(data.sessions, $e2eePrivateKey);
 	});
 
 	$effect(() => {
@@ -573,6 +590,8 @@
 			decryptedSessions = {};
 			return;
 		}
+
+		void warmPrefetchedSessions(privateKey, data.sessions);
 
 		let cancelled = false;
 		const decryptAll = async () => {
@@ -591,6 +610,9 @@
 							)
 						: null;
 					next[session.id] = { title, summary };
+					mergeSessionDetailCache(session.id, sessionDetailCacheKey(session.updated_at), {
+						session: { title, summary }
+					});
 				} catch (err) {
 					console.error('[e2ee] session decrypt failed:', err);
 				}

@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { afterNavigate, invalidate } from '$app/navigation';
 	import { navigating } from '$app/stores';
+	import { fetchAndDecryptArtifactBytes } from '$lib/artifact-bytes';
+	import { decryptString, type EncryptedEnvelope } from '$lib/e2ee';
 	import {
-		decryptBytes,
-		decryptString,
-		payloadToEnvelope,
-		type EncryptedEnvelope,
-		type EncryptedPayload
-	} from '$lib/e2ee';
+		getSessionDetailCache,
+		mergeSessionDetailCache,
+		sessionDetailCacheKey
+	} from '$lib/session-detail-cache';
+	import { isSessionPagePrefetched } from '$lib/session-prefetch';
 	import { decryptEmailDraftFields, type DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
 	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
-	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
+	import { ENSURE_E2EE_UNLOCK_KEY, SESSION_UPDATED_AT_LOOKUP_KEY, type EnsureE2eeUnlock, type SessionUpdatedAtLookup } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
@@ -43,16 +44,20 @@
 	let { data }: { data: PageData } = $props();
 
 	const ensureE2eeUnlocked = getContext<EnsureE2eeUnlock>(ENSURE_E2EE_UNLOCK_KEY);
+	const sessionUpdatedAtLookup = getContext<SessionUpdatedAtLookup>(SESSION_UPDATED_AT_LOOKUP_KEY);
 
 	async function ensureUnlockedForEncrypted(): Promise<boolean> {
 		if ($e2eePrivateKey) return true;
 		return ensureE2eeUnlocked();
 	}
 
-	const isSwitchingSession = $derived(
-		Boolean($navigating?.to?.params?.sessionId) &&
-			$navigating?.to?.params?.sessionId !== data.session.id
-	);
+	const navigatingToSessionId = $derived($navigating?.to?.params?.sessionId);
+	const isSwitchingSession = $derived.by(() => {
+		if (!navigatingToSessionId || navigatingToSessionId === data.session.id) return false;
+		const targetId = String(navigatingToSessionId);
+		const updatedAt = sessionUpdatedAtLookup(targetId);
+		return !isSessionPagePrefetched(targetId, updatedAt);
+	});
 
 	let previewOpen = $state(false);
 	let previewLoading = $state(false);
@@ -114,6 +119,21 @@
 	$effect(() => {
 		const privateKey = $e2eePrivateKey;
 		const emailDraft = data.emailDraft;
+		const sessionId = data.session.id;
+		const sessionUpdatedAt = data.session.updated_at;
+		const cacheKey = sessionDetailCacheKey(sessionUpdatedAt, emailDraft?.updated_at ?? null);
+		const cached = privateKey ? getSessionDetailCache(sessionId, cacheKey) : null;
+
+		if (cached?.session) {
+			decryptedSession = cached.session;
+		}
+		if (cached?.artifacts && Object.keys(cached.artifacts).length > 0) {
+			decryptedArtifacts = cached.artifacts;
+		}
+		if (cached && cached.emailDraft !== undefined) {
+			decryptedEmailDraft = cached.emailDraft;
+		}
+
 		if (!privateKey) {
 			decryptedSession = null;
 			decryptedArtifacts = {};
@@ -121,12 +141,23 @@
 			return;
 		}
 
+		const encryptedArtifacts = data.artifacts.filter(
+			(artifact) => artifact.encrypted_filename && artifact.encrypted_content_type
+		);
+		const artifactsReady = encryptedArtifacts.every((artifact) => cached?.artifacts[artifact.id]);
+		const emailDraftReady = !emailDraft || cached?.emailDraft !== undefined;
+		if (cached?.session && artifactsReady && emailDraftReady) {
+			return;
+		}
+
 		let cancelled = false;
 		const decryptMetadata = async () => {
-			const nextArtifacts: Record<string, { filename: string; contentType: string }> = {};
-			let nextSession: { title: string; summary: string | null } | null = null;
+			const nextArtifacts: Record<string, { filename: string; contentType: string }> = {
+				...(cached?.artifacts ?? {})
+			};
+			let nextSession: { title: string; summary: string | null } | null = cached?.session ?? null;
 
-			if (data.session.encrypted_title) {
+			if (data.session.encrypted_title && !nextSession) {
 				try {
 					const title = await decryptString(
 						data.session.encrypted_title as unknown as EncryptedEnvelope,
@@ -148,6 +179,7 @@
 				if (!artifact.encrypted_filename || !artifact.encrypted_content_type) {
 					continue;
 				}
+				if (nextArtifacts[artifact.id]) continue;
 				try {
 					nextArtifacts[artifact.id] = {
 						filename: await decryptString(
@@ -164,8 +196,8 @@
 				}
 			}
 
-			let nextEmailDraft: DecryptedEmailDraftFields | null = null;
-			if (emailDraft) {
+			let nextEmailDraft: DecryptedEmailDraftFields | null = cached?.emailDraft ?? null;
+			if (emailDraft && cached?.emailDraft === undefined) {
 				nextEmailDraft = await decryptEmailDraftFields(emailDraft, privateKey);
 			}
 
@@ -173,6 +205,12 @@
 				decryptedSession = nextSession;
 				decryptedArtifacts = nextArtifacts;
 				decryptedEmailDraft = nextEmailDraft;
+				mergeSessionDetailCache(sessionId, cacheKey, {
+					session: nextSession,
+					artifacts: nextArtifacts,
+					artifactIds: data.artifacts.map((artifact) => artifact.id),
+					emailDraft: nextEmailDraft
+				});
 			}
 		};
 		void decryptMetadata();
@@ -296,15 +334,7 @@
 	async function decryptArtifactBytes(artifact: PageData['artifacts'][number]): Promise<Uint8Array> {
 		const privateKey = $e2eePrivateKey;
 		if (!privateKey) throw new Error('Unlock encryption first');
-		if (!artifact.encrypted_payload) throw new Error('Missing encrypted payload metadata');
-
-		const res = await fetch(`/api/artifacts/${artifact.id}/ciphertext`);
-		if (!res.ok) throw new Error('Could not fetch encrypted artifact');
-		const ciphertextBytes = new Uint8Array(await res.arrayBuffer());
-		return decryptBytes(
-			payloadToEnvelope(artifact.encrypted_payload as unknown as EncryptedPayload, ciphertextBytes),
-			privateKey
-		);
+		return fetchAndDecryptArtifactBytes(artifact, privateKey);
 	}
 
 	async function downloadArtifactRecord(artifact: PageData['artifacts'][number]) {
