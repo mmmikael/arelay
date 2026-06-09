@@ -1,9 +1,19 @@
 import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { getSessionCookieName, verifySession } from '$lib/server/session';
-import { resolveAgentUser } from '$lib/server/agent-auth';
+import {
+	enforcePublicAuthIpRateLimit,
+	isPublicAuthPath
+} from '$lib/server/auth-rate-limit';
+import { readBearerToken, resolveAgentUser } from '$lib/server/agent-auth';
+import {
+	peekFailedAgentAuthIpRateLimit,
+	recordFailedAgentAuthIpRateLimit
+} from '$lib/server/agent-rate-limit';
 import { ensureSchema, getUser } from '$lib/server/db';
 import { hasCurrentLegalVersions } from '$lib/legal';
+import { buildRateLimitResponse } from '$lib/server/rate-limit';
+import { getRequestClientIp } from '$lib/server/request-client-ip';
+import { getSessionCookieName, verifySession } from '$lib/server/session';
 
 function stripDevPwaMarkup(html: string): string {
 	return html
@@ -72,6 +82,27 @@ function databaseUnavailableResponse(secure: boolean, message: string): Response
 	);
 }
 
+function unauthorizedJsonResponse(secure: boolean): Response {
+	return applySecurityHeaders(
+		new Response(JSON.stringify({ error: 'Unauthorized' }), {
+			status: 401,
+			headers: { 'Content-Type': 'application/json' }
+		}),
+		secure
+	);
+}
+
+async function rejectFailedAgentAuth(clientIp: string, secure: boolean): Promise<Response> {
+	const failedAuthLimit = await recordFailedAgentAuthIpRateLimit(clientIp);
+	if (!failedAuthLimit.ok) {
+		return applySecurityHeaders(
+			buildRateLimitResponse(failedAuthLimit.retryAfterSeconds),
+			secure
+		);
+	}
+	return unauthorizedJsonResponse(secure);
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const secure = event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https';
 
@@ -88,16 +119,29 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.agentUser = null;
 	event.locals.currentPasskeyId = null;
 
+	if (isPublicAuthPath(path)) {
+		const authLimit = await enforcePublicAuthIpRateLimit(getRequestClientIp(event));
+		if (!authLimit.ok) {
+			return applySecurityHeaders(buildRateLimitResponse(authLimit.retryAfterSeconds), secure);
+		}
+	}
+
 	if (path.startsWith('/api/agent/')) {
+		const clientIp = getRequestClientIp(event);
+		const bearerToken = readBearerToken(event.request);
+
+		const exhausted = await peekFailedAgentAuthIpRateLimit(clientIp);
+		if (!exhausted.ok) {
+			return applySecurityHeaders(buildRateLimitResponse(exhausted.retryAfterSeconds), secure);
+		}
+
+		if (!bearerToken) {
+			return rejectFailedAgentAuth(clientIp, secure);
+		}
+
 		const agentUser = await resolveAgentUser(event.request);
 		if (!agentUser) {
-			return applySecurityHeaders(
-				new Response(JSON.stringify({ error: 'Unauthorized' }), {
-					status: 401,
-					headers: { 'Content-Type': 'application/json' }
-				}),
-				secure
-			);
+			return rejectFailedAgentAuth(clientIp, secure);
 		}
 		event.locals.agentUser = agentUser;
 		return applySecurityHeaders(await resolve(event), secure);
@@ -137,22 +181,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return secureRedirect('/portal', secure);
 	}
 
-	const isPublicAuthApi =
-		path.startsWith('/api/auth/passkeys/login/') ||
-		path.startsWith('/api/auth/passkeys/signup/') ||
-		path.startsWith('/api/auth/email-verification/');
 	const isHumanApi =
-		path.startsWith('/api/') && !path.startsWith('/api/agent/') && !isPublicAuthApi;
+		path.startsWith('/api/') && !path.startsWith('/api/agent/') && !isPublicAuthPath(path);
 	if (path.startsWith('/portal') || isHumanApi) {
 		if (!event.locals.authenticated) {
 			if (isHumanApi) {
-				return applySecurityHeaders(
-					new Response(JSON.stringify({ error: 'Unauthorized' }), {
-						status: 401,
-						headers: { 'Content-Type': 'application/json' }
-					}),
-					secure
-				);
+				return unauthorizedJsonResponse(secure);
 			}
 			return secureRedirect('/', secure);
 		}

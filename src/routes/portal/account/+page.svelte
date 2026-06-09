@@ -259,7 +259,7 @@
 	>
 		<a
 			href="/portal"
-			class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+			class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
 			aria-label="Back to inbox"
 		>
 			<ArrowLeft class="h-5 w-5" />

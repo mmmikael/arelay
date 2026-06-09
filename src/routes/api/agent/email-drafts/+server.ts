@@ -3,6 +3,11 @@ import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { toSessionView } from '$lib/session-view';
 import {
+	AGENT_SESSION_LIMIT_ERROR,
+	reserveAgentSessionCreate
+} from '$lib/server/agent-rate-limit';
+import { buildRateLimitResponse } from '$lib/server/rate-limit';
+import {
 	isE2eePolicyResponse,
 	requireOwnerE2eeForAgent
 } from '$lib/server/e2ee-policy';
@@ -52,6 +57,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 				{ status: 200 }
 			);
 		}
+	}
+
+	const sessionLimit = await reserveAgentSessionCreate(ownerUserId);
+	if (!sessionLimit.ok) {
+		return buildRateLimitResponse(sessionLimit.retryAfterSeconds, AGENT_SESSION_LIMIT_ERROR);
 	}
 
 	const sessionId = crypto.randomUUID();

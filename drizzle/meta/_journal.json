@@ -8,6 +8,13 @@
       "when": 1780991348039,
       "tag": "0000_lovely_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780992000000,
+      "tag": "0001_rate_limit_buckets",
+      "breakpoints": true
     }
   ]
 }

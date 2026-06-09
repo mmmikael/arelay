@@ -20,7 +20,7 @@ import { MAX_ACCOUNT_STORAGE_BYTES, MAX_ARTIFACT_BYTES } from '$lib/storage-limi
 
 type EmailDraftSummaryMap = Record<
 	string,
-	{ status: EmailDraftStatus; encryption_version: string }
+	{ status: EmailDraftStatus; encryption_version: string; updated_at: Date }
 >;
 const EMPTY_EMAIL_DRAFT_SUMMARIES: EmailDraftSummaryMap = {};
 

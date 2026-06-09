@@ -140,6 +140,16 @@ export const e2eeConfig = pgTable(
 	(table) => [uniqueIndex('idx_e2ee_config_user_id').on(table.userId)]
 );
 
+export const rateLimitBuckets = pgTable(
+	'rate_limit_buckets',
+	{
+		bucketKey: text('bucket_key').primaryKey(),
+		windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+		count: integer('count').default(0).notNull()
+	},
+	(table) => [index('idx_rate_limit_buckets_window_start').on(table.windowStart)]
+);
+
 export const webauthnCredentials = pgTable(
 	'webauthn_credentials',
 	{

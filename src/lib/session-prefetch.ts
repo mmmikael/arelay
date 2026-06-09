@@ -1,17 +1,14 @@
 import { preloadData } from '$app/navigation';
 import { fetchAndDecryptArtifactBytes } from '$lib/artifact-bytes';
 import { decryptEmailDraftFields } from '$lib/email-draft-decrypt';
-import {
-	decryptString,
-	type EncryptedEnvelope
-} from '$lib/e2ee';
+import { decryptString, type EncryptedEnvelope } from '$lib/e2ee';
+import { decryptEncryptedSessionMeta } from '$lib/session-detail-decrypt';
 import {
 	forgetSessionDetailCache,
 	mergeSessionDetailCache,
 	resetSessionDetailCache,
 	sessionDetailCacheKey,
-	sessionDetailCacheVersion,
-	sessionDetailVersion
+	sessionDetailCacheVersion
 } from '$lib/session-detail-cache';
 import type { EmailDraftRecord } from '$plugins/email-review-relay/types';
 
@@ -20,9 +17,10 @@ const MAX_CONCURRENCY = 3;
 const MAX_ARTIFACT_WARM_CONCURRENCY = 2;
 const MAX_ARTIFACT_PREFETCH_BYTES = 8 * 1024 * 1024;
 
-type PrefetchSession = {
+export type PrefetchSession = {
 	id: string;
 	updated_at: string | Date;
+	email_draft_updated_at?: string | Date | null;
 };
 
 type PrefetchArtifact = {
@@ -44,18 +42,36 @@ type PrefetchPageData = {
 	emailDraft?: EmailDraftRecord | null;
 };
 
+type EmailDraftSummaryLookup = Record<
+	string,
+	{ updated_at?: string | Date | null } | undefined
+>;
+
 const prefetchedVersions = new Map<string, string>();
 const inflight = new Map<string, Promise<void>>();
 const warmedVersions = new Map<string, string>();
 const prefetchedPageData = new Map<string, PrefetchPageData>();
 
+export function toPrefetchSessions(
+	sessions: Array<{ id: string; updated_at: string | Date }>,
+	emailDraftSummaries: EmailDraftSummaryLookup = {}
+): PrefetchSession[] {
+	return sessions.map((session) => ({
+		id: session.id,
+		updated_at: session.updated_at,
+		email_draft_updated_at: emailDraftSummaries[session.id]?.updated_at ?? null
+	}));
+}
+
 function sessionVersion(session: PrefetchSession): string {
-	return sessionDetailVersion(session.updated_at);
+	return sessionDetailCacheVersion(
+		sessionDetailCacheKey(session.updated_at, session.email_draft_updated_at ?? null)
+	);
 }
 
 export function markSessionPrefetched(sessionId: string, updatedAt?: string | Date): void {
 	if (updatedAt !== undefined) {
-		prefetchedVersions.set(sessionId, sessionDetailVersion(updatedAt));
+		prefetchedVersions.set(sessionId, sessionDetailCacheVersion(sessionDetailCacheKey(updatedAt)));
 	}
 }
 
@@ -90,7 +106,10 @@ export function isSessionPagePrefetched(sessionId: string, updatedAt?: string | 
 	if (updatedAt === undefined) {
 		return prefetchedVersions.has(sessionId);
 	}
-	return prefetchedVersions.get(sessionId) === sessionDetailVersion(updatedAt);
+	return (
+		prefetchedVersions.get(sessionId) ===
+		sessionDetailCacheVersion(sessionDetailCacheKey(updatedAt))
+	);
 }
 
 export function prefetchSessionOnIntent(session: PrefetchSession): void {
@@ -103,23 +122,14 @@ async function warmSessionPageData(pageData: PrefetchPageData, privateKey: Crypt
 	const version = pageDataCacheVersion(pageData);
 	if (warmedVersions.get(sessionId) === version) return;
 
-	let sessionMeta: { title: string; summary: string | null } | null = null;
-	if (pageData.session.encrypted_title) {
-		try {
-			const title = await decryptString(
-				pageData.session.encrypted_title as EncryptedEnvelope,
-				privateKey
-			);
-			const summary = pageData.session.encrypted_summary
-				? await decryptString(
-						pageData.session.encrypted_summary as EncryptedEnvelope,
-						privateKey
-					)
-				: null;
-			sessionMeta = { title, summary };
-		} catch (err) {
-			console.error('[prefetch] session metadata decrypt failed:', err);
-		}
+	const sessionMeta = await decryptEncryptedSessionMeta(
+		pageData.session.encrypted_title,
+		pageData.session.encrypted_summary,
+		privateKey
+	);
+
+	if (pageData.session.encrypted_title && !sessionMeta) {
+		return;
 	}
 
 	const artifactMeta: Record<string, { filename: string; contentType: string }> = {};
@@ -187,7 +197,7 @@ export async function warmPrefetchedSessions(
 	for (const session of targets) {
 		const pageData = prefetchedPageData.get(session.id);
 		if (!pageData) continue;
-		if (sessionVersion(session) !== sessionDetailVersion(pageData.session.updated_at)) continue;
+		if (sessionVersion(session) !== pageDataCacheVersion(pageData)) continue;
 		try {
 			await warmSessionPageData(pageData, privateKey);
 		} catch (err) {
@@ -206,10 +216,7 @@ async function preloadSessionPage(session: PrefetchSession): Promise<void> {
 	}
 }
 
-export async function prefetchSessionPages(
-	sessions: PrefetchSession[],
-	privateKey?: CryptoKey | null
-): Promise<void> {
+export async function prefetchSessionPages(sessions: PrefetchSession[]): Promise<void> {
 	const targets = sessions.slice(0, SESSION_PREFETCH_LIMIT).filter((session) => {
 		const version = sessionVersion(session);
 		return prefetchedVersions.get(session.id) !== version && !inflight.has(session.id);
@@ -230,16 +237,6 @@ export async function prefetchSessionPages(
 				});
 			inflight.set(session.id, promise);
 			await promise;
-			if (privateKey) {
-				const pageData = prefetchedPageData.get(session.id);
-				if (pageData) {
-					try {
-						await warmSessionPageData(pageData, privateKey);
-					} catch (err) {
-						console.error('[prefetch] session warm failed:', err);
-					}
-				}
-			}
 		}
 	}
 

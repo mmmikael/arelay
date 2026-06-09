@@ -214,6 +214,38 @@ export async function createEncryptedSession(input: {
 	return rows[0];
 }
 
+export async function countAgentSessionsCreatedSince(
+	ownerUserId: string,
+	since: Date
+): Promise<number> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<Array<{ count: number }>>`
+		SELECT COUNT(*)::int AS count
+		FROM inbox_sessions
+		WHERE owner_user_id = ${ownerUserId}
+			AND created_at > ${since}
+	`;
+	return rows[0]?.count ?? 0;
+}
+
+export async function getOldestAgentSessionCreatedAtSince(
+	ownerUserId: string,
+	since: Date
+): Promise<Date | null> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<Array<{ created_at: Date }>>`
+		SELECT created_at
+		FROM inbox_sessions
+		WHERE owner_user_id = ${ownerUserId}
+			AND created_at > ${since}
+		ORDER BY created_at ASC
+		LIMIT 1
+	`;
+	return rows[0]?.created_at ?? null;
+}
+
 export async function updateEncryptedSession(
 	id: string,
 	ownerUserId: string,
@@ -391,6 +423,40 @@ export async function getAccountStorageUsedBytes(ownerUserId: string): Promise<n
 		WHERE s.owner_user_id = ${ownerUserId}
 	`;
 	return Number(rows[0]?.total ?? 0);
+}
+
+export async function countAgentArtifactsCreatedSince(
+	ownerUserId: string,
+	since: Date
+): Promise<number> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<Array<{ count: number }>>`
+		SELECT COUNT(*)::int AS count
+		FROM inbox_artifacts a
+		JOIN inbox_sessions s ON s.id = a.session_id
+		WHERE s.owner_user_id = ${ownerUserId}
+			AND a.created_at > ${since}
+	`;
+	return rows[0]?.count ?? 0;
+}
+
+export async function getOldestAgentArtifactCreatedAtSince(
+	ownerUserId: string,
+	since: Date
+): Promise<Date | null> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<Array<{ created_at: Date }>>`
+		SELECT a.created_at
+		FROM inbox_artifacts a
+		JOIN inbox_sessions s ON s.id = a.session_id
+		WHERE s.owner_user_id = ${ownerUserId}
+			AND a.created_at > ${since}
+		ORDER BY a.created_at ASC
+		LIMIT 1
+	`;
+	return rows[0]?.created_at ?? null;
 }
 
 export async function createArtifact(input: {
@@ -748,6 +814,24 @@ export async function recordLegalAcceptance(input: {
 	return rows[0] ?? null;
 }
 
+export async function getRecentEmailVerificationCreatedAt(
+	email: string,
+	withinMs: number
+): Promise<Date | null> {
+	await ensureSchema();
+	const db = getDb();
+	const since = new Date(Date.now() - withinMs);
+	const rows = await db<Array<{ created_at: Date }>>`
+		SELECT created_at
+		FROM email_verification_challenges
+		WHERE email = ${email.trim().toLowerCase()}
+			AND created_at > ${since}
+		ORDER BY created_at DESC
+		LIMIT 1
+	`;
+	return rows[0]?.created_at ?? null;
+}
+
 export async function createEmailVerificationChallenge(input: {
 	email: string;
 	displayName?: string | null;
@@ -784,6 +868,15 @@ export async function createEmailVerificationChallenge(input: {
 			created_at
 	`;
 	return rows[0];
+}
+
+export async function deleteEmailVerificationChallenge(id: string): Promise<void> {
+	await ensureSchema();
+	const db = getDb();
+	await db`
+		DELETE FROM email_verification_challenges
+		WHERE id = ${id}
+	`;
 }
 
 export async function verifyEmailVerificationCode(input: {
