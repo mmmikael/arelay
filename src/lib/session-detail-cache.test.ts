@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
 	forgetSessionDetailCache,
+	getCachedArtifactPlaintext,
+	getCachedArtifactPlaintextBytes,
 	getSessionDetailCache,
 	isSessionDetailReady,
+	MAX_ARTIFACT_PLAINTEXT_BYTES,
+	__setArtifactPlaintextCapForTests,
 	mergeSessionDetailCache,
 	resetSessionDetailCache,
 	sessionDetailCacheKey,
-	setCachedArtifactPlaintext,
-	getCachedArtifactPlaintext
+	setCachedArtifactPlaintext
 } from './session-detail-cache';
 
 describe('session-detail-cache', () => {
@@ -96,5 +99,53 @@ describe('session-detail-cache', () => {
 		});
 
 		expect(getCachedArtifactPlaintext('artifact-1')).toBeNull();
+	});
+
+	it('merges artifact metadata without dropping existing entries', () => {
+		resetSessionDetailCache();
+		const key = sessionDetailCacheKey('2026-06-06T12:00:00.000Z');
+		mergeSessionDetailCache('session-1', key, {
+			session: { title: 'Hello', summary: null },
+			artifacts: {
+				'artifact-1': { filename: 'a.md', contentType: 'text/markdown' }
+			},
+			artifactIds: ['artifact-1']
+		});
+		mergeSessionDetailCache('session-1', key, {
+			artifacts: {
+				'artifact-2': { filename: 'b.md', contentType: 'text/markdown' }
+			},
+			artifactIds: ['artifact-2']
+		});
+
+		const cached = getSessionDetailCache('session-1', key);
+		expect(cached?.artifacts['artifact-1']).toEqual({
+			filename: 'a.md',
+			contentType: 'text/markdown'
+		});
+		expect(cached?.artifacts['artifact-2']).toEqual({
+			filename: 'b.md',
+			contentType: 'text/markdown'
+		});
+		expect(cached?.artifactIds).toEqual(['artifact-1', 'artifact-2']);
+	});
+
+	it('evicts oldest artifact plaintext when memory cap is exceeded', () => {
+		resetSessionDetailCache();
+		__setArtifactPlaintextCapForTests(10);
+		const key = sessionDetailCacheKey('2026-06-06T12:00:00.000Z');
+		const chunk = new Uint8Array(6);
+
+		mergeSessionDetailCache('session-1', key, { artifactIds: ['artifact-1'] });
+		setCachedArtifactPlaintext('artifact-1', chunk);
+		expect(getCachedArtifactPlaintext('artifact-1')).toEqual(chunk);
+
+		mergeSessionDetailCache('session-2', key, { artifactIds: ['artifact-2'] });
+		setCachedArtifactPlaintext('artifact-2', chunk);
+
+		expect(getCachedArtifactPlaintext('artifact-1')).toBeNull();
+		expect(getCachedArtifactPlaintext('artifact-2')).toEqual(chunk);
+		expect(getCachedArtifactPlaintextBytes()).toBeLessThanOrEqual(10);
+		expect(MAX_ARTIFACT_PLAINTEXT_BYTES).toBe(32 * 1024 * 1024);
 	});
 });

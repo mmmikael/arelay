@@ -20,13 +20,26 @@ const PLUGIN_BASELINE_COLUMNS = [
 export async function ensureSchema(): Promise<void> {
 	if (schemaReady) return;
 	const db = getDb();
-	const [row] = await db<Array<{ users_table: string | null; email_drafts_table: string | null }>>`
+	const [row] = await db<
+		Array<{
+			users_table: string | null;
+			email_drafts_table: string | null;
+			rate_limit_buckets_table: string | null;
+		}>
+	>`
 		SELECT
 			to_regclass('public.users')::text AS users_table,
-			to_regclass('public.email_drafts')::text AS email_drafts_table
+			to_regclass('public.email_drafts')::text AS email_drafts_table,
+			to_regclass('public.rate_limit_buckets')::text AS rate_limit_buckets_table
 	`;
 	if (!row?.users_table) {
 		throw new Error('Database migrations have not been applied. Run npm run db:migrate.');
+	}
+
+	if (!row.rate_limit_buckets_table) {
+		throw new Error(
+			'Database schema is outdated (missing public.rate_limit_buckets). Run npm run db:migrate.'
+		);
 	}
 
 	const pluginEnabled = isEmailReviewRelayEnabled();

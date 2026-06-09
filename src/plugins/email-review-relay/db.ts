@@ -285,20 +285,31 @@ export async function saveEmailDraftSentSnapshot(input: {
 
 export async function listEmailDraftSummariesForUser(
 	ownerUserId: string
-): Promise<Record<string, { status: EmailDraftStatus; encryption_version: string }>> {
+): Promise<
+	Record<string, { status: EmailDraftStatus; encryption_version: string; updated_at: Date }>
+> {
 	const db = getDb();
 	const rows = await db<
-		Array<{ session_id: string; status: EmailDraftStatus; encryption_version: string }>
+		Array<{
+			session_id: string;
+			status: EmailDraftStatus;
+			encryption_version: string;
+			updated_at: Date;
+		}>
 	>`
-		SELECT session_id, status, encryption_version
+		SELECT session_id, status, encryption_version, updated_at
 		FROM email_drafts
 		WHERE owner_user_id = ${ownerUserId}
 	`;
-	const result: Record<string, { status: EmailDraftStatus; encryption_version: string }> = {};
+	const result: Record<
+		string,
+		{ status: EmailDraftStatus; encryption_version: string; updated_at: Date }
+	> = {};
 	for (const row of rows) {
 		result[row.session_id] = {
 			status: row.status,
-			encryption_version: row.encryption_version
+			encryption_version: row.encryption_version,
+			updated_at: row.updated_at
 		};
 	}
 	return result;

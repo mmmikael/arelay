@@ -362,8 +362,9 @@ export async function wrapPrivateKeyWithPasskey(
 	};
 }
 
-export async function unlockPrivateKeyWithPasskey(
-	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+async function decryptPrivateKeyWithPrfOutput(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey,
+	prfOutput: Uint8Array
 ): Promise<CryptoKey> {
 	if (
 		encryptedPrivateKey.v !== 1 ||
@@ -372,8 +373,6 @@ export async function unlockPrivateKeyWithPasskey(
 		throw new Error('Unsupported passkey key format');
 	}
 
-	const salt = base64UrlToBytes(encryptedPrivateKey.salt);
-	const prfOutput = await evaluatePasskeyPrf(encryptedPrivateKey.credentialId, salt);
 	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
 	const plaintext = await crypto.subtle.decrypt(
 		{ name: 'AES-GCM', iv: toArrayBuffer(base64UrlToBytes(encryptedPrivateKey.iv)) },
@@ -381,6 +380,21 @@ export async function unlockPrivateKeyWithPasskey(
 		toArrayBuffer(base64UrlToBytes(encryptedPrivateKey.ciphertext))
 	);
 	return importPrivateKey(JSON.parse(TEXT_DECODER.decode(plaintext)));
+}
+
+export async function unlockPrivateKeyWithPasskey(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+): Promise<CryptoKey> {
+	const salt = base64UrlToBytes(encryptedPrivateKey.salt);
+	const prfOutput = await evaluatePasskeyPrf(encryptedPrivateKey.credentialId, salt);
+	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
+}
+
+export async function unlockPrivateKeyWithPrfOutput(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey,
+	prfOutput: Uint8Array
+): Promise<CryptoKey> {
+	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
 }
 
 export async function encryptBytes(

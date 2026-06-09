@@ -2,7 +2,13 @@ import { json } from '@sveltejs/kit';
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON, WebAuthnCredential } from '@simplewebauthn/server';
 import type { RequestHandler } from './$types';
-import { getUser, getWebAuthnCredential, updateWebAuthnCredentialCounter } from '$lib/server/db';
+import {
+	getE2eeConfig,
+	getUser,
+	getWebAuthnCredential,
+	updateWebAuthnCredentialCounter
+} from '$lib/server/db';
+import { parsePasskeyEncryptedPrivateKey } from '$lib/server/e2ee-passkey-config';
 import { createSession, getSessionCookieName, getSessionMaxAge } from '$lib/server/session';
 import { consumeLoginChallenge, getWebAuthnSettings } from '$lib/server/webauthn';
 
@@ -61,12 +67,21 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 		secure: process.env.NODE_ENV === 'production'
 	});
 
+	const encryptedPrivateKey = parsePasskeyEncryptedPrivateKey(
+		(await getE2eeConfig(user.id))?.passkey_encrypted_private_key
+	);
+	const passkeyEncryptedPrivateKey =
+		encryptedPrivateKey && encryptedPrivateKey.credentialId === response.id
+			? encryptedPrivateKey
+			: null;
+
 	return json({
 		ok: true,
 		user: {
 			id: user.id,
 			email: user.email,
 			displayName: user.display_name
-		}
+		},
+		passkeyEncryptedPrivateKey
 	});
 };

@@ -3,6 +3,7 @@
 	import { navigating } from '$app/stores';
 	import { fetchAndDecryptArtifactBytes } from '$lib/artifact-bytes';
 	import { decryptString, type EncryptedEnvelope } from '$lib/e2ee';
+	import { decryptEncryptedSessionMeta } from '$lib/session-detail-decrypt';
 	import {
 		getSessionDetailCache,
 		mergeSessionDetailCache,
@@ -158,20 +159,13 @@
 			let nextSession: { title: string; summary: string | null } | null = cached?.session ?? null;
 
 			if (data.session.encrypted_title && !nextSession) {
-				try {
-					const title = await decryptString(
-						data.session.encrypted_title as unknown as EncryptedEnvelope,
-						privateKey
-					);
-					const summary = data.session.encrypted_summary
-						? await decryptString(
-								data.session.encrypted_summary as unknown as EncryptedEnvelope,
-								privateKey
-							)
-						: null;
-					nextSession = { title, summary };
-				} catch (err) {
-					console.error('[e2ee] detail session decrypt failed:', err);
+				nextSession = await decryptEncryptedSessionMeta(
+					data.session.encrypted_title,
+					data.session.encrypted_summary,
+					privateKey
+				);
+				if (!nextSession) {
+					console.error('[e2ee] detail session decrypt failed');
 				}
 			}
 
@@ -466,7 +460,7 @@
 	<div class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-100 bg-white px-2 dark:border-slate-800 dark:bg-slate-950 sm:hidden">
 		<a
 			href="/portal"
-			class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+			class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
 			aria-label="Back to inbox"
 		>
 			<ArrowLeft class="h-5 w-5" />

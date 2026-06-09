@@ -1,8 +1,30 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+	import {
+		startAuthentication,
+		startRegistration,
+		type PublicKeyCredentialRequestOptionsJSON
+	} from '@simplewebauthn/browser';
+	import {
+		unlockPrivateKeyWithPasskey,
+		unlockPrivateKeyWithPrfOutput,
+		type PasskeyEncryptedPrivateKey
+	} from '$lib/e2ee';
+	import { e2eePrivateKey } from '$lib/e2ee-store';
+	import { readE2eePasskeyHint, saveE2eePasskeyHint } from '$lib/e2ee-passkey-hint';
+	import {
+		clearLoginHints,
+		readLastLoginCredentialId,
+		readLastLoginEmail,
+		saveLastLoginCredentialId,
+		saveLastLoginEmail
+	} from '$lib/login-hint';
 	import { PASSKEY_STORAGE_HINT, shouldShowPasskeyStorageHint } from '$lib/passkey-hints';
-	import { withPasskeyPrfExtension } from '$lib/passkey-prf';
+	import {
+		getPrfFromAuthResponse,
+		withPasskeyPrfAuthExtension,
+		withPasskeyPrfExtension
+	} from '$lib/passkey-prf';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
@@ -39,22 +61,91 @@
 		emailVerificationToken = '';
 	}
 
+	type LoginVerifyResponse = {
+		ok?: boolean;
+		error?: string;
+		user?: {
+			email?: string;
+		};
+		passkeyEncryptedPrivateKey?: PasskeyEncryptedPrivateKey | null;
+	};
+
+	function loginOptionsIncludePrf(optionsJSON: PublicKeyCredentialRequestOptionsJSON): boolean {
+		const extensions = optionsJSON.extensions as { prf?: unknown } | undefined;
+		return Boolean(extensions?.prf);
+	}
+
+	async function tryUnlockFromLoginPasskey(
+		response: Awaited<ReturnType<typeof startAuthentication>>,
+		verifyJson: LoginVerifyResponse
+	): Promise<boolean> {
+		const encryptedPrivateKey = verifyJson.passkeyEncryptedPrivateKey;
+		if (!encryptedPrivateKey || response.id !== encryptedPrivateKey.credentialId) {
+			return false;
+		}
+
+		const prfOutput = getPrfFromAuthResponse(response);
+		if (prfOutput) {
+			try {
+				const privateKey = await unlockPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
+				e2eePrivateKey.set(privateKey);
+				saveE2eePasskeyHint(encryptedPrivateKey);
+				return true;
+			} catch {
+				// Fall through to a direct passkey unlock attempt.
+			}
+		}
+
+		try {
+			const privateKey = await unlockPrivateKeyWithPasskey(encryptedPrivateKey);
+			e2eePrivateKey.set(privateKey);
+			saveE2eePasskeyHint(encryptedPrivateKey);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async function signInWithPasskey() {
 		if (passkeyBusy) return;
 		passkeyBusy = true;
 		passkeyError = '';
 		try {
-			const optionsRes = await fetch('/api/auth/passkeys/login/options', { method: 'POST' });
+			const hint = readE2eePasskeyHint();
+			const lastEmail = readLastLoginEmail();
+			const lastCredentialId = readLastLoginCredentialId();
+
+			const optionsRes = await fetch('/api/auth/passkeys/login/options', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email: lastEmail ?? undefined,
+					loginCredentialId: lastCredentialId ?? hint?.credentialId ?? undefined
+				})
+			});
 			const optionsJSON = await optionsRes.json();
 			if (!optionsRes.ok) throw new Error(optionsJSON.error || 'Could not start passkey login');
-			const response = await startAuthentication({ optionsJSON });
+
+			let authOptions = optionsJSON;
+			if (!loginOptionsIncludePrf(optionsJSON) && hint) {
+				authOptions = withPasskeyPrfAuthExtension(optionsJSON, hint.salt);
+			}
+
+			const response = await startAuthentication({ optionsJSON: authOptions });
 			const verifyRes = await fetch('/api/auth/passkeys/login/verify', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(response)
 			});
-			const verifyJson = await verifyRes.json();
+			const verifyJson = (await verifyRes.json()) as LoginVerifyResponse;
 			if (!verifyRes.ok) throw new Error(verifyJson.error || 'Passkey login failed');
+
+			if (verifyJson.user?.email) {
+				saveLastLoginEmail(verifyJson.user.email);
+			}
+			saveLastLoginCredentialId(response.id);
+
+			await tryUnlockFromLoginPasskey(response, verifyJson);
 			await goto('/portal', { replaceState: true });
 		} catch (err) {
 			passkeyError = err instanceof Error ? err.message : 'Passkey login failed';
@@ -135,6 +226,7 @@
 			});
 			const verifyJson = await verifyRes.json();
 			if (!verifyRes.ok) throw new Error(verifyJson.error || 'Could not create account');
+			saveLastLoginEmail(signupEmail);
 			await goto('/portal', { replaceState: true });
 		} catch (err) {
 			passkeyError = err instanceof Error ? err.message : 'Account setup failed';
