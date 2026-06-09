@@ -3,7 +3,7 @@
 	import { navigating, page } from '$app/stores';
 	import { clearE2eePasskeyHint } from '$lib/e2ee-passkey-hint';
 	import { clearLoginHints } from '$lib/login-hint';
-	import { e2eePrivateKey } from '$lib/e2ee-store';
+	import { e2eePrivateKey, resetE2eeClientState } from '$lib/e2ee-store';
 	import PortalE2eeShell from '$lib/components/portal/PortalE2eeShell.svelte';
 	import PortalInboxSidebar from '$lib/components/portal/PortalInboxSidebar.svelte';
 	import PortalShellHeader from '$lib/components/portal/PortalShellHeader.svelte';
@@ -52,7 +52,7 @@
 		await fetch('/api/logout', { method: 'POST' });
 		clearE2eePasskeyHint();
 		clearLoginHints();
-		e2eePrivateKey.set(null);
+		resetE2eeClientState();
 		resetSessionPrefetch();
 		goto('/', { replaceState: true });
 	}

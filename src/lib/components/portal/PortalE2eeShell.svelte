@@ -288,11 +288,15 @@
 	});
 
 	$effect(() => {
+		if (!$e2eeConfig.configured) {
+			e2eeAutoUnlockAttempted = false;
+			return;
+		}
 		if ($e2eePrivateKey) {
 			e2eeAutoUnlockAttempted = false;
 			return;
 		}
-		if (!e2eeConfigLoaded || $e2eePrivateKey || !$e2eeConfig.configured || e2eeAutoUnlockAttempted) {
+		if (!e2eeConfigLoaded || e2eeAutoUnlockAttempted) {
 			return;
 		}
 		void attemptAutoE2eeUnlock();
