@@ -1,7 +1,8 @@
-import type {
-	AuthenticationResponseJSON,
-	PublicKeyCredentialCreationOptionsJSON,
-	PublicKeyCredentialRequestOptionsJSON
+import {
+	base64URLStringToBuffer,
+	type AuthenticationResponseJSON,
+	type PublicKeyCredentialCreationOptionsJSON,
+	type PublicKeyCredentialRequestOptionsJSON
 } from '@simplewebauthn/browser';
 
 type PasskeyPrfRegistrationOptions = PublicKeyCredentialCreationOptionsJSON & {
@@ -50,6 +51,43 @@ export function withPasskeyPrfAuthExtension(
 			}
 		}
 	};
+}
+
+function decodePrfSalt(value: string | ArrayBuffer | ArrayBufferView): ArrayBuffer {
+	if (typeof value === 'string') {
+		return base64URLStringToBuffer(value);
+	}
+	if (ArrayBuffer.isView(value)) {
+		const view = value;
+		return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
+	}
+	return value;
+}
+
+/** Convert JSON transport PRF salts to ArrayBuffers before navigator.credentials.get. */
+export function preparePasskeyAuthOptionsForBrowser(
+	optionsJSON: PublicKeyCredentialRequestOptionsJSON
+): PublicKeyCredentialRequestOptionsJSON {
+	const extensions = optionsJSON.extensions as PasskeyPrfAuthenticationOptions['extensions'];
+	const prfEval = extensions?.prf?.eval;
+	if (!prfEval) return optionsJSON;
+
+	const first = decodePrfSalt(prfEval.first);
+	const second = prfEval.second !== undefined ? decodePrfSalt(prfEval.second) : undefined;
+
+	return {
+		...optionsJSON,
+		extensions: {
+			...optionsJSON.extensions,
+			prf: {
+				...extensions?.prf,
+				eval: {
+					first,
+					...(second !== undefined ? { second } : {})
+				}
+			}
+		}
+	} as PublicKeyCredentialRequestOptionsJSON;
 }
 
 type PrfAuthExtensionResults = {

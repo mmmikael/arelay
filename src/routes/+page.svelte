@@ -22,6 +22,7 @@
 	import { PASSKEY_STORAGE_HINT, shouldShowPasskeyStorageHint } from '$lib/passkey-hints';
 	import {
 		getPrfOutputsFromAuthResponse,
+		preparePasskeyAuthOptionsForBrowser,
 		withPasskeyPrfAuthExtension,
 		withPasskeyPrfExtension
 	} from '$lib/passkey-prf';
@@ -145,7 +146,9 @@
 				authOptions = withPasskeyPrfAuthExtension(optionsJSON, hint.salt);
 			}
 
-			const response = await startAuthentication({ optionsJSON: authOptions });
+			const response = await startAuthentication({
+				optionsJSON: preparePasskeyAuthOptionsForBrowser(authOptions)
+			});
 			const verifyRes = await fetch('/api/auth/passkeys/login/verify', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
