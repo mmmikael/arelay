@@ -26,7 +26,7 @@
 		"db:migrate:local": "node --env-file=.env scripts/migrate-db.mjs",
 		"db:setup": "node --import tsx scripts/setup-db.ts",
 		"db:setup:local": "node --env-file=.env --import tsx scripts/setup-db.ts",
-		"db:smoke": "node --env-file=.env --import tsx scripts/smoke-db-migrations.ts",
+		"db:smoke": "node --import tsx scripts/smoke-db-migrations.ts",
 		"db:studio": "node --env-file=.env ./node_modules/drizzle-kit/bin.cjs studio"
 	},
 	"devDependencies": {
