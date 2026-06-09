@@ -151,7 +151,7 @@ data residency control or a private deployment.
 ```bash
 npm install
 cp .env.example .env
-npm run db:setup
+npm run db:migrate:local
 npm run dev
 ```
 
@@ -159,15 +159,20 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and create an account with a
 Without Cloudflare or SMTP configured, verification codes are printed to the server
 console.
 
-The database setup command applies the current clean schema directly. This repository does
-not keep historical app migrations. Agent content tables default to `encryption_version =
-e2ee-v1`; email drafts store encrypted envelope columns only (plaintext draft columns are
-dropped on setup).
+Database schema changes are managed with Drizzle migrations. Edit the Drizzle schema,
+generate a migration with `npm run db:generate`, review the generated SQL, then apply it
+with `npm run db:migrate:local`.
 
 Run unit tests:
 
 ```bash
 npm test
+```
+
+To test migrations against a disposable empty database, set `TEST_DATABASE_URL` and run:
+
+```bash
+npm run db:smoke
 ```
 
 ### Environment variables
@@ -214,9 +219,14 @@ When both Cloudflare Email Sending and SMTP are configured, Cloudflare is used.
 **Build and run:**
 
 ```bash
+npm run db:migrate:local
 npm run build
 npm start
 ```
+
+For a fresh production database, run migrations before starting the app. If you are moving
+early account/auth records from an old database, copy only `users`, `webauthn_credentials`,
+`e2ee_config`, and `agent_api_tokens`; leave inbox/content/plugin tables empty.
 
 **Railway:**
 
@@ -227,14 +237,24 @@ npm start
 5. Set `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN` for your domain.
 6. Configure email delivery: Cloudflare Email Sending (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `EMAIL_FROM`) or SMTP.
 7. Set `NODE_ENV=production`.
-8. Use `npm run build` as the build command and `npm start` as the start command.
+8. Migrations run automatically on each deploy via `railway.toml` (`preDeployCommand: npm run db:migrate`).
+9. Use `npm run build` as the build command and `npm start` as the start command.
+
+**Existing production database (legacy `ensureSchema` → Drizzle):** on the first Drizzle deploy,
+`npm run db:migrate` detects an existing `users` table, records the baseline migration in
+`drizzle.__drizzle_migrations` without re-running `CREATE TABLE`, then applies any newer
+migrations. No manual cutover is required for arelay.app-style databases that already match
+the current schema. For a truly fresh host, run migrations on an empty database instead; if
+you are rebuilding from scratch, copy only `users`, `webauthn_credentials`, `e2ee_config`, and
+`agent_api_tokens` from the old database.
 
 Point agents at your deployment URL: `AGENT_RELAY_URL=https://your-domain.example`.
 
 ### Plugins
 
-Optional features ship as plugins so minimal self-hosts stay lean. Enable each plugin with
-an environment variable, then run `npm run db:setup` so plugin tables are created.
+Optional features ship as plugins so minimal self-hosts stay lean. Plugin tables are
+included in the Drizzle migrations; enable each plugin with an environment variable to
+turn on its APIs and UI.
 
 #### Email Review Relay
 

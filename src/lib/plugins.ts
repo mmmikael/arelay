@@ -3,7 +3,6 @@ import { env } from '$env/dynamic/private';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID } from '../plugins/email-review-relay';
 import {
 	getEnabledPluginsFromEnv,
-	getPluginSchemaSqlFromEnv,
 	isTruthyEnv,
 	PLUGINS,
 	type Plugin
@@ -32,10 +31,6 @@ export function requirePlugin(id: string): void {
 
 export function getEnabledPlugins(): Plugin[] {
 	return getEnabledPluginsFromEnv(runtimeEnv());
-}
-
-export function getPluginSchemaSql(): string {
-	return getPluginSchemaSqlFromEnv(runtimeEnv());
 }
 
 export function isPluginRegistered(id: string): boolean {

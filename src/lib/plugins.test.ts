@@ -11,7 +11,6 @@ vi.mock('$env/dynamic/private', () => ({
 import {
 	EMAIL_REVIEW_RELAY_PLUGIN_ID,
 	getEnabledPlugins,
-	getPluginSchemaSql,
 	isEmailReviewRelayEnabled,
 	isPluginEnabled,
 	isTruthyEnv
@@ -39,7 +38,6 @@ describe('email-review-relay plugin', () => {
 		expect(isPluginEnabled(EMAIL_REVIEW_RELAY_PLUGIN_ID)).toBe(false);
 		expect(isEmailReviewRelayEnabled()).toBe(false);
 		expect(getEnabledPlugins()).toHaveLength(0);
-		expect(getPluginSchemaSql()).toBe('');
 	});
 
 	it('is enabled when EMAIL_REVIEW_RELAY_ENABLED=true', () => {
@@ -47,7 +45,6 @@ describe('email-review-relay plugin', () => {
 		expect(isPluginEnabled(EMAIL_REVIEW_RELAY_PLUGIN_ID)).toBe(true);
 		expect(isEmailReviewRelayEnabled()).toBe(true);
 		expect(getEnabledPlugins()).toHaveLength(1);
-		expect(getPluginSchemaSql()).toContain('email_drafts');
 	});
 
 	it('returns false for unknown plugin ids', () => {

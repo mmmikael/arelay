@@ -1,24 +1,18 @@
-import postgres from 'postgres';
-import { getPluginSchemaSqlFromEnv } from '../src/lib/plugin-registry';
-import { SCHEMA_LOCK_ID, SCHEMA_LOCK_NAMESPACE, SCHEMA_SQL } from '../src/lib/server/schema';
+import { spawn } from 'node:child_process';
 
-const url = process.env.DATABASE_URL;
-if (!url) {
+if (!process.env.DATABASE_URL) {
 	console.error('DATABASE_URL is required');
 	process.exit(1);
 }
 
-const sql = postgres(url, { max: 1, prepare: false, onnotice: () => undefined });
+const migrateScript = new URL('./migrate-db.mjs', import.meta.url);
+const child = spawn(process.execPath, [migrateScript.pathname], {
+	stdio: 'inherit',
+	env: process.env
+});
 
-await sql`SELECT pg_advisory_lock(${SCHEMA_LOCK_NAMESPACE}, ${SCHEMA_LOCK_ID})`;
-try {
-	await sql.unsafe(SCHEMA_SQL);
-	const pluginSchemaSql = getPluginSchemaSqlFromEnv(process.env);
-	if (pluginSchemaSql.trim()) {
-		await sql.unsafe(pluginSchemaSql);
-	}
-} finally {
-	await sql`SELECT pg_advisory_unlock(${SCHEMA_LOCK_NAMESPACE}, ${SCHEMA_LOCK_ID})`;
-	await sql.end();
-}
-console.log('Database schema ready.');
+const exitCode = await new Promise<number>((resolve) => {
+	child.on('close', (code) => resolve(code ?? 1));
+});
+
+process.exit(exitCode);

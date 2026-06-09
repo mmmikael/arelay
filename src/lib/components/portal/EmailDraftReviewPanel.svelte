@@ -13,7 +13,14 @@
 		mergeEmailDraftBundle,
 		type EmailDraftBundle
 	} from '$lib/email-draft-bundle';
-	import { looksLikePlainTextBody, prepareHtmlBodyForEmail, toPreviewHtmlDocument } from '$lib/preview-doc';
+	import {
+		buildApproveRequestInit,
+		buildEditableBundle,
+		buildSentEmailBundle,
+		persistEmailDraftReview,
+		reviewPayloadNeeded
+	} from '$lib/email-draft-review-actions';
+	import { looksLikePlainTextBody, toPreviewHtmlDocument } from '$lib/preview-doc';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -95,22 +102,6 @@
 
 	const editBodyLabel = $derived(bodyIsPlainText ? 'Edit text' : 'Edit HTML');
 
-	function buildEditableBundle(input: {
-		to: string;
-		from_email: string;
-		from_name: string | null;
-		subject: string;
-		html: string;
-	}): EmailDraftBundle {
-		return {
-			to: input.to.trim(),
-			from_email: input.from_email.trim(),
-			from_name: input.from_name,
-			subject: input.subject.trim(),
-			html: input.html
-		};
-	}
-
 	function reviewOverlayKey(review: DecryptedEmailDraftFields['review']): string {
 		return review ? JSON.stringify(review) : '';
 	}
@@ -190,15 +181,15 @@
 		scheduleReviewSave();
 	}
 
-	function reviewPayloadNeeded(): EmailDraftBundle | null {
+	function reviewPayloadForSave(): EmailDraftBundle | null {
 		if (!agentBundle) return null;
-		return bundleMatchesAgent(editableBundle, agentBundle) ? null : editableBundle;
+		return reviewPayloadNeeded(agentBundle, editableBundle, bundleMatchesAgent);
 	}
 
 	async function persistReview(): Promise<boolean> {
 		if (!canEditDraft || !activeEmailDraft || !agentBundle) return false;
 
-		const payload = reviewPayloadNeeded();
+		const payload = reviewPayloadForSave();
 		const unchanged =
 			payload === null
 				? lastPersistedReview === null
@@ -216,21 +207,12 @@
 		reviewSaveError = '';
 
 		try {
-			const body =
-				payload === null
-					? { encrypted: true, encrypted_review: null }
-					: {
-							encrypted: true,
-							encrypted_review: await encryptString(JSON.stringify(payload), publicKeyJwk)
-						};
-
-			const res = await fetch(`/api/sessions/${sessionId}/email/review`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(body)
+			await persistEmailDraftReview({
+				sessionId,
+				payload,
+				publicKeyJwk,
+				encryptString
 			});
-			const result = await res.json();
-			if (!res.ok) throw new Error(result.error || 'Could not save draft');
 
 			lastPersistedReview = payload;
 			reviewSaveStatus = 'saved';
@@ -325,30 +307,14 @@
 				}
 			}
 
-			const sanitizedHtml = prepareHtmlBodyForEmail(editableHtml);
-			const sentBundle: EmailDraftBundle = {
-				...editableBundle,
-				html: sanitizedHtml
-			};
-			const init: RequestInit = { method: 'POST' };
-			if (emailDraft.encryption_version === 'e2ee-v1') {
-				const publicKeyJwk = $e2eeConfig.publicKeyJwk;
-				const payload: Record<string, unknown> = {
-					to: sentBundle.to,
-					from: {
-						email: sentBundle.from_email,
-						name: sentBundle.from_name ?? undefined
-					},
-					subject: sentBundle.subject,
-					html: sanitizedHtml,
-					text: activeEmailDraft.text ?? undefined
-				};
-				if (publicKeyJwk) {
-					payload.encrypted_sent = await encryptString(JSON.stringify(sentBundle), publicKeyJwk);
-				}
-				init.headers = { 'Content-Type': 'application/json' };
-				init.body = JSON.stringify(payload);
-			}
+			const sentBundle = buildSentEmailBundle(editableBundle, editableHtml);
+			const init = await buildApproveRequestInit({
+				sentBundle,
+				plainText: activeEmailDraft.text,
+				encryptionVersion: emailDraft.encryption_version,
+				publicKeyJwk: $e2eeConfig.publicKeyJwk,
+				encryptString
+			});
 			const res = await fetch(`/api/sessions/${sessionId}/email/approve`, init);
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Could not approve email');
