@@ -26,7 +26,7 @@ POST /api/agent/sessions
 POST /api/agent/sessions/&lt;id&gt;/artifacts
 &#123; "encrypted": true, "ciphertext_base64": "...", ... &#125;</pre>
 				<p class="text-slate-500 dark:text-slate-400">
-					Use the agent-relay-e2ee upload script. Plaintext delivery returns 400; missing E2EE setup returns 428.
+					Use the agent-relay upload script. Plaintext delivery returns 400; missing E2EE setup returns 428.
 				</p>
 			</div>
 		</div>
