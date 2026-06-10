@@ -59,7 +59,7 @@ export const POST: RequestHandler = async ({ locals, cookies, request, url }) =>
 	if (existingUser) {
 		const credentials = await listCredentialsForUser(existingUser.id);
 		if (credentials.length > 0) {
-			return routeJsonError(locals, 409, 'That account already has a passkey. Sign in instead.');
+			return routeJsonError(locals, 403, 'Email verification expired. Send a new code.');
 		}
 	}
 

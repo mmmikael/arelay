@@ -123,7 +123,7 @@
 	}
 
 	function displaySessionSummary(session: SessionRow): string | null {
-		return decryptedSessions[session.id]?.summary ?? 'Unlock encryption to view this message.';
+		return decryptedSessions[session.id]?.summary ?? 'Unlock encryption to view this session.';
 	}
 
 	function beginSessionNavigation(id: string, event?: PointerEvent | MouseEvent) {
@@ -349,12 +349,12 @@
 		type="button"
 		onclick={toggleSidebar}
 		title="Show sessions"
-		aria-label="Show inbox"
+		aria-label="Show sessions"
 		aria-expanded={false}
 		class="absolute left-4 top-4 z-30 hidden items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-md backdrop-blur-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-blue-900 dark:hover:bg-blue-950/80 sm:inline-flex"
 	>
 		<Inbox class="h-4 w-4 text-[#3b82f6]" />
-		<span>Inbox</span>
+		<span>Sessions</span>
 		<span
 			class="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
 		>
@@ -382,7 +382,7 @@
 		<div class="flex items-center justify-between gap-2">
 			<div class="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
 				<Inbox class="h-4 w-4 shrink-0 text-[#3b82f6]" />
-				Inbox
+				Sessions
 			</div>
 			<div class="flex shrink-0 items-center gap-1">
 				<span
@@ -412,9 +412,9 @@
 	<div class="min-w-0 flex-1 overflow-y-auto">
 		{#if sessions.length === 0}
 			<div class="px-4 py-6">
-				<p class="text-sm font-medium text-slate-700 dark:text-slate-200">No messages yet.</p>
+				<p class="text-sm font-medium text-slate-700 dark:text-slate-200">No sessions yet.</p>
 				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-					New agent deliveries will show up here as inbox messages.
+					New agent deliveries will show up here as sessions.
 				</p>
 			</div>
 		{:else}
@@ -507,7 +507,7 @@
 								{#if isPending}
 									<span
 										class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/80 text-[#2563eb] shadow-sm dark:bg-slate-900/80 dark:text-blue-300"
-										aria-label="Loading message"
+										aria-label="Loading session"
 									>
 										<LoaderCircle class="h-4 w-4 animate-spin" />
 									</span>

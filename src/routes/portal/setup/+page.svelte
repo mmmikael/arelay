@@ -24,7 +24,7 @@
 		<h1 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Encryption required</h1>
 		<p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
 			Agent Relay only accepts end-to-end encrypted deliveries. Set up encryption with your passkey
-			before using the inbox or creating agent tokens.
+			before using sessions or creating agent tokens.
 		</p>
 		<Button class="mt-6" onclick={() => openE2eeDialog()}>Set up encryption</Button>
 	</div>

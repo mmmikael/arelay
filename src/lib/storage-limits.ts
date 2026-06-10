@@ -3,6 +3,16 @@ import { formatBytes } from '$lib/artifacts';
 export const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
 export const MAX_ACCOUNT_STORAGE_BYTES = 500 * 1024 * 1024;
 
+/** Max JSON body size for encrypted artifact upload (base64 ciphertext + envelope fields). */
+export const MAX_ARTIFACT_UPLOAD_BODY_BYTES =
+	Math.ceil((MAX_ARTIFACT_BYTES * 4) / 3) + 2 * 1024 * 1024;
+
+export function artifactUploadBodyTooLarge(contentLengthHeader: string | null): boolean {
+	if (!contentLengthHeader) return false;
+	const contentLength = Number(contentLengthHeader);
+	return Number.isFinite(contentLength) && contentLength > MAX_ARTIFACT_UPLOAD_BODY_BYTES;
+}
+
 export type StorageLimitErrorCode = 'artifact_too_large' | 'account_quota_exceeded';
 
 export type StorageLimitCheckResult =

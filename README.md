@@ -201,6 +201,7 @@ npm run db:smoke
 | `S3_SECRET_KEY` | S3 secret key. |
 | `S3_REGION` | S3 region. Defaults to `us-east-1`. |
 | `PORT` | HTTP port for `npm start`. Defaults to `3000`. Railway sets this automatically. |
+| `BODY_SIZE_LIMIT` | Max HTTP request body size for adapter-node. Required for encrypted artifact uploads (~25 MB files need ~37 MB JSON). Defaults to `40M` when using `npm start`. |
 | `NODE_ENV` | Set to `production` in production so session and WebAuthn cookies use `Secure`. |
 | `EMAIL_REVIEW_RELAY_ENABLED` | Optional plugin. Set to `true` to enable Email Review Relay (off by default). |
 
@@ -237,8 +238,9 @@ early account/auth records from an old database, copy only `users`, `webauthn_cr
 5. Set `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN` for your domain.
 6. Configure email delivery: Cloudflare Email Sending (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `EMAIL_FROM`) or SMTP.
 7. Set `NODE_ENV=production`.
-8. Migrations run automatically on each deploy via `railway.toml` (`preDeployCommand: npm run db:migrate`).
-9. Use `npm run build` as the build command and `npm start` as the start command.
+8. Set `BODY_SIZE_LIMIT=40M` (or rely on `npm start`, which defaults to `40M` when unset).
+9. Migrations run automatically on each deploy via `railway.toml` (`preDeployCommand: npm run db:migrate`).
+10. Use `npm run build` as the build command and `npm start` as the start command.
 
 **Existing production database (legacy `ensureSchema` → Drizzle):** on the first Drizzle deploy,
 `npm run db:migrate` detects an existing `users` table, records the baseline migration in

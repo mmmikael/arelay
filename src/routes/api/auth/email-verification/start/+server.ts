@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { randomBytes } from 'node:crypto';
 import type { RequestHandler } from './$types';
 import { routeLogAndJsonError, routeRateLimitResponse } from '$lib/server/api-error';
 import {
@@ -20,6 +21,18 @@ import {
 	sendVerificationEmail
 } from '$lib/server/email-verification';
 import { getRequestClientIp } from '$lib/server/request-client-ip';
+
+function verificationStartedResponse() {
+	return {
+		ok: true as const,
+		expiresInSeconds: Math.floor(EMAIL_VERIFICATION_MAX_AGE_MS / 1000),
+		delivery: 'email' as const
+	};
+}
+
+function unguessableCodeHash(email: string): string {
+	return hashVerificationCode(email, randomBytes(32).toString('base64url'));
+}
 
 export const POST: RequestHandler = async ({ locals, request, url, getClientAddress }) => {
 	const body = (await request.json().catch(() => ({}))) as {
@@ -65,7 +78,13 @@ export const POST: RequestHandler = async ({ locals, request, url, getClientAddr
 	if (existingUser) {
 		const credentials = await listCredentialsForUser(existingUser.id);
 		if (credentials.length > 0) {
-			return json({ error: 'That account already exists. Sign in instead.' }, { status: 409 });
+			await createEmailVerificationChallenge({
+				email,
+				displayName: null,
+				codeHash: unguessableCodeHash(email),
+				expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_MAX_AGE_MS)
+			});
+			return json(verificationStartedResponse());
 		}
 	}
 
@@ -85,8 +104,7 @@ export const POST: RequestHandler = async ({ locals, request, url, getClientAddr
 			origin: url.origin
 		});
 		return json({
-			ok: true,
-			expiresInSeconds: Math.floor(EMAIL_VERIFICATION_MAX_AGE_MS / 1000),
+			...verificationStartedResponse(),
 			delivery: delivery.channel
 		});
 	} catch (err) {

@@ -518,6 +518,17 @@ export async function createArtifact(input: {
 	return rows[0];
 }
 
+export async function deleteArtifact(id: string, sessionId: string): Promise<boolean> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<Array<{ id: string }>>`
+		DELETE FROM inbox_artifacts
+		WHERE id = ${id} AND session_id = ${sessionId}
+		RETURNING id
+	`;
+	return rows.length > 0;
+}
+
 export async function getE2eeConfig(userId: string): Promise<E2eeConfig | null> {
 	await ensureSchema();
 	const db = getDb();
