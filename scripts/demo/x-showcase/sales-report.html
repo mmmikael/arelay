@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly sales performance</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: linear-gradient(180deg, #ecfdf5, #f8fafc 40%);
+      color: #0f172a;
+      padding: 2rem 1.25rem 3rem;
+    }
+    .wrap { max-width: 42rem; margin: 0 auto; }
+    h1 { margin: 0 0 .25rem; font-size: 1.7rem; }
+    .sub { color: #64748b; margin: 0 0 1.5rem; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1.25rem; }
+    .metric {
+      background: #fff;
+      border: 1px solid #d1fae5;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, .08);
+    }
+    .metric .label { font-size: .72rem; color: #64748b; text-transform: uppercase; letter-spacing: .08em; }
+    .metric .value { font-size: 1.5rem; font-weight: 800; color: #047857; margin-top: .2rem; }
+    .metric .delta { font-size: .8rem; color: #059669; margin-top: .15rem; }
+    .bars { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1rem 1.1rem; }
+    .bar-row { display: flex; align-items: center; gap: .75rem; margin: .55rem 0; font-size: .88rem; }
+    .bar-label { width: 5.5rem; color: #475569; }
+    .bar-track { flex: 1; height: 10px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 999px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Weekly sales performance</h1>
+    <p class="sub">Week ending 7 Jun 2026 · compiled by sales-agent</p>
+
+    <div class="metrics">
+      <div class="metric"><div class="label">ARR added</div><div class="value">$48.2k</div><div class="delta">↑ 12% vs prior week</div></div>
+      <div class="metric"><div class="label">Trials started</div><div class="value">37</div><div class="delta">↑ 6</div></div>
+      <div class="metric"><div class="label">Win rate</div><div class="value">34%</div><div class="delta">↑ 3 pts</div></div>
+    </div>
+
+    <div class="bars">
+      <strong>Pipeline by stage</strong>
+      <div class="bar-row"><span class="bar-label">Discovery</span><div class="bar-track"><div class="bar-fill" style="width:88%"></div></div></div>
+      <div class="bar-row"><span class="bar-label">Eval</span><div class="bar-track"><div class="bar-fill" style="width:62%"></div></div></div>
+      <div class="bar-row"><span class="bar-label">Negotiate</span><div class="bar-track"><div class="bar-fill" style="width:41%"></div></div></div>
+      <div class="bar-row"><span class="bar-label">Closed</span><div class="bar-track"><div class="bar-fill" style="width:28%"></div></div></div>
+    </div>
+  </div>
+</body>
+</html>

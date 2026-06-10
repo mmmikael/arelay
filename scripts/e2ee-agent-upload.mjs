@@ -6,7 +6,7 @@
  *   AGENT_RELAY_URL=https://arelay.app AGENT_API_TOKEN=ar_... node scripts/e2ee-agent-upload.mjs
  */
 import { webcrypto } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const relayUrl = (process.env.AGENT_RELAY_URL ?? 'https://arelay.app').replace(/\/$/, '');
 const apiToken = process.env.AGENT_API_TOKEN;
@@ -105,10 +105,19 @@ async function agentFetch(path, init = {}) {
 
 const title = process.argv[2] ?? 'E2EE reference upload';
 const filename = process.argv[3] ?? 'reference-test.md';
-const content =
-	process.argv[4] ??
+const contentArg = process.argv[4];
+let content =
+	contentArg ??
 	'# Reference encrypted upload\n\nThis artifact was encrypted with `scripts/e2ee-agent-upload.mjs`.\n';
-const contentType = filename.endsWith('.md') ? 'text/markdown' : 'text/plain';
+if (contentArg && existsSync(contentArg)) {
+	content = readFileSync(contentArg, 'utf8');
+}
+const lowerName = filename.toLowerCase();
+const contentType = lowerName.endsWith('.md')
+	? 'text/markdown'
+	: lowerName.endsWith('.html') || lowerName.endsWith('.htm')
+		? 'text/html'
+		: 'text/plain';
 
 const config = await agentFetch('/api/agent/e2ee/config');
 if (!config?.configured || !config.publicKeyJwk) {
@@ -117,7 +126,8 @@ if (!config?.configured || !config.publicKeyJwk) {
 
 const publicKeyJwk = config.publicKeyJwk;
 const encryptedTitle = await encryptString(title, publicKeyJwk);
-const encryptedSummary = await encryptString('Uploaded via reference e2ee script', publicKeyJwk);
+const summary = process.argv[5] ?? 'Uploaded via reference e2ee script';
+const encryptedSummary = await encryptString(summary, publicKeyJwk);
 
 const { session } = await agentFetch('/api/agent/sessions', {
 	method: 'POST',
