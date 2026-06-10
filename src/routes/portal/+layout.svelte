@@ -179,7 +179,6 @@
 				{activeSessionId}
 				{navigatingToSessionId}
 				{showMobileDetail}
-				{unreadCount}
 				bind:pendingSessionId
 			/>
 

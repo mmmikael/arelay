@@ -9,8 +9,13 @@ export function isDarkModePreferred(): boolean {
 }
 
 export function applyTheme(isDark: boolean): void {
-	document.documentElement.classList.toggle('dark', isDark);
-	document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+	const root = document.documentElement;
+	root.classList.add('theme-transition-disabled');
+	root.classList.toggle('dark', isDark);
+	root.style.colorScheme = isDark ? 'dark' : 'light';
+	requestAnimationFrame(() => {
+		root.classList.remove('theme-transition-disabled');
+	});
 }
 
 export function saveTheme(isDark: boolean): void {

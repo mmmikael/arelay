@@ -65,13 +65,17 @@ html {
 	scroll-behavior: smooth;
 }
 
+html.theme-transition-disabled,
+html.theme-transition-disabled *,
+html.theme-transition-disabled *::before,
+html.theme-transition-disabled *::after {
+	transition: none !important;
+}
+
 body {
 	font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 	background-color: var(--bg-secondary);
 	color: var(--text-primary);
-	transition:
-		background-color 150ms ease,
-		color 150ms ease;
 }
 
 h1,

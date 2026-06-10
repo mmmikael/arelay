@@ -211,9 +211,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return secureRedirect(ctx, '/portal');
 	}
 
+	const isDevPreview = dev && (path === '/dev/sidebar' || path.startsWith('/dev/sidebar/'));
+
 	const isHumanApi =
 		path.startsWith('/api/') && !path.startsWith('/api/agent/') && !isPublicAuthPath(path);
-	if (path.startsWith('/portal') || isHumanApi) {
+	if (!isDevPreview && (path.startsWith('/portal') || isHumanApi)) {
 		if (!event.locals.authenticated) {
 			if (isHumanApi) {
 				return hookJsonError(ctx, 401, 'Unauthorized');
