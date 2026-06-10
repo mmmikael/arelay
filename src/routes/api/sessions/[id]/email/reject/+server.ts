@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { getSession } from '$lib/server/db';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
@@ -13,23 +14,23 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 
 	const sessionId = params.id;
 	if (!sessionId) {
-		return json({ error: 'Session id required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Session id required');
 	}
 
 	const userId = locals.user!.id;
 	const session = await getSession(sessionId, userId);
 	if (!session) {
-		return json({ error: 'Session not found' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Session not found');
 	}
 
 	const deliveryType = await getSessionDeliveryType(sessionId, userId);
 	if (deliveryType !== 'email_draft') {
-		return json({ error: 'Session is not an email draft' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Session is not an email draft');
 	}
 
 	const draft = await getEmailDraftBySessionId(sessionId, userId);
 	if (!draft) {
-		return json({ error: 'Email draft not found' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Email draft not found');
 	}
 	if (draft.status !== 'pending') {
 		return json({ error: `Draft is already ${draft.status}` }, { status: 409 });
@@ -43,7 +44,7 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 		reviewedAt: new Date()
 	});
 	if (!rejected) {
-		return json({ error: 'Draft is no longer pending' }, { status: 409 });
+		return routeJsonError(locals, 409, 'Draft is no longer pending');
 	}
 
 	return json({ draft: rejected });

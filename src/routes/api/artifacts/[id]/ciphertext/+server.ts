@@ -2,14 +2,15 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getArtifact } from '$lib/server/db';
 import { getObjectBytes } from '$lib/server/s3';
+import { routeJsonError } from '$lib/server/api-error';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	const artifact = await getArtifact(params.id, locals.user!.id);
 	if (!artifact) {
-		return json({ error: 'Artifact not found' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Artifact not found');
 	}
 	if (artifact.encryption_version !== 'e2ee-v1' || !artifact.encrypted_payload) {
-		return json({ error: 'Artifact is not end-to-end encrypted' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Artifact is not end-to-end encrypted');
 	}
 
 	const bytes = await getObjectBytes(artifact.storage_key);

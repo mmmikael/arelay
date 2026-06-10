@@ -44,7 +44,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 	try {
 		await deleteObjects(keys);
 	} catch (err) {
-		console.error('[sessions] S3 cleanup failed:', err);
+		locals.log.warn({ err, sessionId, keyCount: keys.length }, 'S3 cleanup failed');
 	}
 
 	const deleted = await deleteSession(sessionId, locals.user!.id);

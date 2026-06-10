@@ -4,6 +4,9 @@ import {
 	markAgentTokenUsed,
 	type User
 } from '$lib/server/db';
+import { rootLogger } from '$lib/server/logger';
+
+const log = rootLogger.child({ module: 'agent-auth' });
 
 export function readBearerToken(request: Request): string | null {
 	const header = request.headers.get('authorization');
@@ -20,7 +23,7 @@ export async function resolveAgentUser(request: Request): Promise<User | null> {
 	if (!result) return null;
 
 	void markAgentTokenUsed(result.tokenId).catch((err) => {
-		console.error('[agent-auth] failed to update token last_used_at:', err);
+		log.warn({ err, tokenId: result.tokenId }, 'failed to update token last_used_at');
 	});
 
 	return result.user;

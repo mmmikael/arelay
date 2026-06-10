@@ -6,7 +6,7 @@ import {
 	AGENT_SESSION_LIMIT_ERROR,
 	reserveAgentSessionCreate
 } from '$lib/server/agent-rate-limit';
-import { buildRateLimitResponse } from '$lib/server/rate-limit';
+import { routeRateLimitResponse } from '$lib/server/api-error';
 import {
 	isE2eePolicyResponse,
 	requireOwnerE2eeForAgent
@@ -61,7 +61,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
 	const sessionLimit = await reserveAgentSessionCreate(ownerUserId);
 	if (!sessionLimit.ok) {
-		return buildRateLimitResponse(sessionLimit.retryAfterSeconds, AGENT_SESSION_LIMIT_ERROR);
+		return routeRateLimitResponse(locals, sessionLimit.retryAfterSeconds, AGENT_SESSION_LIMIT_ERROR);
 	}
 
 	const sessionId = crypto.randomUUID();

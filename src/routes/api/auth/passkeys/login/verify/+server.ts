@@ -11,6 +11,7 @@ import {
 import { parsePasskeyEncryptedPrivateKey } from '$lib/server/e2ee-passkey-config';
 import { createSession, getSessionCookieName, getSessionMaxAge } from '$lib/server/session';
 import { consumeLoginChallenge, getWebAuthnSettings } from '$lib/server/webauthn';
+import { routeJsonError } from '$lib/server/api-error';
 
 function toSimpleWebAuthnCredential(row: Awaited<ReturnType<typeof getWebAuthnCredential>>): WebAuthnCredential {
 	if (!row) throw new Error('Credential not found');
@@ -22,16 +23,16 @@ function toSimpleWebAuthnCredential(row: Awaited<ReturnType<typeof getWebAuthnCr
 	};
 }
 
-export const POST: RequestHandler = async ({ cookies, request, url }) => {
+export const POST: RequestHandler = async ({ locals, cookies, request, url }) => {
 	const challenge = consumeLoginChallenge(cookies);
 	if (!challenge) {
-		return json({ error: 'Passkey challenge expired. Try again.' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Passkey challenge expired. Try again.');
 	}
 
 	const response = (await request.json()) as AuthenticationResponseJSON;
 	const credential = await getWebAuthnCredential(response.id);
 	if (!credential) {
-		return json({ error: 'Passkey is not registered for this relay.' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Passkey is not registered for this relay.');
 	}
 
 	const { origin, rpID } = getWebAuthnSettings(url);
@@ -45,12 +46,12 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 	});
 
 	if (!verification.verified) {
-		return json({ error: 'Passkey verification failed.' }, { status: 401 });
+		return routeJsonError(locals, 401, 'Passkey verification failed.');
 	}
 
 	const user = await getUser(credential.user_id);
 	if (!user) {
-		return json({ error: 'Passkey user no longer exists.' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Passkey user no longer exists.');
 	}
 
 	await updateWebAuthnCredentialCounter(

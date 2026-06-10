@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { verifyRegistrationResponse } from '@simplewebauthn/server';
 import type { RegistrationResponseJSON } from '@simplewebauthn/server';
 import type { RequestHandler } from './$types';
+import { routeLogAndJsonError } from '$lib/server/api-error';
 import {
 	consumeEmailVerificationChallenge,
 	createUser,
@@ -14,7 +15,7 @@ import {
 import { createSession, getSessionCookieName, getSessionMaxAge } from '$lib/server/session';
 import { consumeRegisterChallenge, getWebAuthnSettings } from '$lib/server/webauthn';
 
-export const POST: RequestHandler = async ({ cookies, request, url }) => {
+export const POST: RequestHandler = async ({ cookies, locals, request, url }) => {
 	const challenge = consumeRegisterChallenge(cookies);
 	if (!challenge) {
 		return json({ error: 'Passkey challenge expired. Try again.' }, { status: 400 });
@@ -62,8 +63,12 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 					privacyVersion: challenge.privacyVersion
 				});
 			} catch (err) {
-				console.error('[passkey-signup] failed to create verified user:', err);
-				return json({ error: 'Could not create account. Try signing in.' }, { status: 409 });
+				return routeLogAndJsonError(
+					locals,
+					409,
+					'Could not create account. Try signing in.',
+					err
+				);
 			}
 		} else {
 			user =

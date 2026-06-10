@@ -6,6 +6,7 @@ import {
 	type AgentApiToken,
 	type JsonObject
 } from '$lib/server/db';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	isE2eePolicyResponse,
 	isEncryptedEnvelope,
@@ -60,7 +61,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	};
 	const tokenHash = typeof body.tokenHash === 'string' ? body.tokenHash.trim().toLowerCase() : '';
 	if (!TOKEN_HASH_PATTERN.test(tokenHash)) {
-		return json({ error: 'A valid token hash is required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'A valid token hash is required');
 	}
 
 	if (!isEncryptedEnvelope(body.encryptedToken)) {
@@ -80,7 +81,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		return json({ token: serializeAgentToken(token) }, { status: 201 });
 	} catch (err) {
 		if (isUniqueViolation(err)) {
-			return json({ error: 'That token already exists' }, { status: 409 });
+			return routeJsonError(locals, 409, 'That token already exists');
 		}
 		throw err;
 	}

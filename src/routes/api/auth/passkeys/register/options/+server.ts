@@ -3,6 +3,7 @@ import { generateRegistrationOptions } from '@simplewebauthn/server';
 import type { AuthenticatorTransportFuture } from '@simplewebauthn/server';
 import type { RequestHandler } from './$types';
 import { listCredentialsForUser } from '$lib/server/db';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	challengeExpiresAt,
 	getWebAuthnSettings,
@@ -11,14 +12,14 @@ import {
 
 export const POST: RequestHandler = async ({ cookies, locals, url }) => {
 	if (!locals.user) {
-		return json({ error: 'Sign in before adding a passkey.' }, { status: 401 });
+		return routeJsonError(locals, 401, 'Sign in before adding a passkey.');
 	}
 
 	const user = locals.user;
 
 	const credentials = await listCredentialsForUser(user.id);
 	if (credentials.length > 0) {
-		return json({ error: 'This account already has a passkey.' }, { status: 409 });
+		return routeJsonError(locals, 409, 'This account already has a passkey.');
 	}
 	const { rpName, rpID } = getWebAuthnSettings(url);
 	const options = await generateRegistrationOptions({

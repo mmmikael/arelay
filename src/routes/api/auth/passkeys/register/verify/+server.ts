@@ -4,23 +4,24 @@ import type { RegistrationResponseJSON } from '@simplewebauthn/server';
 import type { RequestHandler } from './$types';
 import { createWebAuthnCredential, getUser } from '$lib/server/db';
 import { consumeRegisterChallenge, getWebAuthnSettings } from '$lib/server/webauthn';
+import { routeJsonError } from '$lib/server/api-error';
 
 export const POST: RequestHandler = async ({ cookies, locals, request, url }) => {
 	if (!locals.user) {
-		return json({ error: 'Sign in before adding a passkey.' }, { status: 401 });
+		return routeJsonError(locals, 401, 'Sign in before adding a passkey.');
 	}
 
 	const challenge = consumeRegisterChallenge(cookies);
 	if (!challenge) {
-		return json({ error: 'Passkey challenge expired. Try again.' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Passkey challenge expired. Try again.');
 	}
 	if (challenge.userId !== locals.user.id) {
-		return json({ error: 'Passkey challenge does not match this account.' }, { status: 403 });
+		return routeJsonError(locals, 403, 'Passkey challenge does not match this account.');
 	}
 
 	const user = await getUser(challenge.userId);
 	if (!user) {
-		return json({ error: 'User not found.' }, { status: 404 });
+		return routeJsonError(locals, 404, 'User not found.');
 	}
 
 	const response = (await request.json()) as RegistrationResponseJSON;
@@ -34,7 +35,7 @@ export const POST: RequestHandler = async ({ cookies, locals, request, url }) =>
 	});
 
 	if (!verification.verified) {
-		return json({ error: 'Passkey registration failed.' }, { status: 401 });
+		return routeJsonError(locals, 401, 'Passkey registration failed.');
 	}
 
 	const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;

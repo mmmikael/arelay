@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { decryptSecret, encryptSecret } from '$lib/server/secret-crypto';
 import { validateCloudflareEmailCredentials } from '$lib/server/email-send';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	decryptCloudflareAccountId,
 	deleteUserCloudflareEmail,
@@ -28,13 +29,13 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 	try {
 		body = await request.json();
 	} catch {
-		return json({ error: 'Invalid JSON body' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Invalid JSON body');
 	}
 
 	const accountId = body.accountId?.trim();
 	const apiToken = body.apiToken?.trim();
 	if (!accountId || !apiToken) {
-		return json({ error: 'accountId and apiToken are required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'accountId and apiToken are required');
 	}
 
 	try {
