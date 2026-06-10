@@ -205,7 +205,7 @@
 			return;
 		}
 		if (!$e2eePrivateKey) {
-			error = 'Unlock encryption from the inbox header before revealing saved tokens.';
+			error = 'Unlock encryption from the sessions header before revealing saved tokens.';
 			return;
 		}
 
@@ -260,7 +260,7 @@
 		<a
 			href="/portal"
 			class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-			aria-label="Back to inbox"
+			aria-label="Back to sessions"
 		>
 			<ArrowLeft class="h-5 w-5" />
 		</a>
@@ -277,7 +277,7 @@
 				class="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
 			>
 				<ArrowLeft class="h-4 w-4" />
-				Back to inbox
+				Back to sessions
 			</a>
 			<h1 class="mt-4 text-2xl font-semibold text-slate-900 dark:text-slate-100">Account</h1>
 			<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -354,7 +354,7 @@
 						></div>
 					</div>
 					<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-						Up to {formatBytes(data.storage.artifactLimitBytes)} per message. Deleting sessions frees
+						Up to {formatBytes(data.storage.artifactLimitBytes)} per file. Deleting sessions frees
 						space.
 					</p>
 				</div>

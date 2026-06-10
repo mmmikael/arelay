@@ -18,6 +18,9 @@ export const POST: RequestHandler = async ({ cookies, locals, request, url }) =>
 	if (challenge.userId !== locals.user.id) {
 		return routeJsonError(locals, 403, 'Passkey challenge does not match this account.');
 	}
+	if (challenge.purpose !== 'add-passkey') {
+		return routeJsonError(locals, 403, 'Invalid passkey registration challenge.');
+	}
 
 	const user = await getUser(challenge.userId);
 	if (!user) {

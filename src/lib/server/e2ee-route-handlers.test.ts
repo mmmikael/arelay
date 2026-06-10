@@ -7,6 +7,8 @@ import { GET as getAgentE2eeConfig } from '../../routes/api/agent/e2ee/config/+s
 
 vi.mock('$lib/server/db', () => ({
 	createEncryptedSession: vi.fn(),
+	createArtifact: vi.fn(),
+	deleteArtifact: vi.fn(),
 	getArtifact: vi.fn(),
 	getE2eeConfig: vi.fn(),
 	getSession: vi.fn(),
@@ -17,6 +19,7 @@ vi.mock('$lib/server/s3', () => ({
 	buildStorageKey: vi.fn(() => 'agent-relay/session/artifact/encrypted'),
 	isS3Configured: vi.fn(() => true),
 	putObject: vi.fn(),
+	deleteObject: vi.fn(),
 	getObjectBytes: vi.fn()
 }));
 
@@ -26,10 +29,14 @@ vi.mock('$lib/server/storage-quota', () => ({
 
 import {
 	createEncryptedSession,
+	createArtifact,
+	deleteArtifact,
 	getArtifact,
 	getE2eeConfig,
 	getSession
 } from '$lib/server/db';
+import { putObject } from '$lib/server/s3';
+import { MAX_ARTIFACT_UPLOAD_BODY_BYTES } from '$lib/storage-limits';
 
 const envelope = {
 	v: 1,
@@ -118,6 +125,65 @@ describe('E2EE route enforcement', () => {
 		} as Parameters<typeof postAgentArtifact>[0]);
 
 		expect(response.status).toBe(415);
+	});
+
+	it('returns 413 when Content-Length exceeds artifact upload limit', async () => {
+		vi.mocked(getE2eeConfig).mockResolvedValue(mockE2eeConfig);
+		vi.mocked(getSession).mockResolvedValue({
+			id: 'session-1',
+			owner_user_id: 'user-1'
+		} as Awaited<ReturnType<typeof getSession>>);
+
+		const response = await postAgentArtifact({
+			locals: agentLocals(),
+			params: { id: 'session-1' },
+			request: new Request('http://localhost/api/agent/sessions/session-1/artifacts', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Length': String(MAX_ARTIFACT_UPLOAD_BODY_BYTES + 1)
+				},
+				body: '{}'
+			})
+		} as Parameters<typeof postAgentArtifact>[0]);
+
+		expect(response.status).toBe(413);
+	});
+
+	it('persists server-measured artifact size and rolls back on storage failure', async () => {
+		vi.mocked(getE2eeConfig).mockResolvedValue(mockE2eeConfig);
+		vi.mocked(getSession).mockResolvedValue({
+			id: 'session-1',
+			owner_user_id: 'user-1'
+		} as Awaited<ReturnType<typeof getSession>>);
+		vi.mocked(createArtifact).mockResolvedValue({
+			id: 'artifact-1',
+			size_bytes: 3
+		} as Awaited<ReturnType<typeof createArtifact>>);
+		vi.mocked(putObject).mockRejectedValue(new Error('S3 unavailable'));
+
+		const response = await postAgentArtifact({
+			locals: { ...agentLocals(), log: { warn: vi.fn(), error: vi.fn() } },
+			params: { id: 'session-1' },
+			request: new Request('http://localhost/api/agent/sessions/session-1/artifacts', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					encrypted: true,
+					encrypted_filename: envelope,
+					encrypted_content_type: envelope,
+					encrypted_payload: { v: 1, alg: 'P-256-ECDH-A256GCM', epk: envelope.epk, iv: 'iv' },
+					ciphertext_base64: 'Zm9v',
+					size_bytes: 0
+				})
+			})
+		} as Parameters<typeof postAgentArtifact>[0]);
+
+		expect(response.status).toBe(503);
+		expect(createArtifact).toHaveBeenCalledWith(
+			expect.objectContaining({ sizeBytes: 3 })
+		);
+		expect(deleteArtifact).toHaveBeenCalledWith(expect.any(String), 'session-1');
 	});
 
 	it('returns 404 for archive on unknown session', async () => {

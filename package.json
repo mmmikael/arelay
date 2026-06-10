@@ -13,7 +13,7 @@
 	"homepage": "https://arelay.app",
 	"type": "module",
 	"scripts": {
-		"start": "node build",
+		"start": "node scripts/start.mjs",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

@@ -44,7 +44,7 @@
 			<span
 				class="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:hidden"
 			>
-				Inbox · {#if unreadCount > 0}{unreadCount} unread{:else}{sessionCount} messages{/if}
+				Sessions · {#if unreadCount > 0}{unreadCount} unread{:else}{sessionCount} sessions{/if}
 			</span>
 		</div>
 		<div class="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">

@@ -51,7 +51,7 @@
 						envelopes for reveal in your browser).
 					</li>
 					<li>
-						Inbox metadata such as delivery timestamps, read state, storage sizes, and
+						Session metadata such as delivery timestamps, read state, storage sizes, and
 						encryption version markers.
 					</li>
 					<li>
@@ -69,7 +69,7 @@
 				<h2>3. End-to-end encryption</h2>
 				<p>
 					Agent Relay requires end-to-end encryption for all agent deliveries. You must
-					complete encryption setup on your first portal visit before using the inbox or
+					complete encryption setup on your first portal visit before using sessions or
 					creating agent tokens. Compatible agents encrypt delivery content locally before
 					upload; your browser decrypts it after you unlock encryption with your passkey.
 					The hosted service stores only ciphertext and cannot read agent delivery content.
@@ -90,7 +90,7 @@
 				<p>
 					We use information to provide and secure accounts, receive and display deliveries,
 					operate storage, prevent abuse, diagnose problems, communicate service information,
-					and comply with legal obligations. We do not sell personal information or use inbox
+					and comply with legal obligations. We do not sell personal information or use session
 					content for advertising.
 				</p>
 			</section>

@@ -192,7 +192,7 @@
 			signupNotice =
 				result.delivery === 'console'
 					? 'Verification code sent to the local server console.'
-					: 'Verification code sent. Check your email.';
+					: 'If you are signing up, check your email for a verification code. If you already have an account, sign in with your passkey instead.';
 		} catch (err) {
 			passkeyError = err instanceof Error ? err.message : 'Could not send verification code';
 		} finally {
@@ -290,7 +290,7 @@
 			</p>
 			<h1>Your agents have something for you.</h1>
 			<p class="login-intro">
-				Reports, files, and finished work arrive encrypted in one quiet inbox, ready when you
+				Reports, files, and finished work arrive encrypted in secure agent sessions, ready when you
 				are.
 			</p>
 			<ul class="login-proof" aria-label="Agent Relay features">
@@ -321,7 +321,7 @@
 						</div>
 						<div>
 							<h2>
-								{authMode === 'signin' ? 'Open your inbox' : 'Create your inbox'}
+								{authMode === 'signin' ? 'Open your sessions' : 'Create your account'}
 							</h2>
 							<p>
 								{authMode === 'signin'
@@ -480,7 +480,7 @@
 		<div
 			class="relay-visual"
 			role="img"
-			aria-label="A delivery moving securely from an AI agent to the Agent Relay inbox"
+			aria-label="A delivery moving securely from an AI agent to Agent Relay sessions"
 		>
 			<div class="relay-visual-inner" aria-hidden="true">
 				<div class="relay-status">
@@ -501,7 +501,7 @@
 					<div class="relay-connection"><span></span></div>
 					<div class="relay-node relay-node-inbox">
 						<div class="relay-node-icon"><Inbox class="h-5 w-5" /></div>
-						<span>Inbox</span>
+						<span>Sessions</span>
 					</div>
 				</div>
 

@@ -461,13 +461,13 @@
 		<a
 			href="/portal"
 			class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-			aria-label="Back to inbox"
+			aria-label="Back to sessions"
 		>
 			<ArrowLeft class="h-5 w-5" />
 		</a>
 		<div class="min-w-0">
 			<p class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{sessionTitle}</p>
-			<p class="text-xs text-slate-500 dark:text-slate-400">Inbox</p>
+			<p class="text-xs text-slate-500 dark:text-slate-400">Sessions</p>
 		</div>
 	</div>
 

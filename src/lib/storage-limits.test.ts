@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	MAX_ACCOUNT_STORAGE_BYTES,
 	MAX_ARTIFACT_BYTES,
+	MAX_ARTIFACT_UPLOAD_BODY_BYTES,
+	artifactUploadBodyTooLarge,
 	checkArtifactStorageLimits
 } from './storage-limits';
 
@@ -28,5 +30,15 @@ describe('checkArtifactStorageLimits', () => {
 		if (!result.ok) {
 			expect(result.code).toBe('account_quota_exceeded');
 		}
+	});
+
+	it('sets upload body limit above base64-encoded max artifact size', () => {
+		expect(MAX_ARTIFACT_UPLOAD_BODY_BYTES).toBeGreaterThan(MAX_ARTIFACT_BYTES);
+	});
+
+	it('rejects oversized Content-Length headers for artifact uploads', () => {
+		expect(artifactUploadBodyTooLarge(String(MAX_ARTIFACT_UPLOAD_BODY_BYTES + 1))).toBe(true);
+		expect(artifactUploadBodyTooLarge(String(MAX_ARTIFACT_UPLOAD_BODY_BYTES))).toBe(false);
+		expect(artifactUploadBodyTooLarge(null)).toBe(false);
 	});
 });
