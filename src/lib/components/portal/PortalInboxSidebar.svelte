@@ -2,22 +2,35 @@
 	import { goto, invalidate } from '$app/navigation';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
+	import { emailDraftStatusClass, emailDraftStatusLabel } from '$lib/email-draft-status';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
+	import {
+		EMAIL_DRAFT_SIDEBAR_DESCRIPTION,
+		SIDEBAR_ARCHIVE_FILTER_ENABLED,
+		type SidebarDecryptedMeta,
+		type SidebarFilter,
+		type SidebarSessionIcon
+	} from '$lib/portal/sidebar-types';
 	import { forgetSessionPrefetch, prefetchSessionOnIntent } from '$lib/session-prefetch';
+	import Archive from '@lucide/svelte/icons/archive';
+	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import FileText from '@lucide/svelte/icons/file-text';
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import Mail from '@lucide/svelte/icons/mail';
 	import MailOpen from '@lucide/svelte/icons/mail-open';
+	import Server from '@lucide/svelte/icons/server';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import { getContext, onMount } from 'svelte';
 
 	const SIDEBAR_KEY = 'agentRelay:sidebarCollapsed';
 	const SIDEBAR_WIDTH_KEY = 'agentRelay:sidebarWidth';
-	const SIDEBAR_MIN_WIDTH = 240;
+	const SIDEBAR_MIN_WIDTH = 300;
 	const SIDEBAR_MAX_WIDTH = 560;
-	const SIDEBAR_DEFAULT_WIDTH = 320;
+	const SIDEBAR_DEFAULT_WIDTH = 380;
 	const TAP_MOVE_THRESHOLD = 10;
 	const CLICK_SUPPRESS_MS = 450;
 
@@ -29,6 +42,7 @@
 		encrypted_summary?: unknown;
 		is_read: boolean;
 		artifact_count?: number;
+		is_archived?: boolean;
 	};
 
 	type EmailDraftSummary = {
@@ -48,6 +62,14 @@
 		until: number;
 	};
 
+	const FILTER_OPTIONS: { id: SidebarFilter; label: string; icon?: 'mail' }[] = [
+		{ id: 'all', label: 'All' },
+		{ id: 'unread', label: 'Unread' },
+		{ id: 'email', label: 'Email', icon: 'mail' },
+		{ id: 'files', label: 'Files' },
+		...(SIDEBAR_ARCHIVE_FILTER_ENABLED ? [{ id: 'archived' as const, label: 'Archived' }] : [])
+	];
+
 	let {
 		sessions,
 		emailDraftSummaries,
@@ -55,16 +77,14 @@
 		activeSessionId,
 		navigatingToSessionId,
 		showMobileDetail,
-		unreadCount,
 		pendingSessionId = $bindable<string | null>(null)
 	}: {
 		sessions: SessionRow[];
 		emailDraftSummaries: Record<string, EmailDraftSummary | undefined>;
-		decryptedSessions: Record<string, { title: string; summary: string | null }>;
+		decryptedSessions: Record<string, SidebarDecryptedMeta>;
 		activeSessionId: string | null;
 		navigatingToSessionId: string | null;
 		showMobileDetail: boolean;
-		unreadCount: number;
 		pendingSessionId?: string | null;
 	} = $props();
 
@@ -80,39 +100,148 @@
 	let sidebarWidth = $state(SIDEBAR_DEFAULT_WIDTH);
 	let isResizing = $state(false);
 	let isDesktop = $state(false);
+	let activeFilter = $state<SidebarFilter>('all');
 
 	const effectiveSidebarCollapsed = $derived(isDesktop && sidebarCollapsed);
 
-	function sessionInitial(title: string): string {
-		const initial = title.trim().charAt(0);
-		return initial ? initial.toUpperCase() : 'A';
-	}
+	const activeSessionCount = $derived(
+		sessions.filter((session) => !session.is_archived).length
+	);
 
-	function formatSessionDate(iso: string | Date): string {
-		return new Date(iso).toLocaleString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
-	function emailDraftStatusLabel(status: string): string {
-		switch (status) {
-			case 'pending':
-				return 'Awaiting review';
-			case 'sent':
-				return 'Sent';
-			case 'rejected':
-				return 'Rejected';
-			case 'failed':
-				return 'Send failed';
-			case 'approved':
-				return 'Approved';
+	const filteredSessions = $derived.by(() => {
+		switch (activeFilter) {
+			case 'unread':
+				return sessions.filter((session) => !session.is_read && !session.is_archived);
+			case 'email':
+				return sessions.filter(
+					(session) => Boolean(emailDraftSummaries[session.id]) && !session.is_archived
+				);
+			case 'files':
+				return sessions.filter(
+					(session) => (session.artifact_count ?? 0) > 0 && !session.is_archived
+				);
+			case 'archived':
+				return sessions.filter((session) => session.is_archived);
 			default:
-				return status;
+				return sessions.filter((session) => !session.is_archived);
+		}
+	});
+
+	function sessionMeta(session: SessionRow): SidebarDecryptedMeta {
+		return (
+			decryptedSessions[session.id] ?? {
+				title: displaySessionTitle(session),
+				summary: displaySessionSummary(session)
+			}
+		);
+	}
+
+	function sessionIconKind(
+		session: SessionRow,
+		emailDraft: EmailDraftSummary | undefined
+	): SidebarSessionIcon {
+		if (emailDraft) return 'email';
+		return sessionMeta(session).icon ?? 'default';
+	}
+
+	function displaySessionCardSummary(
+		session: SessionRow,
+		emailDraft: EmailDraftSummary | undefined
+	): string | null {
+		if (emailDraft) return EMAIL_DRAFT_SIDEBAR_DESCRIPTION;
+		return sessionMeta(session).summary;
+	}
+
+	function iconContainerClass(iconKind: SidebarSessionIcon): string {
+		switch (iconKind) {
+			case 'server':
+				return 'bg-blue-50 text-[#2563eb] dark:bg-blue-950/60 dark:text-blue-300';
+			case 'warning':
+				return 'bg-orange-50 text-orange-500 dark:bg-orange-950/40 dark:text-orange-400';
+			case 'document':
+				return 'bg-violet-50 text-violet-500 dark:bg-violet-950/40 dark:text-violet-400';
+			case 'chart':
+				return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400';
+			case 'email':
+				return 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400';
+			default:
+				return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
 		}
 	}
+
+	function formatRelativeSessionDate(iso: string | Date): string {
+		const date = new Date(iso);
+		const now = new Date();
+		const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+		const dayDiff = Math.round((startOfToday.getTime() - startOfDate.getTime()) / 86_400_000);
+		const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+		if (dayDiff === 0) return `Today ${time}`;
+		if (dayDiff === 1) return 'Yesterday';
+		if (dayDiff > 1) return `${dayDiff} days ago`;
+		return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	}
+
+	function formatFileCount(count: number): string {
+		return `${count} file${count === 1 ? '' : 's'}`;
+	}
+
+	type MetadataPart =
+		| { kind: 'text'; text: string; unread?: boolean }
+		| { kind: 'email-draft'; status: string };
+
+	function sessionMetadataParts(
+		session: SessionRow,
+		emailDraft: EmailDraftSummary | undefined
+	): MetadataPart[] {
+		const parts: MetadataPart[] = [
+			{ kind: 'text', text: formatRelativeSessionDate(session.updated_at) }
+		];
+		const fileCount = session.artifact_count ?? 0;
+		if (fileCount > 0) {
+			parts.push({ kind: 'text', text: formatFileCount(fileCount) });
+		}
+		if (emailDraft) {
+			parts.push({ kind: 'email-draft', status: emailDraft.status });
+		}
+		if (!session.is_read) {
+			parts.push({ kind: 'text', text: 'Unread', unread: true });
+		}
+		return parts;
+	}
+
+	function filterEmptyState(filter: SidebarFilter): { title: string; description: string } {
+		switch (filter) {
+			case 'unread':
+				return {
+					title: 'No unread sessions',
+					description: 'You are caught up. New deliveries will appear here when they arrive.'
+				};
+			case 'email':
+				return {
+					title: 'No email drafts',
+					description: 'Outbound email drafts awaiting review will show up here.'
+				};
+			case 'files':
+				return {
+					title: 'No file deliveries',
+					description: 'Sessions with attached files will appear in this filter.'
+				};
+			case 'archived':
+				return {
+					title: 'No archived sessions',
+					description: 'Archived sessions will appear here once archiving is available.'
+				};
+			default:
+				return {
+					title: 'No sessions yet',
+					description: 'New agent deliveries will show up here as sessions.'
+				};
+		}
+	}
+
+	const emptyState = $derived(filterEmptyState(activeFilter));
 
 	function isEncryptedSession(session: SessionRow): boolean {
 		return session.encryption_version === 'e2ee-v1';
@@ -351,25 +480,21 @@
 		title="Show sessions"
 		aria-label="Show sessions"
 		aria-expanded={false}
-		class="absolute left-4 top-4 z-30 hidden items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-md backdrop-blur-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-blue-900 dark:hover:bg-blue-950/80 sm:inline-flex"
+		class="absolute left-4 top-4 z-30 hidden items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-md backdrop-blur-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-blue-900 dark:hover:bg-blue-950/80 dark:hover:text-slate-100 sm:inline-flex"
 	>
-		<Inbox class="h-4 w-4 text-[#3b82f6]" />
+		<Inbox class="h-4 w-4 text-[#2563eb] dark:text-blue-300" />
 		<span>Sessions</span>
 		<span
-			class="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+			class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-[#2563eb] dark:bg-blue-950/60 dark:text-blue-300"
 		>
-			{#if unreadCount > 0}
-				{unreadCount} unread
-			{:else}
-				{sessions.length}
-			{/if}
+			{activeSessionCount} active
 		</span>
-		<ChevronRight class="h-4 w-4 text-slate-400" />
+		<ChevronRight class="h-4 w-4 text-slate-400 dark:text-slate-500" />
 	</button>
 {/if}
 
 <div
-	class="relative shrink-0 flex-col min-h-0 overflow-hidden border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950
+	class="relative flex shrink-0 flex-col min-h-0 overflow-hidden border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950
 		{showMobileDetail ? 'hidden sm:flex' : 'flex w-full'}
 		{effectiveSidebarCollapsed ? 'sm:w-0 sm:border-0' : 'w-full sm:w-[var(--sidebar-width)] sm:border-r'}
 		{!isResizing && !effectiveSidebarCollapsed
@@ -378,63 +503,80 @@
 	style={sidebarStyle}
 	aria-hidden={effectiveSidebarCollapsed || (!isDesktop && showMobileDetail)}
 >
-	<div class="hidden min-w-0 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:block">
+	<div class="min-w-0 border-b border-slate-200 px-4 pb-3.5 pt-4 dark:border-slate-800 sm:px-4">
 		<div class="flex items-center justify-between gap-2">
-			<div class="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-				<Inbox class="h-4 w-4 shrink-0 text-[#3b82f6]" />
-				Sessions
-			</div>
-			<div class="flex shrink-0 items-center gap-1">
+			<div class="flex min-w-0 items-center gap-2">
+				<h2 class="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+					Sessions
+				</h2>
 				<span
-					class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-300"
+					class="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-[#2563eb] dark:bg-blue-950/60 dark:text-blue-300"
 				>
-					{#if unreadCount > 0}
-						{unreadCount} unread
-					{:else}
-						{sessions.length}
-					{/if}
+					{activeSessionCount} active
 				</span>
+			</div>
+			<button
+				type="button"
+				onclick={toggleSidebar}
+				title="Hide sessions"
+				aria-label="Hide sessions"
+				aria-expanded={true}
+				class="hidden shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 sm:block"
+			>
+				<ChevronLeft class="h-4 w-4" />
+			</button>
+		</div>
+		<p class="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">
+			Work delivered by your agents
+		</p>
+
+		<div class="mt-3.5 flex flex-nowrap gap-1.5 overflow-x-auto">
+			{#each FILTER_OPTIONS as filter (filter.id)}
 				<button
 					type="button"
-					onclick={toggleSidebar}
-					title="Hide sessions"
-					aria-label="Hide sessions"
-					aria-expanded={true}
-					class="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+					onclick={() => {
+						activeFilter = filter.id;
+					}}
+					class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors {activeFilter ===
+					filter.id
+						? 'border-[#2563eb] bg-blue-50 text-[#2563eb] dark:border-blue-400 dark:bg-blue-950/50 dark:text-blue-300'
+						: 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600'}"
 				>
-					<ChevronLeft class="h-4 w-4" />
+					{#if filter.icon === 'mail'}
+						<Mail class="h-3 w-3 shrink-0" aria-hidden="true" />
+					{/if}
+					{filter.label}
 				</button>
-			</div>
+			{/each}
 		</div>
-		<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Deliveries from AI agents</p>
 	</div>
 
-	<div class="min-w-0 flex-1 overflow-y-auto">
-		{#if sessions.length === 0}
-			<div class="px-4 py-6">
-				<p class="text-sm font-medium text-slate-700 dark:text-slate-200">No sessions yet.</p>
+	<div class="min-w-0 flex-1 overflow-y-auto px-3 py-2.5 sm:px-3">
+		{#if filteredSessions.length === 0}
+			<div class="px-1 py-6">
+				<p class="text-sm font-medium text-slate-700 dark:text-slate-200">{emptyState.title}</p>
 				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-					New agent deliveries will show up here as sessions.
+					{emptyState.description}
 				</p>
 			</div>
 		{:else}
-			<ul class="sm:p-2">
-				{#each sessions as session (session.id)}
+			<ul class="space-y-1.5">
+				{#each filteredSessions as session (session.id)}
 					{@const isCurrent = activeSessionId === session.id}
 					{@const isPending =
 						activeSessionId !== session.id &&
 						(pendingSessionId === session.id || navigatingToSessionId === session.id)}
-					{@const title = displaySessionTitle(session)}
-					{@const summary = displaySessionSummary(session)}
+					{@const meta = sessionMeta(session)}
+					{@const title = meta.title}
 					{@const emailDraft = emailDraftSummaries[session.id]}
+					{@const summary = displaySessionCardSummary(session, emailDraft)}
+					{@const agentName = emailDraft ? null : meta.agentName}
+					{@const iconKind = sessionIconKind(session, emailDraft)}
 					<li>
 						<div
-							class="group relative flex items-stretch border-b border-slate-100 transition-colors dark:border-slate-800 sm:mb-1 sm:rounded-xl sm:border {isCurrent ||
-							isPending
-								? 'border-[#3b82f6]/40 bg-blue-50 dark:border-blue-400/40 dark:bg-blue-950/40'
-								: session.is_read
-									? 'sm:border-transparent hover:bg-slate-50 sm:hover:border-slate-200 dark:hover:bg-slate-900 dark:sm:hover:border-slate-800'
-									: 'bg-white sm:border-transparent hover:bg-blue-50/40 sm:hover:border-blue-100 dark:bg-slate-950 dark:hover:bg-blue-950/20 dark:sm:hover:border-blue-900/50'}"
+							class="group relative rounded-[10px] border transition-colors {isCurrent || isPending
+								? 'border-[#2563eb]/35 bg-[#eff6ff] dark:border-blue-400/40 dark:bg-blue-950/40'
+								: 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800/60'}"
 						>
 							<a
 								href="/portal/{session.id}"
@@ -446,94 +588,120 @@
 								onpointerup={(event) => finishSessionPointer(session.id, event)}
 								onpointercancel={cancelSessionPointer}
 								onclick={(event) => handleSessionClick(session.id, event)}
-								class="grid min-w-0 flex-1 grid-cols-[2.5rem_minmax(0,1fr)] gap-3 px-4 py-3 text-left sm:grid-cols-[2.25rem_minmax(0,1fr)] sm:px-3 sm:pr-16"
+								class="flex items-start gap-3 px-3 py-2.5 pr-10 text-left"
 							>
 								<span
-									class="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold sm:h-9 sm:w-9 {session.is_read
-										? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-										: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'}"
+									class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] {iconContainerClass(
+										iconKind
+									)}"
 									aria-hidden="true"
 								>
-									{#if !session.is_read}
-										<span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#3b82f6] dark:border-slate-950"></span>
+									{#if iconKind === 'server'}
+										<Server class="h-4 w-4" />
+									{:else if iconKind === 'warning'}
+										<TriangleAlert class="h-4 w-4" />
+									{:else if iconKind === 'document'}
+										<FileText class="h-4 w-4" />
+									{:else if iconKind === 'chart'}
+										<BarChart3 class="h-4 w-4" />
+									{:else if iconKind === 'email'}
+										<Mail class="h-4 w-4" />
+									{:else}
+										<Inbox class="h-4 w-4" />
 									{/if}
-									{sessionInitial(title)}
 								</span>
-								<span class="min-w-0">
-									<span class="flex min-w-0 items-start justify-between gap-2">
-										<span
-											class="block min-w-0 flex-1 truncate text-sm {session.is_read
-												? 'font-semibold text-slate-800 dark:text-slate-200'
-												: 'font-bold text-slate-950 dark:text-slate-50'}"
-											title={title}
-										>
-											{title}
-										</span>
-										<time
-											class="mt-0.5 shrink-0 whitespace-nowrap text-xs {session.is_read
-												? 'text-slate-400 dark:text-slate-500'
-												: 'font-semibold text-[#2563eb] dark:text-blue-300'}"
-										>
-											{formatSessionDate(session.updated_at)}
-										</time>
-									</span>
+
+								<span class="min-w-0 flex-1">
 									<span
-										class="mt-1 block truncate text-xs {session.is_read
-											? 'text-slate-500 dark:text-slate-400'
-											: 'font-medium text-slate-700 dark:text-slate-300'}"
+										class="block truncate text-[14px] font-semibold leading-5 text-slate-900 dark:text-slate-100"
+										title={title}
 									>
-										{#if emailDraft}
-											Email · {emailDraftStatusLabel(emailDraft.status)}
-										{:else if session.artifact_count}
-											{session.artifact_count} file{session.artifact_count === 1 ? '' : 's'}
-										{:else}
-											No files
-										{/if}
+										{title}
 									</span>
+									{#if agentName}
+										<span class="mt-0.5 block truncate text-[12px] text-slate-500 dark:text-slate-400"
+											>{agentName}</span
+										>
+									{/if}
 									{#if summary}
 										<span
-											class="inbox-summary-clamp mt-1 block pr-16 text-xs leading-5 sm:pr-0 {session.is_read
-												? 'text-slate-500 dark:text-slate-400'
-												: 'text-slate-700 dark:text-slate-300'}"
+											class="mt-0.5 block truncate text-[13px] leading-5 text-slate-600 dark:text-slate-300"
+											>{summary}</span
 										>
-											{summary}
-										</span>
 									{/if}
+									<span
+										class="mt-1.5 inline-flex min-w-0 flex-wrap items-center text-[12px] text-slate-500 dark:text-slate-400"
+									>
+										{#each sessionMetadataParts(session, emailDraft) as part, index (index)}
+											{#if index > 0}
+												<span
+													class="shrink-0 px-1 text-[10px] leading-none text-slate-300 dark:text-slate-600"
+													aria-hidden="true">·</span
+												>
+											{/if}
+											{#if part.kind === 'email-draft'}
+												<span class="inline-flex shrink-0 items-center">
+													<span>Email</span>
+													<span
+														class="px-1 text-[10px] leading-none text-slate-300 dark:text-slate-600"
+														aria-hidden="true">·</span
+													>
+													<span class={emailDraftStatusClass(part.status)}
+														>{emailDraftStatusLabel(part.status)}</span
+													>
+												</span>
+											{:else}
+												<span
+													class="shrink-0 {part.unread
+														? 'font-medium text-[#2563eb] dark:text-blue-300'
+														: ''}">{part.text}</span
+												>
+											{/if}
+										{/each}
+									</span>
 								</span>
 							</a>
+
+							{#if !session.is_read}
+								<span
+									class="absolute right-4 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[#2563eb] dark:bg-blue-400"
+									aria-hidden="true"
+								></span>
+							{/if}
+
 							<div
-								class="absolute bottom-3 right-3 flex shrink-0 items-center gap-0.5 sm:bottom-auto sm:right-2 sm:top-1/2 sm:-translate-y-1/2 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+								class="absolute bottom-2 right-2 flex shrink-0 items-center gap-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
 							>
 								{#if isPending}
 									<span
-										class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/80 text-[#2563eb] shadow-sm dark:bg-slate-900/80 dark:text-blue-300"
+										class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-[#2563eb] shadow-sm dark:bg-slate-900/90 dark:text-blue-300"
 										aria-label="Loading session"
 									>
-										<LoaderCircle class="h-4 w-4 animate-spin" />
+										<LoaderCircle class="h-3.5 w-3.5 animate-spin" />
 									</span>
 								{:else}
 									<button
 										type="button"
-										class="rounded-md p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-[#2563eb] disabled:opacity-50 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
+										class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-[#2563eb] disabled:opacity-50 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
 										title={session.is_read ? 'Mark as unread' : 'Mark as read'}
 										aria-label={session.is_read ? 'Mark as unread' : 'Mark as read'}
 										disabled={markingReadSessionId === session.id}
 										onclick={(event) => setSessionReadState(session.id, !session.is_read, event)}
 									>
 										{#if session.is_read}
-											<Mail class="h-4 w-4" />
+											<Mail class="h-3.5 w-3.5" />
 										{:else}
-											<MailOpen class="h-4 w-4" />
+											<MailOpen class="h-3.5 w-3.5" />
 										{/if}
 									</button>
 									<button
 										type="button"
-										class="rounded-md p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+										class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
 										title="Delete session"
 										aria-label="Delete session"
 										onclick={(event) => confirmDeleteSession(session.id, event)}
 									>
-										<Trash2 class="h-4 w-4" />
+										<Trash2 class="h-3.5 w-3.5" />
 									</button>
 								{/if}
 							</div>
@@ -544,15 +712,35 @@
 		{/if}
 	</div>
 
+	{#if SIDEBAR_ARCHIVE_FILTER_ENABLED}
+		<div
+			class="border-t border-slate-200 bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950 sm:px-4"
+		>
+			<button
+				type="button"
+				onclick={() => {
+					activeFilter = 'archived';
+				}}
+				class="flex w-full items-center justify-between gap-2 text-[13px] text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+			>
+				<span class="flex items-center gap-2">
+					<Archive class="h-4 w-4 text-slate-400 dark:text-slate-500" />
+					View archived sessions
+				</span>
+				<ChevronRight class="h-4 w-4 text-slate-400 dark:text-slate-500" />
+			</button>
+		</div>
+	{/if}
+
 	{#if !effectiveSidebarCollapsed}
 		<button
 			type="button"
-			class="hidden sm:block absolute inset-y-0 -right-1 z-10 w-2 touch-none cursor-col-resize group"
+			class="absolute inset-y-0 -right-1 z-10 hidden w-2 touch-none cursor-col-resize group sm:block"
 			aria-label="Resize sidebar"
 			onpointerdown={startSidebarResize}
 		>
 			<span
-				class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-slate-200 transition-colors group-hover:bg-[#3b82f6]/50 group-active:bg-[#3b82f6] dark:bg-slate-800 dark:group-hover:bg-blue-400/50"
+				class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-slate-200 transition-colors group-hover:bg-[#2563eb]/50 group-active:bg-[#2563eb] dark:bg-slate-800 dark:group-hover:bg-blue-400/50 dark:group-active:bg-blue-400"
 			></span>
 		</button>
 	{/if}

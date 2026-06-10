@@ -13,6 +13,7 @@
 		mergeEmailDraftBundle,
 		type EmailDraftBundle
 	} from '$lib/email-draft-bundle';
+	import { emailDraftStatusLabel } from '$lib/email-draft-status';
 	import {
 		buildApproveRequestInit,
 		buildEditableBundle,
@@ -242,23 +243,6 @@
 			cloudflareEmailConfigured
 	);
 
-	function emailDraftStatusLabel(status: string): string {
-		switch (status) {
-			case 'pending':
-				return 'Awaiting review';
-			case 'sent':
-				return 'Sent';
-			case 'rejected':
-				return 'Rejected';
-			case 'failed':
-				return 'Send failed — retry available';
-			case 'approved':
-				return 'Approved';
-			default:
-				return status;
-		}
-	}
-
 	function formatEmailFrom(draft: { from_email: string; from_name: string | null }): string {
 		return draft.from_name ? `${draft.from_name} <${draft.from_email}>` : draft.from_email;
 	}
@@ -441,7 +425,7 @@
 			<span
 				class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
 			>
-				{emailDraftStatusLabel(emailDraft.status)}
+				{emailDraftStatusLabel(emailDraft.status, 'detail')}
 			</span>
 		</div>
 
