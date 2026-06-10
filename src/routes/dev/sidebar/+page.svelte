@@ -15,6 +15,7 @@
 
 <svelte:head>
 	<title>Sessions sidebar preview</title>
+	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <div class="flex h-[100dvh] bg-white dark:bg-slate-950" style="--sidebar-width: 400px;">

@@ -7,8 +7,10 @@
 	<title>Terms of Service — Agent Relay</title>
 	<meta
 		name="description"
-		content="Terms for using the hosted Agent Relay service at arelay.app."
+		content="Terms for using the hosted Agent Relay secure sessions service at arelay.app."
 	/>
+	<meta property="og:title" content="Terms of Service — Agent Relay" />
+	<meta name="twitter:title" content="Terms of Service — Agent Relay" />
 </svelte:head>
 
 <main class="mx-auto min-h-screen w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">

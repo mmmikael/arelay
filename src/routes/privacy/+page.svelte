@@ -7,8 +7,10 @@
 	<title>Privacy Policy — Agent Relay</title>
 	<meta
 		name="description"
-		content="How the hosted Agent Relay service collects, uses, and protects information."
+		content="How the hosted Agent Relay secure sessions service collects, uses, and protects information."
 	/>
+	<meta property="og:title" content="Privacy Policy — Agent Relay" />
+	<meta name="twitter:title" content="Privacy Policy — Agent Relay" />
 </svelte:head>
 
 <main class="mx-auto min-h-screen w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
