@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { decryptString, encryptString, type EncryptedEnvelope } from '$lib/e2ee';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
+	import { isUmamiOptedOut, setUmamiOptOut } from '$lib/umami-opt-out';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import Bot from '@lucide/svelte/icons/bot';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
@@ -11,6 +14,7 @@
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Mail from '@lucide/svelte/icons/mail';
 	import { formatBytes } from '$lib/artifacts';
+	import { onMount } from 'svelte';
 	import type { LayoutData } from '../$types';
 
 	let { data }: { data: LayoutData } = $props();
@@ -18,6 +22,7 @@
 	let busy = $state(false);
 	let error = $state('');
 	let notice = $state('');
+	let excludeAnalytics = $state(false);
 	let generatedAgentToken = $state<{
 		id: string;
 		name: string;
@@ -33,6 +38,17 @@
 	$effect(() => {
 		cloudflareAccountIdInput = data.cloudflareEmail.accountId ?? '';
 	});
+
+	const analyticsEnabled = $derived(Boolean($page.data.umami));
+
+	onMount(() => {
+		excludeAnalytics = isUmamiOptedOut();
+	});
+
+	function toggleAnalyticsExclusion() {
+		excludeAnalytics = !excludeAnalytics;
+		setUmamiOptOut(excludeAnalytics);
+	}
 
 	function bytesToBase64Url(bytes: Uint8Array): string {
 		let binary = '';
@@ -360,6 +376,37 @@
 				</div>
 			</div>
 		</section>
+
+		{#if analyticsEnabled}
+			<section
+				class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5"
+			>
+				<div class="flex items-start gap-3">
+					<span
+						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+					>
+						<BarChart3 class="h-4 w-4" />
+					</span>
+					<div class="min-w-0 flex-1">
+						<h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Analytics</h2>
+						<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+							Exclude your own visits from site analytics on this browser.
+						</p>
+						<label class="mt-4 flex cursor-pointer items-start gap-3">
+							<input
+								type="checkbox"
+								class="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
+								checked={excludeAnalytics}
+								onchange={toggleAnalyticsExclusion}
+							/>
+							<span class="text-sm text-slate-700 dark:text-slate-300">
+								Don't count my visits
+							</span>
+						</label>
+					</div>
+				</div>
+			</section>
+		{/if}
 
 		<section
 			class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5"
