@@ -8,8 +8,9 @@ import {
 	normalizeVerificationCode
 } from '$lib/server/email-verification';
 import { verifyEmailVerificationCode } from '$lib/server/db';
+import { routeJsonError } from '$lib/server/api-error';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ locals, request }) => {
 	const body = (await request.json().catch(() => ({}))) as {
 		email?: unknown;
 		code?: unknown;
@@ -17,7 +18,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const email = normalizeEmail(body.email);
 	const code = normalizeVerificationCode(body.code);
 	if (!email || !code) {
-		return json({ error: 'Enter the 6-digit verification code.' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Enter the 6-digit verification code.');
 	}
 
 	const signupVerificationToken = generateSignupVerificationToken();
@@ -27,7 +28,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		signupTokenHash: hashSignupVerificationToken(signupVerificationToken)
 	});
 	if (!challenge) {
-		return json({ error: 'The verification code is invalid or expired.' }, { status: 400 });
+		return routeJsonError(locals, 400, 'The verification code is invalid or expired.');
 	}
 
 	return json({

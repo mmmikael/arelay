@@ -1,5 +1,6 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import type { ResolveOptions } from '@sveltejs/kit';
 import {
 	enforcePublicAuthIpRateLimit,
 	isPublicAuthPath
@@ -11,7 +12,17 @@ import {
 } from '$lib/server/agent-rate-limit';
 import { ensureSchema, getUser } from '$lib/server/db';
 import { hasCurrentLegalVersions } from '$lib/legal';
-import { buildRateLimitResponse } from '$lib/server/rate-limit';
+import { routeRateLimitResponse } from '$lib/server/api-error';
+import { enforceHealthReadyIpRateLimit } from '$lib/server/health-rate-limit';
+import {
+	finishResponse,
+	hookJsonError,
+	publicErrorMessage,
+	secureRedirect,
+	type RequestContext
+} from '$lib/server/http-response';
+import { createRequestLogger, rootLogger } from '$lib/server/logger';
+import { resolveRequestId } from '$lib/server/request-id';
 import { getRequestClientIp } from '$lib/server/request-client-ip';
 import { getSessionCookieName, verifySession } from '$lib/server/session';
 
@@ -39,90 +50,77 @@ function sanitizeDevCsp(response: Response): void {
 	}
 }
 
-const SECURITY_HEADERS = {
-	'Cross-Origin-Opener-Policy': 'same-origin',
-	'Cross-Origin-Resource-Policy': 'same-origin',
-	'Permissions-Policy':
-		'camera=(), geolocation=(), microphone=(), payment=(), publickey-credentials-create=(self), publickey-credentials-get=(self), usb=()',
-	'Referrer-Policy': 'no-referrer',
-	'X-Content-Type-Options': 'nosniff',
-	'X-Frame-Options': 'DENY'
-} as const;
+function rateLimitResponse(ctx: RequestContext, retryAfterSeconds: number): Response {
+	return finishResponse(routeRateLimitResponse(ctx, retryAfterSeconds), ctx);
+}
 
-function applySecurityHeaders(response: Response, isHttps: boolean): Response {
-	for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-		response.headers.set(name, value);
+async function handleHealthRequest(
+	ctx: RequestContext,
+	event: Parameters<Handle>[0]['event'],
+	resolve: (event: Parameters<Handle>[0]['event'], opts?: ResolveOptions) => Response | Promise<Response>
+): Promise<Response> {
+	if (event.url.pathname === '/health/ready') {
+		const readyLimit = enforceHealthReadyIpRateLimit(getRequestClientIp(event));
+		if (!readyLimit.ok) {
+			return rateLimitResponse(ctx, readyLimit.retryAfterSeconds);
+		}
 	}
-	if (isHttps) {
-		response.headers.set(
-			'Strict-Transport-Security',
-			'max-age=31536000; includeSubDomains'
-		);
-	}
-	return response;
+
+	const startedAt = Date.now();
+	const response = await resolve(event);
+	return finishResponse(response, ctx, {
+		startedAt,
+		logMessage: 'health check',
+		logLevel: 'debug'
+	});
 }
 
-function secureRedirect(location: string, isHttps: boolean): Response {
-	return applySecurityHeaders(
-		new Response(null, {
-			status: 307,
-			headers: { Location: location }
-		}),
-		isHttps
-	);
-}
-
-function databaseUnavailableResponse(secure: boolean, message: string): Response {
-	return applySecurityHeaders(
-		new Response(JSON.stringify({ error: message }), {
-			status: 503,
-			headers: { 'Content-Type': 'application/json' }
-		}),
-		secure
-	);
-}
-
-function unauthorizedJsonResponse(secure: boolean): Response {
-	return applySecurityHeaders(
-		new Response(JSON.stringify({ error: 'Unauthorized' }), {
-			status: 401,
-			headers: { 'Content-Type': 'application/json' }
-		}),
-		secure
-	);
-}
-
-async function rejectFailedAgentAuth(clientIp: string, secure: boolean): Promise<Response> {
+async function rejectFailedAgentAuth(ctx: RequestContext, clientIp: string): Promise<Response> {
 	const failedAuthLimit = await recordFailedAgentAuthIpRateLimit(clientIp);
 	if (!failedAuthLimit.ok) {
-		return applySecurityHeaders(
-			buildRateLimitResponse(failedAuthLimit.retryAfterSeconds),
-			secure
-		);
+		return rateLimitResponse(ctx, failedAuthLimit.retryAfterSeconds);
 	}
-	return unauthorizedJsonResponse(secure);
+	return hookJsonError(ctx, 401, 'Unauthorized');
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const secure = event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https';
+	const secure =
+		event.url.protocol === 'https:' ||
+		event.request.headers.get('x-forwarded-proto') === 'https';
+	const path = event.url.pathname;
+	const requestId = resolveRequestId(event.request);
+	const log = createRequestLogger(requestId, {
+		method: event.request.method,
+		path
+	});
+	const ctx: RequestContext = { requestId, isHttps: secure, log };
+
+	event.locals.requestId = requestId;
+	event.locals.log = log;
+	event.locals.agentUser = null;
+	event.locals.currentPasskeyId = null;
+	event.locals.authenticated = false;
+	event.locals.user = null;
+
+	if (path === '/health' || path === '/health/ready') {
+		return handleHealthRequest(ctx, event, resolve);
+	}
 
 	try {
 		await ensureSchema();
 	} catch (err) {
-		const message =
-			err instanceof Error ? err.message : 'Database migrations have not been applied. Run npm run db:migrate.';
-		console.error('[hooks] database init failed:', err);
-		return databaseUnavailableResponse(secure, message);
+		const internal =
+			err instanceof Error
+				? err.message
+				: 'Database migrations have not been applied. Run npm run db:migrate.';
+		log.error({ err }, 'database init failed');
+		return hookJsonError(ctx, 503, publicErrorMessage(internal));
 	}
-
-	const path = event.url.pathname;
-	event.locals.agentUser = null;
-	event.locals.currentPasskeyId = null;
 
 	if (isPublicAuthPath(path)) {
 		const authLimit = await enforcePublicAuthIpRateLimit(getRequestClientIp(event));
 		if (!authLimit.ok) {
-			return applySecurityHeaders(buildRateLimitResponse(authLimit.retryAfterSeconds), secure);
+			return rateLimitResponse(ctx, authLimit.retryAfterSeconds);
 		}
 	}
 
@@ -132,25 +130,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		const exhausted = await peekFailedAgentAuthIpRateLimit(clientIp);
 		if (!exhausted.ok) {
-			return applySecurityHeaders(buildRateLimitResponse(exhausted.retryAfterSeconds), secure);
+			return rateLimitResponse(ctx, exhausted.retryAfterSeconds);
 		}
 
 		if (!bearerToken) {
-			return rejectFailedAgentAuth(clientIp, secure);
+			return rejectFailedAgentAuth(ctx, clientIp);
 		}
 
 		const agentUser = await resolveAgentUser(event.request);
 		if (!agentUser) {
-			return rejectFailedAgentAuth(clientIp, secure);
+			return rejectFailedAgentAuth(ctx, clientIp);
 		}
 		event.locals.agentUser = agentUser;
-		return applySecurityHeaders(await resolve(event), secure);
+		const startedAt = Date.now();
+		const response = await resolve(event);
+		return finishResponse(response, ctx, { startedAt });
 	}
 
 	const cookieValue = event.cookies.get(getSessionCookieName());
 	const session = verifySession(cookieValue);
-	event.locals.authenticated = false;
-	event.locals.user = null;
 	if (session.authenticated && session.userId) {
 		const user = await getUser(session.userId);
 		if (user) {
@@ -161,7 +159,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (event.locals.authenticated && path === '/') {
-		return secureRedirect('/portal', secure);
+		return secureRedirect(ctx, '/portal');
 	}
 
 	const needsLegalAcceptance =
@@ -171,14 +169,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		needsLegalAcceptance &&
 		path.startsWith('/portal')
 	) {
-		return secureRedirect('/legal/accept', secure);
+		return secureRedirect(ctx, '/legal/accept');
 	}
 	if (
 		event.locals.authenticated &&
 		!needsLegalAcceptance &&
 		path === '/legal/accept'
 	) {
-		return secureRedirect('/portal', secure);
+		return secureRedirect(ctx, '/portal');
 	}
 
 	const isHumanApi =
@@ -186,9 +184,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (path.startsWith('/portal') || isHumanApi) {
 		if (!event.locals.authenticated) {
 			if (isHumanApi) {
-				return unauthorizedJsonResponse(secure);
+				return hookJsonError(ctx, 401, 'Unauthorized');
 			}
-			return secureRedirect('/', secure);
+			return secureRedirect(ctx, '/');
 		}
 		if (
 			isHumanApi &&
@@ -196,16 +194,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 			path !== '/api/logout' &&
 			path !== '/api/legal/accept'
 		) {
-			return applySecurityHeaders(
-				new Response(JSON.stringify({ error: 'Legal acceptance required.' }), {
-					status: 428,
-					headers: { 'Content-Type': 'application/json' }
-				}),
-				secure
-			);
+			return hookJsonError(ctx, 428, 'Legal acceptance required.');
 		}
 	}
 
+	const startedAt = Date.now();
 	const response = await resolve(event, {
 		transformPageChunk: ({ html, done }) => (dev && done ? stripDevPwaMarkup(html) : html)
 	});
@@ -216,5 +209,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 		sanitizeDevCsp(response);
 	}
 
-	return applySecurityHeaders(response, secure);
+	return finishResponse(response, ctx, { startedAt });
+};
+
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+	const log = event.locals.log ?? rootLogger;
+	log.error(
+		{
+			err: error,
+			status,
+			path: event.url.pathname,
+			method: event.request.method,
+			requestId: event.locals.requestId
+		},
+		'unhandled error'
+	);
+
+	const clientMessage = dev ? message : 'Internal Server Error';
+	return {
+		message: clientMessage,
+		requestId: event.locals.requestId
+	};
 };

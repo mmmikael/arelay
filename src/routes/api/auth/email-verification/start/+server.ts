@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { routeLogAndJsonError, routeRateLimitResponse } from '$lib/server/api-error';
 import {
 	EMAIL_VERIFICATION_PER_EMAIL_COOLDOWN_MS,
 	enforceEmailVerificationIpRateLimit
@@ -18,10 +19,9 @@ import {
 	normalizeEmail,
 	sendVerificationEmail
 } from '$lib/server/email-verification';
-import { buildRateLimitResponse } from '$lib/server/rate-limit';
 import { getRequestClientIp } from '$lib/server/request-client-ip';
 
-export const POST: RequestHandler = async ({ request, url, getClientAddress }) => {
+export const POST: RequestHandler = async ({ locals, request, url, getClientAddress }) => {
 	const body = (await request.json().catch(() => ({}))) as {
 		email?: unknown;
 		displayName?: unknown;
@@ -45,7 +45,8 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
 					1000
 			)
 		);
-		return buildRateLimitResponse(
+		return routeRateLimitResponse(
+			locals,
 			retryAfterSeconds,
 			'Wait a minute before requesting another code.'
 		);
@@ -53,7 +54,8 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
 
 	const ipLimit = await enforceEmailVerificationIpRateLimit(getRequestClientIp({ getClientAddress }));
 	if (!ipLimit.ok) {
-		return buildRateLimitResponse(
+		return routeRateLimitResponse(
+			locals,
 			ipLimit.retryAfterSeconds,
 			'Too many verification attempts from this network.'
 		);
@@ -89,7 +91,11 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
 		});
 	} catch (err) {
 		await deleteEmailVerificationChallenge(challenge.id);
-		console.error('[email-verification] failed to send code:', err);
-		return json({ error: 'Could not send verification email.' }, { status: 500 });
+		return routeLogAndJsonError(
+			locals,
+			500,
+			'Could not send verification email.',
+			err
+		);
 	}
 };

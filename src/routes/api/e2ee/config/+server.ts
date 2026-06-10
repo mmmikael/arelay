@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getE2eeConfig, upsertE2eeConfig, type JsonObject } from '$lib/server/db';
+import { routeJsonError } from '$lib/server/api-error';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	const config = await getE2eeConfig(locals.user!.id);
@@ -24,7 +25,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	};
 
 	if (!body.publicKeyJwk || !body.encryptedPrivateKey) {
-		return json({ error: 'publicKeyJwk and encryptedPrivateKey are required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'publicKeyJwk and encryptedPrivateKey are required');
 	}
 
 	const config = await upsertE2eeConfig(locals.user!.id, {

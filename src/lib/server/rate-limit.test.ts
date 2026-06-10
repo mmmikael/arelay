@@ -53,6 +53,14 @@ describe('rateLimitResponseBody', () => {
 			retryAfterSeconds: 10
 		});
 	});
+
+	it('includes requestId when provided', () => {
+		expect(rateLimitResponseBody(30, undefined, 'req-abc')).toEqual({
+			error: 'Too many requests. Try again later.',
+			retryAfterSeconds: 30,
+			requestId: 'req-abc'
+		});
+	});
 });
 
 describe('isRateLimitExceeded', () => {

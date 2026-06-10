@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { recordLegalAcceptance } from '$lib/server/db';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	PRIVACY_VERSION,
 	TERMS_VERSION,
@@ -9,7 +10,7 @@ import {
 
 export const POST: RequestHandler = async ({ locals }) => {
 	if (!locals.authenticated || !locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
+		return routeJsonError(locals, 401, 'Unauthorized');
 	}
 
 	if (hasCurrentLegalVersions(locals.user)) {
@@ -23,7 +24,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 	});
 
 	if (!user) {
-		return json({ error: 'Could not record acceptance' }, { status: 500 });
+		return routeJsonError(locals, 500, 'Could not record acceptance');
 	}
 
 	return json({ ok: true });

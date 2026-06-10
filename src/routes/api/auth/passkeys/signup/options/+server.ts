@@ -17,13 +17,14 @@ import {
 	TERMS_VERSION,
 	isCurrentLegalAcceptance
 } from '$lib/legal';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	challengeExpiresAt,
 	getWebAuthnSettings,
 	setRegisterChallenge
 } from '$lib/server/webauthn';
 
-export const POST: RequestHandler = async ({ cookies, request, url }) => {
+export const POST: RequestHandler = async ({ locals, cookies, request, url }) => {
 	const body = (await request.json().catch(() => ({}))) as {
 		email?: unknown;
 		displayName?: unknown;
@@ -34,10 +35,10 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 	};
 	const email = normalizeEmail(body.email);
 	if (!email) {
-		return json({ error: 'Enter a valid email address.' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Enter a valid email address.');
 	}
 	if (typeof body.emailVerificationToken !== 'string' || !body.emailVerificationToken) {
-		return json({ error: 'Verify your email before creating a passkey.' }, { status: 403 });
+		return routeJsonError(locals, 403, 'Verify your email before creating a passkey.');
 	}
 	if (!isCurrentLegalAcceptance(body)) {
 		return json(
@@ -51,14 +52,14 @@ export const POST: RequestHandler = async ({ cookies, request, url }) => {
 		signupTokenHash: hashSignupVerificationToken(body.emailVerificationToken)
 	});
 	if (!emailVerification) {
-		return json({ error: 'Email verification expired. Send a new code.' }, { status: 403 });
+		return routeJsonError(locals, 403, 'Email verification expired. Send a new code.');
 	}
 
 	const existingUser = await getUserByEmail(email);
 	if (existingUser) {
 		const credentials = await listCredentialsForUser(existingUser.id);
 		if (credentials.length > 0) {
-			return json({ error: 'That account already has a passkey. Sign in instead.' }, { status: 409 });
+			return routeJsonError(locals, 409, 'That account already has a passkey. Sign in instead.');
 		}
 	}
 

@@ -37,16 +37,23 @@ export function retryAfterSecondsFromRollingWindow(
 
 export function rateLimitResponseBody(
 	retryAfterSeconds: number,
-	error = 'Too many requests. Try again later.'
+	error = 'Too many requests. Try again later.',
+	requestId?: string
 ): {
 	error: string;
 	retryAfterSeconds: number;
+	requestId?: string;
 } {
-	return { error, retryAfterSeconds };
+	const body = { error, retryAfterSeconds };
+	return requestId ? { ...body, requestId } : body;
 }
 
-export function buildRateLimitResponse(retryAfterSeconds: number, error?: string): Response {
-	return new Response(JSON.stringify(rateLimitResponseBody(retryAfterSeconds, error)), {
+export function buildRateLimitResponse(
+	retryAfterSeconds: number,
+	error?: string,
+	requestId?: string
+): Response {
+	return new Response(JSON.stringify(rateLimitResponseBody(retryAfterSeconds, error, requestId)), {
 		status: 429,
 		headers: {
 			'Content-Type': 'application/json',

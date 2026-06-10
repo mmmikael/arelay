@@ -4,7 +4,7 @@ import {
 	AGENT_ARTIFACT_LIMIT_ERROR,
 	reserveAgentArtifactCreate
 } from '$lib/server/agent-rate-limit';
-import { buildRateLimitResponse } from '$lib/server/rate-limit';
+import { routeRateLimitResponse } from '$lib/server/api-error';
 import { createArtifact, getSession, type JsonObject } from '$lib/server/db';
 import { isEncryptedArtifactPayload, isEncryptedEnvelope } from '$lib/e2ee-envelope';
 import {
@@ -81,7 +81,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
 	const artifactLimit = await reserveAgentArtifactCreate(locals.agentUser!.id);
 	if (!artifactLimit.ok) {
-		return buildRateLimitResponse(artifactLimit.retryAfterSeconds, AGENT_ARTIFACT_LIMIT_ERROR);
+		return routeRateLimitResponse(locals, artifactLimit.retryAfterSeconds, AGENT_ARTIFACT_LIMIT_ERROR);
 	}
 
 	const quota = await validateArtifactStorageUpload(locals.agentUser!.id, bytes.byteLength);

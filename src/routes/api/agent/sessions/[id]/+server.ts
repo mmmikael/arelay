@@ -9,6 +9,7 @@ import {
 	rejectPlaintextPayload,
 	requireOwnerE2eeForAgent
 } from '$lib/server/e2ee-policy';
+import { routeJsonError } from '$lib/server/api-error';
 import {
 	getEmailDraftBySessionId,
 	getSessionDeliveryType,
@@ -18,7 +19,7 @@ import {
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	const sessionId = params.id;
 	if (!sessionId) {
-		return json({ error: 'Session id required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Session id required');
 	}
 
 	const policy = await requireOwnerE2eeForAgent(locals.agentUser!.id);
@@ -37,7 +38,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	}
 
 	if (!isEncryptedEnvelope(body.encrypted_title)) {
-		return json({ error: 'encrypted_title envelope required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'encrypted_title envelope required');
 	}
 
 	if (
@@ -45,7 +46,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		body.encrypted_summary !== null &&
 		!isEncryptedEnvelope(body.encrypted_summary)
 	) {
-		return json({ error: 'encrypted_summary must be a valid envelope when provided' }, { status: 400 });
+		return routeJsonError(locals, 400, 'encrypted_summary must be a valid envelope when provided');
 	}
 
 	const session = await updateEncryptedSession(sessionId, locals.agentUser!.id, {
@@ -54,7 +55,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	});
 
 	if (!session) {
-		return json({ error: 'Session not found' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Session not found');
 	}
 
 	return json({ session: toSessionView(session) });
@@ -63,12 +64,12 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 export const GET: RequestHandler = async ({ locals, params }) => {
 	const sessionId = params.id;
 	if (!sessionId) {
-		return json({ error: 'Session id required' }, { status: 400 });
+		return routeJsonError(locals, 400, 'Session id required');
 	}
 
 	const session = await getSession(sessionId, locals.agentUser!.id);
 	if (!session) {
-		return json({ error: 'Session not found' }, { status: 404 });
+		return routeJsonError(locals, 404, 'Session not found');
 	}
 
 	const sessionView = toSessionView(session);
