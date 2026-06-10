@@ -50,6 +50,38 @@ function sanitizeDevCsp(response: Response): void {
 	}
 }
 
+function resolveUmamiOrigin(): string | null {
+	const scriptUrl = process.env.UMAMI_SCRIPT_URL?.trim();
+	if (!scriptUrl) return null;
+	try {
+		return new URL(scriptUrl).origin;
+	} catch {
+		return null;
+	}
+}
+
+function appendSourceToCspDirective(csp: string, directive: string, source: string): string {
+	const pattern = new RegExp(`\\b${directive}\\s+([^;]+)`);
+	return csp.replace(pattern, (match, sources: string) =>
+		sources.split(/\s+/).includes(source) ? match : `${directive} ${sources} ${source}`
+	);
+}
+
+function allowUmamiInCsp(response: Response): void {
+	const origin = resolveUmamiOrigin();
+	if (!origin) return;
+
+	const csp = response.headers.get('content-security-policy');
+	if (!csp) return;
+
+	let next = appendSourceToCspDirective(csp, 'script-src', origin);
+	next = appendSourceToCspDirective(next, 'connect-src', origin);
+
+	if (next !== csp) {
+		response.headers.set('content-security-policy', next);
+	}
+}
+
 function rateLimitResponse(ctx: RequestContext, retryAfterSeconds: number): Response {
 	return finishResponse(routeRateLimitResponse(ctx, retryAfterSeconds), ctx);
 }
@@ -208,6 +240,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		response.headers.set('Pragma', 'no-cache');
 		sanitizeDevCsp(response);
 	}
+
+	allowUmamiInCsp(response);
 
 	return finishResponse(response, ctx, { startedAt });
 };
