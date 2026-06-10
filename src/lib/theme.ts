@@ -3,9 +3,10 @@ export const THEME_KEY = 'agentRelay:theme';
 export function isDarkModePreferred(): boolean {
 	try {
 		const savedTheme = localStorage.getItem(THEME_KEY);
-		if (savedTheme) return savedTheme === 'dark';
+		// Dark is the default; only an explicit 'light' opts out.
+		return savedTheme !== 'light';
 	} catch {}
-	return window.matchMedia('(prefers-color-scheme: dark)').matches;
+	return true;
 }
 
 export function applyTheme(isDark: boolean): void {

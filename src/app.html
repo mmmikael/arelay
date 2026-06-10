@@ -14,14 +14,11 @@
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 		<meta name="apple-mobile-web-app-title" content="Agent Relay" />
-		<meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#020617" />
 		<script nonce="%sveltekit.nonce%">
 			try {
 				const storedTheme = localStorage.getItem('agentRelay:theme');
-				const dark =
-					storedTheme === 'dark' ||
-					(!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+				const dark = storedTheme !== 'light';
 				document.documentElement.classList.toggle('dark', dark);
 				document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
 			} catch {}

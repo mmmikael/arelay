@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security alert</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: linear-gradient(160deg, #1c0f0a, #2a1410 55%, #120a08);
+      color: #fff7ed;
+      padding: 2rem 1.25rem 3rem;
+      line-height: 1.55;
+    }
+    .wrap { max-width: 40rem; margin: 0 auto; }
+    .badge {
+      display: inline-block;
+      background: rgba(251, 146, 60, .15);
+      border: 1px solid rgba(251, 146, 60, .45);
+      color: #fdba74;
+      font-size: .72rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: .35rem .75rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+    h1 { margin: 0 0 .5rem; font-size: 1.65rem; }
+    .lead { color: #fed7aa; margin: 0 0 1.25rem; }
+    .card {
+      background: rgba(0,0,0,.28);
+      border: 1px solid rgba(251, 146, 60, .25);
+      border-radius: 14px;
+      padding: 1.1rem 1.2rem;
+      margin-bottom: .85rem;
+    }
+    .card strong { color: #ffedd5; }
+    ul { margin: .5rem 0 0; padding-left: 1.1rem; color: #fde68a; }
+    .footer { margin-top: 1.25rem; font-size: .88rem; color: #fdba74; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge">Security scan alert</div>
+    <h1>Dependency vulnerability detected</h1>
+    <p class="lead">Your security agent found one high-severity CVE in a transitive dependency. No active exploit observed in production logs.</p>
+
+    <div class="card">
+      <strong>Package:</strong> <code>openssl-compat@1.2.4</code><br />
+      <strong>CVE:</strong> CVE-2026-11842 (CVSS 7.8)<br />
+      <strong>Affected service:</strong> edge-tls-terminator
+    </div>
+
+    <div class="card">
+      <strong>Recommended actions</strong>
+      <ul>
+        <li>Bump to <code>openssl-compat@1.2.7</code> in the next deploy window</li>
+        <li>Rotate internal signing keys if the service was exposed before 2026-05-01</li>
+        <li>Re-run compliance scan after patch merge</li>
+      </ul>
+    </div>
+
+    <p class="footer">Agent Relay delivered this alert end-to-end encrypted — review in your private inbox, not a shared Slack channel.</p>
+  </div>
+</body>
+</html>

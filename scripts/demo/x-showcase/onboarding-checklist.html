@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onboarding checklist</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #faf5ff;
+      color: #3b0764;
+      padding: 2rem 1.25rem;
+    }
+    .wrap { max-width: 36rem; margin: 0 auto; background: #fff; border: 1px solid #e9d5ff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 12px 30px rgba(124, 58, 237, .08); }
+    h1 { margin: 0 0 1rem; font-size: 1.35rem; }
+    .item { display: flex; gap: .75rem; align-items: flex-start; padding: .75rem 0; border-bottom: 1px solid #f3e8ff; }
+    .item:last-child { border-bottom: 0; }
+    .box { width: 1.1rem; height: 1.1rem; border: 2px solid #a78bfa; border-radius: 4px; margin-top: .15rem; flex-shrink: 0; }
+    .done .box { background: #7c3aed; border-color: #7c3aed; }
+    .title { font-weight: 600; }
+    .desc { font-size: .88rem; color: #6b21a8; margin-top: .15rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Onboarding checklist</h1>
+    <div class="item done"><div class="box"></div><div><div class="title">Create workspace</div><div class="desc">Completed automatically on signup.</div></div></div>
+    <div class="item done"><div class="box"></div><div><div class="title">Enable end-to-end encryption</div><div class="desc">Passkey enrolled · agents can deliver securely.</div></div></div>
+    <div class="item"><div class="box"></div><div><div class="title">Connect first agent</div><div class="desc">Issue a token under Account → Agent tokens.</div></div></div>
+    <div class="item"><div class="box"></div><div><div class="title">Review first delivery</div><div class="desc">Open this session and preview both artifacts.</div></div></div>
+    <div class="item"><div class="box"></div><div><div class="title">Schedule kickoff call</div><div class="desc">Reply to your welcome email or book via Cal link.</div></div></div>
+  </div>
+</body>
+</html>

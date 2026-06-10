@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Server health — Agent Relay</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #111827;
+      --line: #1f2937;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --blue: #3b82f6;
+      --green: #22c55e;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", system-ui, sans-serif;
+      background: radial-gradient(1200px 500px at 10% -10%, rgba(59,130,246,.25), transparent), var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2rem 1.25rem 3rem;
+    }
+    .wrap { max-width: 44rem; margin: 0 auto; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .72rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: .75rem;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+    h1 { margin: 0 0 .35rem; font-size: 1.75rem; font-weight: 700; }
+    .sub { color: var(--muted); margin: 0 0 1.5rem; font-size: .95rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    .value { font-size: 1.35rem; font-weight: 700; margin-top: .25rem; }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th, td { text-align: left; padding: .65rem .5rem; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 500; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .panel h2 { margin: 0; padding: 1rem 1rem .5rem; font-size: 1rem; }
+    .panel p { margin: 0; padding: 0 1rem 1rem; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span> Production monitor · 06:00 UTC</div>
+    <h1>Server health report</h1>
+    <p class="sub">All critical services healthy. One non-blocking queue backlog on the analytics worker.</p>
+
+    <div class="grid">
+      <div class="card"><div class="label">Uptime</div><div class="value ok">99.98%</div></div>
+      <div class="card"><div class="label">p95 latency</div><div class="value ok">142ms</div></div>
+      <div class="card"><div class="label">Error rate</div><div class="value ok">0.03%</div></div>
+      <div class="card"><div class="label">Queue depth</div><div class="value warn">1.2k</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Service matrix</h2>
+      <p>Snapshot from the overnight cron agent — delivered encrypted to your inbox.</p>
+      <table>
+        <thead><tr><th>Service</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>api-gateway</td><td class="ok">Healthy</td><td>TLS cert renews in 41 days</td></tr>
+          <tr><td>worker-pool</td><td class="ok">Healthy</td><td>Autoscale headroom 34%</td></tr>
+          <tr><td>postgres-primary</td><td class="ok">Healthy</td><td>Replication lag 0.4s</td></tr>
+          <tr><td>analytics-queue</td><td class="warn">Degraded</td><td>Backlog draining · ETA 22m</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

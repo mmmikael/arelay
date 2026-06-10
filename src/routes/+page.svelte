@@ -321,7 +321,7 @@
 						</div>
 						<div>
 							<h2>
-								{authMode === 'signin' ? 'Open your sessions' : 'Create your account'}
+								{authMode === 'signin' ? 'Open your secure sessions' : 'Create your account'}
 							</h2>
 							<p>
 								{authMode === 'signin'

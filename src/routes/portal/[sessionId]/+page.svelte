@@ -15,12 +15,15 @@
 		emptySessionDetailViewState,
 		sessionDetailViewFromCache
 	} from '$lib/portal/session-detail-view-state';
+	import { buildSessionActivityLines } from '$lib/session-activity';
 	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, SESSION_UPDATED_AT_LOOKUP_KEY, type EnsureE2eeUnlock, type SessionUpdatedAtLookup } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
+	import Maximize2 from '@lucide/svelte/icons/maximize-2';
+	import Minimize2 from '@lucide/svelte/icons/minimize-2';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import FileCode from '@lucide/svelte/icons/file-code';
 	import FileImage from '@lucide/svelte/icons/file-image';
@@ -64,7 +67,8 @@
 		return !isSessionPagePrefetched(targetId, updatedAt);
 	});
 
-	let previewOpen = $state(false);
+	let activeArtifactId = $state<string | null>(null);
+	let previewExpanded = $state(false);
 	let previewLoading = $state(false);
 	let previewError = $state('');
 	let previewFilename = $state('');
@@ -82,6 +86,17 @@
 	const activeEmailDraft = $derived(decryptedEmailDraft);
 
 	const emailDraftNeedsUnlock = $derived(Boolean(data.emailDraft && !decryptedEmailDraft));
+	const previewOpen = $derived(activeArtifactId !== null);
+
+	let lastPreviewSessionId = $state<string | null>(null);
+
+	$effect(() => {
+		const sessionId = data.session.id;
+		if (lastPreviewSessionId !== null && lastPreviewSessionId !== sessionId) {
+			closePreview();
+		}
+		lastPreviewSessionId = sessionId;
+	});
 
 	$effect(() => {
 		if (!previewSourceDoc) return;
@@ -99,16 +114,28 @@
 	$effect(() => {
 		if (!previewOpen) return;
 
-		document.body.style.overflow = 'hidden';
-
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') closePreview();
+			if (event.key !== 'Escape') return;
+			if (previewExpanded) {
+				previewExpanded = false;
+			} else {
+				closePreview();
+			}
 		};
 		window.addEventListener('keydown', onKeyDown);
 
 		return () => {
-			document.body.style.overflow = '';
 			window.removeEventListener('keydown', onKeyDown);
+		};
+	});
+
+	$effect(() => {
+		if (!previewExpanded) return;
+
+		document.body.style.overflow = 'hidden';
+
+		return () => {
+			document.body.style.overflow = '';
 		};
 	});
 
@@ -218,8 +245,19 @@
 		decryptedSession?.summary ?? 'Unlock encryption to view this delivery.'
 	);
 
+	const activityLines = $derived(
+		buildSessionActivityLines({
+			sessionCreatedAt: data.session.created_at,
+			artifacts: data.artifacts.map((artifact) => ({
+				id: artifact.id,
+				filename: artifactFilename(artifact)
+			})),
+			emailDraftCreatedAt: data.emailDraft?.created_at ?? null
+		})
+	);
+
 	function artifactFilename(artifact: PageData['artifacts'][number]): string {
-		return decryptedArtifacts[artifact.id]?.filename ?? 'Encrypted artifact';
+		return decryptedArtifacts[artifact.id]?.filename ?? 'Encrypted file';
 	}
 
 	function artifactContentType(artifact: PageData['artifacts'][number]): string {
@@ -285,11 +323,11 @@
 	): string {
 		switch (result.reason) {
 			case 'locked':
-				return 'Unlock encryption to view this artifact.';
+				return 'Unlock encryption to view this file.';
 			case 'missing':
-				return 'Encrypted artifact metadata is incomplete. Ask the agent to resend using the reference upload script.';
+				return 'Encrypted file metadata is incomplete. Ask the agent to resend using the reference upload script.';
 			case 'decrypt':
-				return 'Could not decrypt artifact metadata. The agent may have used an incompatible encryption implementation — resend with scripts/e2ee-agent-upload.mjs.';
+				return 'Could not decrypt file metadata. The agent may have used an incompatible encryption implementation — resend with scripts/e2ee-agent-upload.mjs.';
 		}
 	}
 
@@ -352,7 +390,7 @@
 			link.remove();
 			URL.revokeObjectURL(url);
 		} catch (err) {
-			alert(err instanceof Error ? err.message : 'Could not decrypt artifact');
+			alert(err instanceof Error ? err.message : 'Could not decrypt file');
 		}
 	}
 
@@ -373,10 +411,16 @@
 	async function previewArtifact(artifact: PageData['artifacts'][number]) {
 		if (!(await ensureUnlockedForEncrypted())) return;
 
+		if (activeArtifactId === artifact.id && previewOpen && !previewLoading) {
+			closePreview();
+			return;
+		}
+
 		const meta = await resolveEncryptedArtifactMeta(artifact);
 		if (!meta.ok) {
 			previewError = encryptedArtifactMetaError(meta);
-			previewOpen = true;
+			activeArtifactId = artifact.id;
+			previewExpanded = false;
 			return;
 		}
 
@@ -388,6 +432,8 @@
 		}
 
 		previewToken++;
+		activeArtifactId = artifact.id;
+		previewExpanded = false;
 		previewFilename = filename;
 		previewKind = kind;
 		previewUrl = '';
@@ -395,7 +441,6 @@
 		previewSourceDoc = '';
 		previewError = '';
 		previewLoading = true;
-		previewOpen = true;
 
 		try {
 			const bytes = await decryptArtifactBytes(artifact);
@@ -422,7 +467,8 @@
 
 	function closePreview() {
 		previewToken++;
-		previewOpen = false;
+		activeArtifactId = null;
+		previewExpanded = false;
 		previewLoading = false;
 		previewUrl = '';
 		previewDoc = '';
@@ -452,6 +498,50 @@
 <svelte:head>
 	<title>{sessionTitle} — Agent Relay</title>
 </svelte:head>
+
+{#snippet artifactPreviewBody()}
+	{#if previewLoading}
+		<div
+			class="flex h-full w-full items-center justify-center text-sm text-slate-500 dark:text-slate-400"
+		>
+			Loading preview…
+		</div>
+	{:else if previewError}
+		<div
+			class="flex h-full w-full items-center justify-center px-4 text-center text-sm text-red-600 dark:text-red-400"
+		>
+			{previewError}
+		</div>
+	{:else if previewKind === 'image' && previewUrl}
+		<div class="flex h-full w-full items-center justify-center bg-slate-50 p-4 dark:bg-slate-900">
+			<img src={previewUrl} alt={previewFilename} class="max-h-full max-w-full object-contain" />
+		</div>
+	{:else if previewKind === 'pdf' && previewUrl}
+		<iframe
+			src={previewUrl}
+			title={previewFilename}
+			sandbox={PDF_PREVIEW_SANDBOX}
+			referrerpolicy={PREVIEW_REFERRER_POLICY}
+			class="h-full w-full border-0"
+		></iframe>
+	{:else if previewKind === 'html' && previewDoc}
+		<iframe
+			srcdoc={previewDoc}
+			title={previewFilename}
+			sandbox={HTML_ARTIFACT_PREVIEW_SANDBOX}
+			referrerpolicy={HTML_PREVIEW_REFERRER_POLICY}
+			class="h-full w-full border-0"
+		></iframe>
+	{:else if (previewKind === 'markdown' || previewKind === 'text') && previewDoc}
+		<iframe
+			srcdoc={previewDoc}
+			title={previewFilename}
+			sandbox={STRICT_PREVIEW_SANDBOX}
+			referrerpolicy={PREVIEW_REFERRER_POLICY}
+			class="h-full w-full border-0"
+		></iframe>
+	{/if}
+{/snippet}
 
 <div
 	class="min-h-full w-full bg-white transition-opacity duration-150 dark:bg-slate-950 sm:bg-transparent"
@@ -498,112 +588,205 @@
 		<div
 			class="bg-white p-4 dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:p-6 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
 		>
-			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-				<div>
-					<h2 class="text-base sm:text-lg font-semibold text-slate-900 mb-1 dark:text-slate-100">Artifacts</h2>
-					<p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-						Click an artifact to preview. Use download for a single file.
-					</p>
-				</div>
-			</div>
-
 			{#if data.artifacts.length === 0}
-				<p class="text-sm text-slate-500 dark:text-slate-400">No artifacts in this session yet.</p>
+				<h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100">
+					Delivered files
+				</h2>
+				<p class="mt-2 text-sm text-slate-500 dark:text-slate-400">No files in this session yet.</p>
 			{:else}
-				<div class="space-y-3">
-					{#each data.artifacts as artifact (artifact.id)}
-						{@const filename = artifactFilename(artifact)}
-						{@const contentType = artifactContentType(artifact)}
-						{@const kind = artifactPreviewKind(artifact)}
-						{@const meta = iconFor(kind)}
-						<div
-							class="flex items-start justify-between gap-3 overflow-hidden rounded-xl border border-slate-100 bg-white transition-colors hover:border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700"
-						>
-							<button
-								type="button"
-								class="flex items-start gap-3 min-w-0 flex-1 p-3 sm:p-4 text-left cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-900/70"
-								onclick={() => previewArtifact(artifact)}
-							>
-								<meta.icon class="h-5 w-5 shrink-0 mt-0.5 {meta.color}" />
-								<div class="min-w-0">
-									<p class="text-sm font-medium text-slate-900 truncate dark:text-slate-100" title={filename}>
-										{filename}
-									</p>
-									<p class="text-xs text-slate-500 mt-1 dark:text-slate-400">
+				<section aria-labelledby="delivered-files-heading">
+					<h2
+						id="delivered-files-heading"
+						class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400"
+					>
+						Delivered files
+					</h2>
+					<ul
+						class="mt-2 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/70 dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-950/50"
+						role="listbox"
+						aria-label="Delivered files"
+					>
+						{#each data.artifacts as artifact (artifact.id)}
+							{@const filename = artifactFilename(artifact)}
+							{@const contentType = artifactContentType(artifact)}
+							{@const kind = artifactPreviewKind(artifact)}
+							{@const meta = iconFor(kind)}
+							{@const isSelected = activeArtifactId === artifact.id}
+							<li>
+								<div
+									class="flex items-center gap-2 {isSelected
+										? 'bg-white dark:bg-slate-900'
+										: ''}"
+								>
+									<button
+										type="button"
+										role="option"
+										aria-selected={isSelected}
+										class="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-white/80 dark:hover:bg-slate-900/80 {isSelected
+											? 'text-slate-900 dark:text-slate-100'
+											: 'text-slate-700 dark:text-slate-300'}"
+										onclick={() => previewArtifact(artifact)}
+									>
+										<meta.icon class="h-4 w-4 shrink-0 {meta.color}" />
+										<span class="min-w-0 flex-1 truncate font-medium" title={filename}>
+											{filename}
+										</span>
+										{#if isSelected}
+											<span
+												class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-[#2563eb] dark:bg-blue-950/60 dark:text-blue-300"
+											>
+												Selected
+											</span>
+										{:else}
+											<span class="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">
+												{formatBytes(Number(artifact.size_bytes))}
+											</span>
+										{/if}
+									</button>
+									<Button
+										variant="ghost"
+										size="icon"
+										class="mr-1 shrink-0"
+										title="Download {filename}"
+										aria-label="Download {filename}"
+										onclick={() => downloadArtifactRecord(artifact)}
+									>
+										<Download class="h-4 w-4" />
+									</Button>
+								</div>
+								{#if isSelected}
+									<p class="border-t border-slate-100 px-3 py-1 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
 										{formatBytes(Number(artifact.size_bytes))} · {contentType}
 									</p>
-								</div>
-							</button>
-							<div class="p-2 sm:p-3 shrink-0">
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</section>
+
+				{#if previewOpen}
+					{@const activeArtifact = data.artifacts.find((artifact) => artifact.id === activeArtifactId)}
+					<section class="mt-6" aria-labelledby="file-preview-heading">
+						<div class="mb-3 flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<h3
+									id="file-preview-heading"
+									class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400"
+								>
+									Preview
+								</h3>
+								<p
+									class="mt-1 truncate text-lg font-semibold text-slate-900 dark:text-slate-100"
+									title={previewFilename}
+								>
+									{previewFilename || 'File'}
+								</p>
+							</div>
+							<div class="flex shrink-0 items-center gap-1">
+								{#if !previewLoading && !previewError}
+									<Button
+										variant="ghost"
+										size="icon"
+										title="Expand preview"
+										aria-label="Expand preview"
+										onclick={() => {
+											previewExpanded = true;
+										}}
+									>
+										<Maximize2 class="h-4 w-4" />
+									</Button>
+									{#if activeArtifact}
+										<Button
+											variant="ghost"
+											size="icon"
+											title="Download"
+											aria-label="Download file"
+											onclick={() => downloadArtifactRecord(activeArtifact)}
+										>
+											<Download class="h-4 w-4" />
+										</Button>
+									{/if}
+								{/if}
 								<Button
 									variant="ghost"
 									size="icon"
-									title="Download"
-									onclick={() => downloadArtifactRecord(artifact)}
+									title="Close preview"
+									aria-label="Close preview"
+									onclick={closePreview}
 								>
-									<Download class="h-4 w-4" />
+									<X class="h-4 w-4" />
 								</Button>
 							</div>
 						</div>
-					{/each}
-				</div>
+						<div
+							class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-950 dark:shadow-none"
+						>
+							<div class="h-[min(72vh,44rem)] min-h-[24rem]">
+								{@render artifactPreviewBody()}
+							</div>
+						</div>
+					</section>
+				{/if}
 			{/if}
 		</div>
 	{/if}
+
+	<section
+		class="mt-4 bg-white p-4 dark:bg-slate-900 sm:mt-6 sm:rounded-xl sm:border sm:border-slate-100 sm:p-5 sm:shadow-[0_4px_20px_rgba(0,0,0,0.03)] sm:dark:border-slate-800 sm:dark:shadow-none"
+		aria-labelledby="session-activity-heading"
+	>
+		<h2
+			id="session-activity-heading"
+			class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400"
+		>
+			Activity
+		</h2>
+		<ul class="mt-2 space-y-1">
+			{#each activityLines as line (line.key)}
+				<li class="text-[13px] leading-5 text-slate-600 dark:text-slate-400">
+					<span class="text-slate-700 dark:text-slate-300">{line.label}</span>
+					<span class="text-slate-300 dark:text-slate-600"> · </span>
+					<span>{line.detail}</span>
+				</li>
+			{/each}
+		</ul>
+	</section>
 </div>
 
-{#if previewOpen}
+{#if previewOpen && previewExpanded}
 	<div class="fixed inset-0 z-[100] bg-white dark:bg-slate-950">
-		<button
-			type="button"
-			onclick={closePreview}
-			title="Close preview"
-			aria-label="Close preview"
-			class="absolute right-3 top-3 z-[101] inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm backdrop-blur transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-800"
+		<div
+			class="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900 sm:px-4"
 		>
-			<X class="h-4 w-4" />
-		</button>
-
-		<div class="flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950">
-			{#if previewLoading}
-				<div class="h-full w-full flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-					Loading preview…
-				</div>
-			{:else if previewError}
-				<div
-					class="h-full w-full flex items-center justify-center text-sm text-red-600 px-4 text-center"
+			<p class="min-w-0 truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+				{previewFilename || 'File preview'}
+			</p>
+			<div class="flex shrink-0 items-center gap-1">
+				<Button
+					variant="ghost"
+					size="icon"
+					title="Exit fullscreen"
+					aria-label="Exit fullscreen"
+					onclick={() => {
+						previewExpanded = false;
+					}}
 				>
-					{previewError}
-				</div>
-			{:else if previewKind === 'image' && previewUrl}
-				<div class="h-full w-full flex items-center justify-center p-4 bg-white dark:bg-slate-950">
-					<img src={previewUrl} alt={previewFilename} class="max-h-full max-w-full object-contain" />
-				</div>
-			{:else if previewKind === 'pdf' && previewUrl}
-				<iframe
-					src={previewUrl}
-					title={previewFilename}
-					sandbox={PDF_PREVIEW_SANDBOX}
-					referrerpolicy={PREVIEW_REFERRER_POLICY}
-					class="h-full w-full border-0 bg-white dark:bg-slate-950"
-				></iframe>
-			{:else if previewKind === 'html' && previewDoc}
-				<iframe
-					srcdoc={previewDoc}
-					title={previewFilename}
-					sandbox={HTML_ARTIFACT_PREVIEW_SANDBOX}
-					referrerpolicy={HTML_PREVIEW_REFERRER_POLICY}
-					class="min-h-0 flex-1 w-full border-0 bg-white dark:bg-slate-950"
-				></iframe>
-			{:else if (previewKind === 'markdown' || previewKind === 'text') && previewDoc}
-				<iframe
-					srcdoc={previewDoc}
-					title={previewFilename}
-					sandbox={STRICT_PREVIEW_SANDBOX}
-					referrerpolicy={PREVIEW_REFERRER_POLICY}
-					class="min-h-0 flex-1 w-full border-0 bg-white dark:bg-slate-950"
-				></iframe>
-			{/if}
+					<Minimize2 class="h-4 w-4" />
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon"
+					title="Close preview"
+					aria-label="Close preview"
+					onclick={closePreview}
+				>
+					<X class="h-4 w-4" />
+				</Button>
+			</div>
+		</div>
+
+		<div class="flex h-[calc(100dvh-3rem)] min-h-0 flex-col bg-slate-50 dark:bg-slate-950">
+			{@render artifactPreviewBody()}
 		</div>
 	</div>
 {/if}

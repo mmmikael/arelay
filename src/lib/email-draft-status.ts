@@ -6,7 +6,7 @@ export function emailDraftStatusLabel(
 ): string {
 	switch (status) {
 		case 'pending':
-			return 'Awaiting review';
+			return context === 'detail' ? 'Needs your approval' : 'Pending';
 		case 'sent':
 			return 'Sent';
 		case 'rejected':
