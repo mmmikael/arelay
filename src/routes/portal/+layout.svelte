@@ -8,10 +8,7 @@
 	import PortalInboxSidebar from '$lib/components/portal/PortalInboxSidebar.svelte';
 	import PortalShellHeader from '$lib/components/portal/PortalShellHeader.svelte';
 	import { SESSION_UPDATED_AT_LOOKUP_KEY, type SessionUpdatedAtLookup } from '$lib/portal-context';
-	import {
-		loadSidebarSessionTitles,
-		type SidebarSessionMeta
-	} from '$lib/portal/inbox-sidebar-titles';
+	import { loadSidebarSessionTitles } from '$lib/portal/inbox-sidebar-titles';
 	import {
 		markSessionPrefetched,
 		prefetchSessionPages,
@@ -19,7 +16,7 @@
 		toPrefetchSessions,
 		warmPrefetchedSessions
 	} from '$lib/session-prefetch';
-	import { onMount, setContext, untrack } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	const POLL_MS = 5000;
@@ -30,8 +27,7 @@
 	let e2eeShell: PortalE2eeShell | undefined = $state();
 	let handleShieldClick = $state<() => void | Promise<void>>(() => {});
 	let pendingSessionId = $state<string | null>(null);
-	let visibleSessionIds = $state<string[]>([]);
-	let decryptedSessions = $state<Record<string, SidebarSessionMeta>>({});
+	let decryptedSessions = $state<Record<string, { title: string; summary: string | null }>>({});
 
 	const activeSessionId = $derived($page.params.sessionId ?? null);
 	const isAccountPage = $derived($page.url.pathname === '/portal/account');
@@ -47,17 +43,6 @@
 	const prefetchSessions = $derived(
 		toPrefetchSessions(data.sessions, data.emailDraftSummaries)
 	);
-	const prioritySessionIds = $derived.by(() => {
-		const ids = new Set<string>();
-		const add = (id: string | null | undefined) => {
-			if (id) ids.add(id);
-		};
-		add(activeSessionId);
-		add(navigatingToSessionId);
-		add(pendingSessionId);
-		for (const id of visibleSessionIds) ids.add(id);
-		return [...ids];
-	});
 
 	const sessionUpdatedAtLookup: SessionUpdatedAtLookup = (sessionId) =>
 		data.sessions.find((entry) => entry.id === sessionId)?.updated_at;
@@ -101,44 +86,31 @@
 	});
 
 	$effect(() => {
-		void prefetchSessionPages(prefetchSessions, prioritySessionIds);
+		void prefetchSessionPages(prefetchSessions);
 	});
 
 	$effect(() => {
 		const privateKey = $e2eePrivateKey;
-		const sessions = data.sessions;
-		const emailDraftSummaries = data.emailDraftSummaries;
 		if (!privateKey) {
 			decryptedSessions = {};
 			return;
 		}
 
-		// Snapshot at unlock/data refresh; warm/prefetch stay live to scroll.
-		const priorities = untrack(() => prioritySessionIds);
 		let cancelled = false;
-
-		void (async () => {
-			const next = await loadSidebarSessionTitles(sessions, emailDraftSummaries, privateKey, {
-				prioritySessionIds: priorities,
-				isCancelled: () => cancelled,
-				onSessionDecrypted: (sessionId, meta) => {
-					if (!cancelled) {
-						decryptedSessions = { ...decryptedSessions, [sessionId]: meta };
-					}
-				}
-			});
+		const warmAndDecryptSidebar = async () => {
+			await warmPrefetchedSessions(privateKey, prefetchSessions);
+			const next = await loadSidebarSessionTitles(
+				data.sessions,
+				data.emailDraftSummaries,
+				privateKey
+			);
 			if (!cancelled) decryptedSessions = next;
-		})();
+		};
 
+		void warmAndDecryptSidebar();
 		return () => {
 			cancelled = true;
 		};
-	});
-
-	$effect(() => {
-		const privateKey = $e2eePrivateKey;
-		if (!privateKey) return;
-		void warmPrefetchedSessions(privateKey, prefetchSessions, prioritySessionIds);
 	});
 
 	onMount(() => {
@@ -212,7 +184,6 @@
 				{navigatingToSessionId}
 				{showMobileDetail}
 				bind:pendingSessionId
-				bind:visibleSessionIds
 			/>
 
 			<main

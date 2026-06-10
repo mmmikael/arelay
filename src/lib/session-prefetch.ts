@@ -2,7 +2,6 @@ import { preloadData } from '$app/navigation';
 import { fetchAndDecryptArtifactBytes } from '$lib/artifact-bytes';
 import { decryptEmailDraftFields } from '$lib/email-draft-decrypt';
 import { decryptString, type EncryptedEnvelope } from '$lib/e2ee';
-import { prioritizeBySessionIds } from '$lib/portal/prioritize';
 import { decryptEncryptedSessionMeta } from '$lib/session-detail-decrypt';
 import {
 	forgetSessionDetailCache,
@@ -51,7 +50,6 @@ type EmailDraftSummaryLookup = Record<
 const prefetchedVersions = new Map<string, string>();
 const inflight = new Map<string, Promise<void>>();
 const warmedVersions = new Map<string, string>();
-const warmingInFlight = new Map<string, Promise<void>>();
 const prefetchedPageData = new Map<string, PrefetchPageData>();
 
 export function toPrefetchSessions(
@@ -81,9 +79,6 @@ export function forgetSessionPrefetch(sessionId: string): void {
 	prefetchedVersions.delete(sessionId);
 	inflight.delete(sessionId);
 	warmedVersions.delete(sessionId);
-	for (const key of warmingInFlight.keys()) {
-		if (key.startsWith(`${sessionId}:`)) warmingInFlight.delete(key);
-	}
 	prefetchedPageData.delete(sessionId);
 	forgetSessionDetailCache(sessionId);
 }
@@ -92,7 +87,6 @@ export function resetSessionPrefetch(): void {
 	prefetchedVersions.clear();
 	inflight.clear();
 	warmedVersions.clear();
-	warmingInFlight.clear();
 	prefetchedPageData.clear();
 	resetSessionDetailCache();
 }
@@ -197,36 +191,18 @@ async function warmSessionPageData(pageData: PrefetchPageData, privateKey: Crypt
 
 export async function warmPrefetchedSessions(
 	privateKey: CryptoKey,
-	sessions: PrefetchSession[] = [],
-	prioritySessionIds: string[] = []
+	sessions: PrefetchSession[] = []
 ): Promise<void> {
-	const targets = prioritizeBySessionIds(sessions, prioritySessionIds).slice(
-		0,
-		SESSION_PREFETCH_LIMIT
-	);
+	const targets = sessions.slice(0, SESSION_PREFETCH_LIMIT);
 	for (const session of targets) {
 		const pageData = prefetchedPageData.get(session.id);
 		if (!pageData) continue;
-		const version = pageDataCacheVersion(pageData);
-		if (sessionVersion(session) !== version) continue;
-		if (warmedVersions.get(session.id) === version) continue;
-
-		const warmKey = `${session.id}:${version}`;
-		const existing = warmingInFlight.get(warmKey);
-		if (existing) {
-			await existing.catch(() => {});
-			continue;
+		if (sessionVersion(session) !== pageDataCacheVersion(pageData)) continue;
+		try {
+			await warmSessionPageData(pageData, privateKey);
+		} catch (err) {
+			console.error('[prefetch] session warm failed:', err);
 		}
-
-		const promise = warmSessionPageData(pageData, privateKey)
-			.catch((err) => {
-				console.error('[prefetch] session warm failed:', err);
-			})
-			.finally(() => {
-				warmingInFlight.delete(warmKey);
-			});
-		warmingInFlight.set(warmKey, promise);
-		await promise;
 	}
 }
 
@@ -240,16 +216,11 @@ async function preloadSessionPage(session: PrefetchSession): Promise<void> {
 	}
 }
 
-export async function prefetchSessionPages(
-	sessions: PrefetchSession[],
-	prioritySessionIds: string[] = []
-): Promise<void> {
-	const targets = prioritizeBySessionIds(sessions, prioritySessionIds)
-		.slice(0, SESSION_PREFETCH_LIMIT)
-		.filter((session) => {
-			const version = sessionVersion(session);
-			return prefetchedVersions.get(session.id) !== version && !inflight.has(session.id);
-		});
+export async function prefetchSessionPages(sessions: PrefetchSession[]): Promise<void> {
+	const targets = sessions.slice(0, SESSION_PREFETCH_LIMIT).filter((session) => {
+		const version = sessionVersion(session);
+		return prefetchedVersions.get(session.id) !== version && !inflight.has(session.id);
+	});
 	if (targets.length === 0) return;
 
 	let index = 0;

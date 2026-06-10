@@ -27,9 +27,6 @@
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import { getContext, onMount } from 'svelte';
 
-	const VISIBLE_SESSION_ROOT_MARGIN = '80px 0px';
-	const INITIAL_VISIBLE_SESSION_HINT = 8;
-
 	const SIDEBAR_KEY = 'agentRelay:sidebarCollapsed';
 	const SIDEBAR_WIDTH_KEY = 'agentRelay:sidebarWidth';
 	const SIDEBAR_MIN_WIDTH = 300;
@@ -81,8 +78,7 @@
 		activeSessionId,
 		navigatingToSessionId,
 		showMobileDetail,
-		pendingSessionId = $bindable<string | null>(null),
-		visibleSessionIds = $bindable<string[]>([])
+		pendingSessionId = $bindable<string | null>(null)
 	}: {
 		sessions: SessionRow[];
 		emailDraftSummaries: Record<string, EmailDraftSummary | undefined>;
@@ -91,7 +87,6 @@
 		navigatingToSessionId: string | null;
 		showMobileDetail: boolean;
 		pendingSessionId?: string | null;
-		visibleSessionIds?: string[];
 	} = $props();
 
 	const ensureE2eeUnlocked = getContext<EnsureE2eeUnlock>(ENSURE_E2EE_UNLOCK_KEY);
@@ -107,7 +102,6 @@
 	let isResizing = $state(false);
 	let isDesktop = $state(false);
 	let activeFilter = $state<SidebarFilter>('all');
-	let sessionScrollEl = $state<HTMLDivElement | undefined>(undefined);
 
 	const effectiveSidebarCollapsed = $derived(isDesktop && sidebarCollapsed);
 
@@ -462,62 +456,6 @@
 		return `--sidebar-width: ${sidebarWidth}px`;
 	});
 
-	function initialVisibleSessionIds(sessions: SessionRow[]): string[] {
-		const ids: string[] = [];
-		for (const session of sessions) {
-			ids.push(session.id);
-			if (ids.length >= INITIAL_VISIBLE_SESSION_HINT) break;
-		}
-		return ids;
-	}
-
-	$effect(() => {
-		const scrollRoot = sessionScrollEl;
-		const sessions = filteredSessions;
-		const sidebarVisible = !effectiveSidebarCollapsed && (!showMobileDetail || isDesktop);
-
-		if (!scrollRoot || !sidebarVisible || sessions.length === 0) {
-			visibleSessionIds = [];
-			return;
-		}
-
-		visibleSessionIds = initialVisibleSessionIds(sessions);
-
-		const visibility = new Map<string, boolean>();
-		for (const session of sessions) {
-			visibility.set(session.id, false);
-		}
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				let changed = false;
-				for (const entry of entries) {
-					const sessionId = entry.target.getAttribute('data-session-id');
-					if (!sessionId || !visibility.has(sessionId)) continue;
-					const nextVisible = entry.isIntersecting;
-					if (visibility.get(sessionId) === nextVisible) continue;
-					visibility.set(sessionId, nextVisible);
-					changed = true;
-				}
-				if (changed) {
-					visibleSessionIds = filteredSessions
-						.filter((session) => visibility.get(session.id))
-						.map((session) => session.id);
-				}
-			},
-			{
-				root: scrollRoot,
-				rootMargin: VISIBLE_SESSION_ROOT_MARGIN,
-				threshold: 0
-			}
-		);
-
-		const items = scrollRoot.querySelectorAll<HTMLElement>('[data-session-id]');
-		for (const item of items) observer.observe(item);
-
-		return () => observer.disconnect();
-	});
-
 	onMount(() => {
 		try {
 			sidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
@@ -615,10 +553,7 @@
 		</div>
 	</div>
 
-	<div
-		bind:this={sessionScrollEl}
-		class="min-w-0 flex-1 overflow-y-auto px-3 py-2.5 sm:px-3"
-	>
+	<div class="min-w-0 flex-1 overflow-y-auto px-3 py-2.5 sm:px-3">
 		{#if filteredSessions.length === 0}
 			<div class="px-1 py-6">
 				<p class="text-sm font-medium text-slate-700 dark:text-slate-200">{emptyState.title}</p>
@@ -639,7 +574,7 @@
 					{@const summary = displaySessionCardSummary(session, emailDraft)}
 					{@const agentName = emailDraft ? null : meta.agentName}
 					{@const iconKind = sessionIconKind(session, emailDraft)}
-					<li data-session-id={session.id}>
+					<li>
 						<div
 							class="group relative rounded-[10px] border transition-colors {isCurrent || isPending
 								? 'border-[#2563eb]/35 bg-[#eff6ff] dark:border-blue-400/40 dark:bg-blue-950/40'
