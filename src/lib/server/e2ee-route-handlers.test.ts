@@ -27,6 +27,11 @@ vi.mock('$lib/server/storage-quota', () => ({
 	validateArtifactStorageUpload: vi.fn(async () => ({ ok: true }))
 }));
 
+vi.mock('$lib/server/agent-rate-limit', () => ({
+	AGENT_ARTIFACT_LIMIT_ERROR: 'Too many artifact uploads.',
+	reserveAgentArtifactCreate: vi.fn(async () => ({ ok: true }))
+}));
+
 import {
 	createEncryptedSession,
 	createArtifact,
