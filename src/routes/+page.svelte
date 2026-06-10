@@ -255,6 +255,8 @@
 
 <svelte:head>
 	<title>Agent Relay — Sign in</title>
+	<meta property="og:title" content="Agent Relay — Your agents have something for you" />
+	<meta name="twitter:title" content="Agent Relay — Your agents have something for you" />
 </svelte:head>
 
 <div class="login-page">

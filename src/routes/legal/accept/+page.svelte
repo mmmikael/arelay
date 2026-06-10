@@ -34,6 +34,7 @@
 <svelte:head>
 	<title>Review updated terms — Agent Relay</title>
 	<meta name="description" content="Review the Agent Relay hosted service terms." />
+	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <main class="flex min-h-screen items-center justify-center px-4 py-10">

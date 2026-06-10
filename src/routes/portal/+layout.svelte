@@ -152,6 +152,10 @@
 	});
 </script>
 
+<svelte:head>
+	<meta name="robots" content="noindex, nofollow" />
+</svelte:head>
+
 <PortalE2eeShell
 	bind:this={e2eeShell}
 	passkeys={data.passkeys}

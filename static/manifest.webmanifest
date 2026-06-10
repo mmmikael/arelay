@@ -1,7 +1,7 @@
 {
 	"name": "Agent Relay",
 	"short_name": "Agent Relay",
-	"description": "An end-to-end encrypted inbox for secure deliveries from AI agents.",
+	"description": "Reports, files, and finished work arrive encrypted in secure agent sessions, ready when you are.",
 	"id": "/",
 	"start_url": "/",
 	"scope": "/",
