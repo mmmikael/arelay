@@ -4,6 +4,7 @@
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { emailDraftStatusClass, emailDraftStatusLabel } from '$lib/email-draft-status';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
+	import { resolveSidebarSessionIcon } from '$lib/portal/sidebar-icon';
 	import {
 		EMAIL_DRAFT_SIDEBAR_DESCRIPTION,
 		SIDEBAR_ARCHIVE_FILTER_ENABLED,
@@ -141,7 +142,8 @@
 		emailDraft: EmailDraftSummary | undefined
 	): SidebarSessionIcon {
 		if (emailDraft) return 'email';
-		return sessionMeta(session).icon ?? 'default';
+		const meta = sessionMeta(session);
+		return resolveSidebarSessionIcon(meta.icon, meta.title);
 	}
 
 	function displaySessionCardSummary(

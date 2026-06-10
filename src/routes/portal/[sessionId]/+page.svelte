@@ -11,6 +11,10 @@
 	} from '$lib/session-detail-cache';
 	import { isSessionPagePrefetched } from '$lib/session-prefetch';
 	import { decryptEmailDraftFields, type DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
+	import {
+		emptySessionDetailViewState,
+		sessionDetailViewFromCache
+	} from '$lib/portal/session-detail-view-state';
 	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, SESSION_UPDATED_AT_LOOKUP_KEY, type EnsureE2eeUnlock, type SessionUpdatedAtLookup } from '$lib/portal-context';
@@ -123,24 +127,20 @@
 		const sessionId = data.session.id;
 		const sessionUpdatedAt = data.session.updated_at;
 		const cacheKey = sessionDetailCacheKey(sessionUpdatedAt, emailDraft?.updated_at ?? null);
-		const cached = privateKey ? getSessionDetailCache(sessionId, cacheKey) : null;
-
-		if (cached?.session) {
-			decryptedSession = cached.session;
-		}
-		if (cached?.artifacts && Object.keys(cached.artifacts).length > 0) {
-			decryptedArtifacts = cached.artifacts;
-		}
-		if (cached && cached.emailDraft !== undefined) {
-			decryptedEmailDraft = cached.emailDraft;
-		}
 
 		if (!privateKey) {
-			decryptedSession = null;
-			decryptedArtifacts = {};
-			decryptedEmailDraft = null;
+			const locked = emptySessionDetailViewState();
+			decryptedSession = locked.session;
+			decryptedArtifacts = locked.artifacts;
+			decryptedEmailDraft = locked.emailDraft;
 			return;
 		}
+
+		const cached = getSessionDetailCache(sessionId, cacheKey);
+		const view = sessionDetailViewFromCache(Boolean(emailDraft), cached);
+		decryptedSession = view.session;
+		decryptedArtifacts = view.artifacts;
+		decryptedEmailDraft = view.emailDraft;
 
 		const encryptedArtifacts = data.artifacts.filter(
 			(artifact) => artifact.encrypted_filename && artifact.encrypted_content_type

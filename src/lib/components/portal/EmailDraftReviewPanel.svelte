@@ -108,7 +108,7 @@
 	}
 
 	$effect(() => {
-		const draftKey = `${sessionId}:${emailDraft.id}:${emailDraft.status}`;
+		const draftKey = `${sessionId}:${emailDraft.id}:${emailDraft.status}:${emailDraft.updated_at}`;
 
 		if (!activeEmailDraft) {
 			loadedDraftKey = '';
