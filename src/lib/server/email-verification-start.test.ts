@@ -35,8 +35,12 @@ import { sendVerificationEmail } from '$lib/server/email-verification';
 function locals() {
 	return {
 		requestId: 'req-1',
-		log: { warn: vi.fn(), error: vi.fn() }
-	} as App.Locals;
+		log: { warn: vi.fn(), error: vi.fn() },
+		authenticated: false,
+		user: null,
+		agentUser: null,
+		currentPasskeyId: null
+	} as unknown as App.Locals;
 }
 
 describe('POST /api/auth/email-verification/start', () => {

@@ -59,7 +59,11 @@ const mockE2eeConfig = {
 };
 
 function agentLocals() {
-	return { agentUser: { id: 'user-1' } } as App.Locals;
+	return {
+		agentUser: { id: 'user-1' },
+		requestId: 'req-1',
+		log: { warn: vi.fn(), error: vi.fn() }
+	} as unknown as App.Locals;
 }
 
 function humanLocals() {
@@ -163,7 +167,7 @@ describe('E2EE route enforcement', () => {
 		vi.mocked(putObject).mockRejectedValue(new Error('S3 unavailable'));
 
 		const response = await postAgentArtifact({
-			locals: { ...agentLocals(), log: { warn: vi.fn(), error: vi.fn() } },
+			locals: agentLocals(),
 			params: { id: 'session-1' },
 			request: new Request('http://localhost/api/agent/sessions/session-1/artifacts', {
 				method: 'POST',
@@ -177,7 +181,7 @@ describe('E2EE route enforcement', () => {
 					size_bytes: 0
 				})
 			})
-		} as Parameters<typeof postAgentArtifact>[0]);
+		} as unknown as Parameters<typeof postAgentArtifact>[0]);
 
 		expect(response.status).toBe(503);
 		expect(createArtifact).toHaveBeenCalledWith(

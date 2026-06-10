@@ -20,7 +20,7 @@ function humanLocals() {
 		user: { id: 'user-1' },
 		requestId: 'req-1',
 		log: { warn: vi.fn(), error: vi.fn() }
-	} as App.Locals;
+	} as unknown as App.Locals;
 }
 
 describe('POST /api/e2ee/config', () => {
@@ -33,7 +33,7 @@ describe('POST /api/e2ee/config', () => {
 	it('requires confirmOverwrite when replacing an existing public key', async () => {
 		vi.mocked(getE2eeConfig).mockResolvedValue({
 			public_key_jwk: { ...testPublicKeyJwk, x: TEST_P256_COORD.slice(0, -1) + 'B' }
-		} as Awaited<ReturnType<typeof getE2eeConfig>>);
+		} as unknown as Awaited<ReturnType<typeof getE2eeConfig>>);
 
 		const response = await postE2eeConfig({
 			locals: humanLocals(),
@@ -54,7 +54,7 @@ describe('POST /api/e2ee/config', () => {
 			public_key_jwk: testPublicKeyJwk,
 			encrypted_private_key: testEncryptedPrivateKey,
 			passkey_credential_id: 'cred-1'
-		} as Awaited<ReturnType<typeof getE2eeConfig>>);
+		} as unknown as Awaited<ReturnType<typeof getE2eeConfig>>);
 		vi.mocked(listCredentialsForUser).mockResolvedValue([{ id: 'cred-1' }] as Awaited<
 			ReturnType<typeof listCredentialsForUser>
 		>);
@@ -81,7 +81,7 @@ describe('POST /api/e2ee/config', () => {
 			public_key_jwk: testPublicKeyJwk,
 			encrypted_private_key: testEncryptedPrivateKey,
 			passkey_credential_id: 'cred-1'
-		} as Awaited<ReturnType<typeof getE2eeConfig>>);
+		} as unknown as Awaited<ReturnType<typeof getE2eeConfig>>);
 		vi.mocked(listCredentialsForUser).mockResolvedValue([{ id: 'cred-1' }] as Awaited<
 			ReturnType<typeof listCredentialsForUser>
 		>);
@@ -91,7 +91,7 @@ describe('POST /api/e2ee/config', () => {
 			passkey_credential_id: 'cred-1',
 			passkey_encrypted_private_key: testPasskeyEncryptedPrivateKey,
 			recovery_hint: null
-		} as Awaited<ReturnType<typeof upsertE2eeConfig>>);
+		} as unknown as Awaited<ReturnType<typeof upsertE2eeConfig>>);
 
 		const response = await postE2eeConfig({
 			locals: humanLocals(),
@@ -116,14 +116,14 @@ describe('POST /api/e2ee/config', () => {
 			public_key_jwk: testPublicKeyJwk,
 			encrypted_private_key: testEncryptedPrivateKey,
 			passkey_credential_id: null
-		} as Awaited<ReturnType<typeof getE2eeConfig>>);
+		} as unknown as Awaited<ReturnType<typeof getE2eeConfig>>);
 		vi.mocked(upsertE2eeConfig).mockResolvedValue({
 			public_key_jwk: { ...testPublicKeyJwk, x: TEST_P256_COORD.slice(0, -1) + 'B' },
 			encrypted_private_key: testEncryptedPrivateKey,
 			passkey_credential_id: null,
 			passkey_encrypted_private_key: null,
 			recovery_hint: null
-		} as Awaited<ReturnType<typeof upsertE2eeConfig>>);
+		} as unknown as Awaited<ReturnType<typeof upsertE2eeConfig>>);
 
 		const response = await postE2eeConfig({
 			locals: humanLocals(),
