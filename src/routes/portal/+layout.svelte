@@ -17,13 +17,16 @@
 		prefetchSessionPages,
 		resetSessionPrefetch,
 		toPrefetchSessions,
-		warmPrefetchedSessions
+		warmPrefetchedSessions,
+		warmSessionById
 	} from '$lib/session-prefetch';
 	import { onMount, setContext, untrack } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	const POLL_MS = 5000;
 	const NAV_PENDING_TIMEOUT_MS = 5_000;
+	// Roughly one sidebar viewport of sessions; matches the sidebar's own hint.
+	const INITIAL_DECRYPT_PRIORITY_COUNT = 8;
 
 	let { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
 
@@ -47,6 +50,7 @@
 	const prefetchSessions = $derived(
 		toPrefetchSessions(data.sessions, data.emailDraftSummaries)
 	);
+	// Navigation targets first, then whatever the sidebar reports as visible.
 	const prioritySessionIds = $derived.by(() => {
 		const ids = new Set<string>();
 		const add = (id: string | null | undefined) => {
@@ -113,18 +117,29 @@
 			return;
 		}
 
-		// Snapshot at unlock/data refresh; warm/prefetch stay live to scroll.
-		const priorities = untrack(() => prioritySessionIds);
+		// Snapshot at unlock/data refresh; avoid restarting decrypt on scroll.
+		// Seed with the top of the session list: this effect runs before the
+		// sidebar reports visibility, and the first rows are what's on screen.
+		const priorities = untrack(() => [
+			...prioritySessionIds,
+			...sessions.slice(0, INITIAL_DECRYPT_PRIORITY_COUNT).map((session) => session.id)
+		]);
+		// Local accumulator: the callback must not read `decryptedSessions`,
+		// or cached (synchronous) entries make this effect depend on its own output.
+		const progressive = untrack(() => ({ ...decryptedSessions }));
 		let cancelled = false;
 
 		void (async () => {
+			// Defer past a microtask so cache hits never run inside effect tracking.
+			await Promise.resolve();
+			if (cancelled) return;
 			const next = await loadSidebarSessionTitles(sessions, emailDraftSummaries, privateKey, {
 				prioritySessionIds: priorities,
 				isCancelled: () => cancelled,
 				onSessionDecrypted: (sessionId, meta) => {
-					if (!cancelled) {
-						decryptedSessions = { ...decryptedSessions, [sessionId]: meta };
-					}
+					if (cancelled) return;
+					progressive[sessionId] = meta;
+					decryptedSessions = { ...progressive };
 				}
 			});
 			if (!cancelled) decryptedSessions = next;
@@ -135,10 +150,21 @@
 		};
 	});
 
+	// Tracks priorities live (unlike the decrypt snapshot above) so scrolling
+	// re-prioritizes metadata warming; warmed/in-flight guards keep re-runs cheap.
 	$effect(() => {
 		const privateKey = $e2eePrivateKey;
 		if (!privateKey) return;
-		void warmPrefetchedSessions(privateKey, prefetchSessions, prioritySessionIds);
+		void warmPrefetchedSessions(privateKey, prefetchSessions, prioritySessionIds, {
+			warmArtifactBytes: false
+		});
+	});
+
+	$effect(() => {
+		const privateKey = $e2eePrivateKey;
+		const sessionId = activeSessionId;
+		if (!privateKey || !sessionId) return;
+		void warmSessionById(sessionId, privateKey, { warmArtifactBytes: true });
 	});
 
 	onMount(() => {

@@ -6,6 +6,7 @@ import { prioritizeBySessionIds } from '$lib/portal/prioritize';
 import { decryptEncryptedSessionMeta } from '$lib/session-detail-decrypt';
 import {
 	forgetSessionDetailCache,
+	getSessionDetailCache,
 	mergeSessionDetailCache,
 	resetSessionDetailCache,
 	sessionDetailCacheKey,
@@ -50,7 +51,8 @@ type EmailDraftSummaryLookup = Record<
 
 const prefetchedVersions = new Map<string, string>();
 const inflight = new Map<string, Promise<void>>();
-const warmedVersions = new Map<string, string>();
+const warmedMetadataVersions = new Map<string, string>();
+const warmedArtifactVersions = new Map<string, string>();
 const warmingInFlight = new Map<string, Promise<void>>();
 const prefetchedPageData = new Map<string, PrefetchPageData>();
 
@@ -80,7 +82,8 @@ export function markSessionPrefetched(sessionId: string, updatedAt?: string | Da
 export function forgetSessionPrefetch(sessionId: string): void {
 	prefetchedVersions.delete(sessionId);
 	inflight.delete(sessionId);
-	warmedVersions.delete(sessionId);
+	warmedMetadataVersions.delete(sessionId);
+	warmedArtifactVersions.delete(sessionId);
 	for (const key of warmingInFlight.keys()) {
 		if (key.startsWith(`${sessionId}:`)) warmingInFlight.delete(key);
 	}
@@ -91,7 +94,8 @@ export function forgetSessionPrefetch(sessionId: string): void {
 export function resetSessionPrefetch(): void {
 	prefetchedVersions.clear();
 	inflight.clear();
-	warmedVersions.clear();
+	warmedMetadataVersions.clear();
+	warmedArtifactVersions.clear();
 	warmingInFlight.clear();
 	prefetchedPageData.clear();
 	resetSessionDetailCache();
@@ -118,56 +122,93 @@ export function isSessionPagePrefetched(sessionId: string, updatedAt?: string | 
 	);
 }
 
-export function prefetchSessionOnIntent(session: PrefetchSession): void {
-	void prefetchSessionPages([session]);
+type WarmSessionOptions = {
+	warmArtifactBytes?: boolean;
+};
+
+export function prefetchSessionOnIntent(
+	session: PrefetchSession,
+	prioritySessionIds: string[] = [session.id]
+): void {
+	void prefetchSessionPages([session], prioritySessionIds);
 }
 
-async function warmSessionPageData(pageData: PrefetchPageData, privateKey: CryptoKey): Promise<void> {
+async function warmSessionPageData(
+	pageData: PrefetchPageData,
+	privateKey: CryptoKey,
+	options: WarmSessionOptions = {}
+): Promise<void> {
+	const warmArtifactBytes = options.warmArtifactBytes ?? false;
 	const sessionId = pageData.session.id;
 	const cacheKey = pageDataCacheKey(pageData);
 	const version = pageDataCacheVersion(pageData);
-	if (warmedVersions.get(sessionId) === version) return;
+	if (!warmArtifactBytes && warmedMetadataVersions.get(sessionId) === version) return;
+	if (warmArtifactBytes && warmedArtifactVersions.get(sessionId) === version) return;
 
-	const sessionMeta = await decryptEncryptedSessionMeta(
-		pageData.session.encrypted_title,
-		pageData.session.encrypted_summary,
-		privateKey
-	);
+	const needsMetadata = warmedMetadataVersions.get(sessionId) !== version;
+	if (!needsMetadata && !warmArtifactBytes) return;
 
-	if (pageData.session.encrypted_title && !sessionMeta) {
+	if (needsMetadata) {
+		// Reuse anything another decrypt path (e.g. sidebar titles) already
+		// produced for this version instead of repeating the crypto work.
+		const cached = getSessionDetailCache(sessionId, cacheKey);
+
+		const sessionMeta =
+			cached?.session ??
+			(await decryptEncryptedSessionMeta(
+				pageData.session.encrypted_title,
+				pageData.session.encrypted_summary,
+				privateKey
+			));
+
+		if (pageData.session.encrypted_title && !sessionMeta) {
+			return;
+		}
+
+		const artifactMeta: Record<string, { filename: string; contentType: string }> = {};
+		for (const artifact of pageData.artifacts) {
+			if (!artifact.encrypted_filename || !artifact.encrypted_content_type) continue;
+			const cachedArtifact = cached?.artifacts[artifact.id];
+			if (cachedArtifact) {
+				artifactMeta[artifact.id] = cachedArtifact;
+				continue;
+			}
+			try {
+				artifactMeta[artifact.id] = {
+					filename: await decryptString(
+						artifact.encrypted_filename as EncryptedEnvelope,
+						privateKey
+					),
+					contentType: await decryptString(
+						artifact.encrypted_content_type as EncryptedEnvelope,
+						privateKey
+					)
+				};
+			} catch (err) {
+				console.error('[prefetch] artifact metadata decrypt failed:', err);
+			}
+		}
+
+		let emailDraft = null;
+		if (cached?.emailDraft !== undefined) {
+			emailDraft = cached.emailDraft;
+		} else if (pageData.emailDraft) {
+			emailDraft = await decryptEmailDraftFields(pageData.emailDraft, privateKey);
+		}
+
+		mergeSessionDetailCache(sessionId, cacheKey, {
+			session: sessionMeta,
+			artifacts: artifactMeta,
+			artifactIds: pageData.artifacts.map((artifact) => artifact.id),
+			emailDraft
+		});
+
+		warmedMetadataVersions.set(sessionId, version);
+	}
+
+	if (!warmArtifactBytes) {
 		return;
 	}
-
-	const artifactMeta: Record<string, { filename: string; contentType: string }> = {};
-	for (const artifact of pageData.artifacts) {
-		if (!artifact.encrypted_filename || !artifact.encrypted_content_type) continue;
-		try {
-			artifactMeta[artifact.id] = {
-				filename: await decryptString(
-					artifact.encrypted_filename as EncryptedEnvelope,
-					privateKey
-				),
-				contentType: await decryptString(
-					artifact.encrypted_content_type as EncryptedEnvelope,
-					privateKey
-				)
-			};
-		} catch (err) {
-			console.error('[prefetch] artifact metadata decrypt failed:', err);
-		}
-	}
-
-	let emailDraft = null;
-	if (pageData.emailDraft) {
-		emailDraft = await decryptEmailDraftFields(pageData.emailDraft, privateKey);
-	}
-
-	mergeSessionDetailCache(sessionId, cacheKey, {
-		session: sessionMeta,
-		artifacts: artifactMeta,
-		artifactIds: pageData.artifacts.map((artifact) => artifact.id),
-		emailDraft
-	});
 
 	const warmTargets = pageData.artifacts.filter(
 		(artifact) =>
@@ -192,13 +233,71 @@ async function warmSessionPageData(pageData: PrefetchPageData, privateKey: Crypt
 		await Promise.all(Array.from({ length: workers }, () => artifactWorker()));
 	}
 
-	warmedVersions.set(sessionId, version);
+	warmedArtifactVersions.set(sessionId, version);
+}
+
+function warmKeyFor(sessionId: string, version: string, warmArtifactBytes: boolean): string {
+	return `${sessionId}:${version}:${warmArtifactBytes ? 'full' : 'meta'}`;
+}
+
+async function warmSessionPageDataTracked(
+	pageData: PrefetchPageData,
+	privateKey: CryptoKey,
+	options: WarmSessionOptions = {}
+): Promise<void> {
+	const sessionId = pageData.session.id;
+	const version = pageDataCacheVersion(pageData);
+	const warmArtifactBytes = options.warmArtifactBytes ?? false;
+	if (!warmArtifactBytes && warmedMetadataVersions.get(sessionId) === version) return;
+	if (warmArtifactBytes && warmedArtifactVersions.get(sessionId) === version) return;
+
+	const needsMetadata = warmedMetadataVersions.get(sessionId) !== version;
+	if (!needsMetadata && !warmArtifactBytes) return;
+	const warmKey = warmKeyFor(sessionId, version, warmArtifactBytes);
+	const existing = warmingInFlight.get(warmKey);
+	if (existing) {
+		await existing.catch(() => {});
+		return;
+	}
+
+	const promise = (async () => {
+		// A full warm must not duplicate an in-flight metadata-only warm; let
+		// it finish first so the metadata phase becomes a no-op.
+		if (warmArtifactBytes) {
+			const metadataInFlight = warmingInFlight.get(warmKeyFor(sessionId, version, false));
+			if (metadataInFlight) await metadataInFlight.catch(() => {});
+		}
+		await warmSessionPageData(pageData, privateKey, options);
+	})()
+		.catch((err) => {
+			console.error('[prefetch] session warm failed:', err);
+		})
+		.finally(() => {
+			warmingInFlight.delete(warmKey);
+		});
+	warmingInFlight.set(warmKey, promise);
+	await promise;
+}
+
+export async function warmSessionById(
+	sessionId: string,
+	privateKey: CryptoKey,
+	options: WarmSessionOptions = {}
+): Promise<void> {
+	// If the page prefetch is still running, wait for it so warming does not
+	// silently no-op when triggered right after a click/navigation.
+	const pendingPrefetch = inflight.get(sessionId);
+	if (pendingPrefetch) await pendingPrefetch.catch(() => {});
+	const pageData = prefetchedPageData.get(sessionId);
+	if (!pageData) return;
+	await warmSessionPageDataTracked(pageData, privateKey, options);
 }
 
 export async function warmPrefetchedSessions(
 	privateKey: CryptoKey,
 	sessions: PrefetchSession[] = [],
-	prioritySessionIds: string[] = []
+	prioritySessionIds: string[] = [],
+	options: WarmSessionOptions = {}
 ): Promise<void> {
 	const targets = prioritizeBySessionIds(sessions, prioritySessionIds).slice(
 		0,
@@ -207,26 +306,8 @@ export async function warmPrefetchedSessions(
 	for (const session of targets) {
 		const pageData = prefetchedPageData.get(session.id);
 		if (!pageData) continue;
-		const version = pageDataCacheVersion(pageData);
-		if (sessionVersion(session) !== version) continue;
-		if (warmedVersions.get(session.id) === version) continue;
-
-		const warmKey = `${session.id}:${version}`;
-		const existing = warmingInFlight.get(warmKey);
-		if (existing) {
-			await existing.catch(() => {});
-			continue;
-		}
-
-		const promise = warmSessionPageData(pageData, privateKey)
-			.catch((err) => {
-				console.error('[prefetch] session warm failed:', err);
-			})
-			.finally(() => {
-				warmingInFlight.delete(warmKey);
-			});
-		warmingInFlight.set(warmKey, promise);
-		await promise;
+		if (sessionVersion(session) !== pageDataCacheVersion(pageData)) continue;
+		await warmSessionPageDataTracked(pageData, privateKey, options);
 	}
 }
 

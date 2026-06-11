@@ -1,5 +1,9 @@
 import { decryptEncryptedSessionMeta } from '$lib/session-detail-decrypt';
-import { getSessionDetailCache, sessionDetailCacheKey } from '$lib/session-detail-cache';
+import {
+	getSessionDetailCache,
+	mergeSessionDetailCache,
+	sessionDetailCacheKey
+} from '$lib/session-detail-cache';
 import { prioritizeBySessionIds } from '$lib/portal/prioritize';
 
 import type { EncryptedEnvelope } from '$lib/e2ee';
@@ -55,6 +59,9 @@ export async function loadSidebarSessionTitles(
 			privateKey
 		);
 		if (meta) {
+			// Share decrypted metadata with the warm path via the session detail
+			// cache so the same session meta is never decrypted twice.
+			mergeSessionDetailCache(session.id, cacheKey, { session: meta });
 			next[session.id] = meta;
 			options.onSessionDecrypted?.(session.id, meta);
 		}

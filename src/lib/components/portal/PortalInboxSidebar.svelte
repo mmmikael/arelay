@@ -12,7 +12,11 @@
 		type SidebarFilter,
 		type SidebarSessionIcon
 	} from '$lib/portal/sidebar-types';
-	import { forgetSessionPrefetch, prefetchSessionOnIntent } from '$lib/session-prefetch';
+	import {
+		forgetSessionPrefetch,
+		prefetchSessionOnIntent,
+		warmSessionById
+	} from '$lib/session-prefetch';
 	import Archive from '@lucide/svelte/icons/archive';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -269,11 +273,16 @@
 		pendingSessionId = id;
 		const session = sessions.find((entry) => entry.id === id);
 		if (session) {
-			prefetchSessionOnIntent({
+			const prefetchSession = {
 				id: session.id,
 				updated_at: session.updated_at,
 				email_draft_updated_at: emailDraftSummaries[session.id]?.updated_at ?? null
-			});
+			};
+			prefetchSessionOnIntent(prefetchSession, [session.id]);
+			const privateKey = $e2eePrivateKey;
+			if (privateKey) {
+				void warmSessionById(session.id, privateKey, { warmArtifactBytes: false });
+			}
 		}
 	}
 
@@ -500,7 +509,9 @@
 					changed = true;
 				}
 				if (changed) {
-					visibleSessionIds = filteredSessions
+					// Use the effect-local snapshot, not live `filteredSessions`,
+					// so a late observer callback can't emit IDs from a newer filter.
+					visibleSessionIds = sessions
 						.filter((session) => visibility.get(session.id))
 						.map((session) => session.id);
 				}
