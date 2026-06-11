@@ -17,6 +17,7 @@
 	} from '$lib/portal/session-detail-view-state';
 	import { buildSessionActivityLines } from '$lib/session-activity';
 	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
+	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, SESSION_UPDATED_AT_LOOKUP_KEY, type EnsureE2eeUnlock, type SessionUpdatedAtLookup } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -37,8 +38,6 @@
 	import {
 		PDF_PREVIEW_SANDBOX,
 		PREVIEW_REFERRER_POLICY,
-		HTML_ARTIFACT_PREVIEW_SANDBOX,
-		HTML_PREVIEW_REFERRER_POLICY,
 		STRICT_PREVIEW_SANDBOX
 	} from '$lib/preview-sandbox';
 	import { getContext, onMount } from 'svelte';
@@ -525,13 +524,12 @@
 			class="h-full w-full border-0"
 		></iframe>
 	{:else if previewKind === 'html' && previewDoc}
-		<iframe
-			srcdoc={previewDoc}
+		<HtmlArtifactPreview
+			sourceHtml={previewSourceDoc}
+			{previewDoc}
 			title={previewFilename}
-			sandbox={HTML_ARTIFACT_PREVIEW_SANDBOX}
-			referrerpolicy={HTML_PREVIEW_REFERRER_POLICY}
-			class="h-full w-full border-0"
-		></iframe>
+			class="h-full"
+		/>
 	{:else if (previewKind === 'markdown' || previewKind === 'text') && previewDoc}
 		<iframe
 			srcdoc={previewDoc}

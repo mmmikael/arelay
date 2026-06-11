@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isExternalUrl, isDangerousUrl, sanitizeArtifactPreviewHtml, sanitizePreviewHtml } from './preview-sanitize';
+import {
+	artifactHtmlHasBlockedInteractivity,
+	isExternalUrl,
+	isDangerousUrl,
+	sanitizeArtifactPreviewHtml,
+	sanitizePreviewHtml
+} from './preview-sanitize';
 
 describe('isExternalUrl', () => {
 	it('treats absolute and protocol-relative URLs as external', () => {
@@ -105,5 +111,45 @@ describe('isDangerousUrl', () => {
 		expect(isDangerousUrl('javascript:alert(1)')).toBe(true);
 		expect(isDangerousUrl('data:text/html,<script>alert(1)</script>')).toBe(true);
 		expect(isDangerousUrl('https://example.com')).toBe(false);
+	});
+});
+
+describe('artifactHtmlHasBlockedInteractivity', () => {
+	it('is false for static HTML the sanitizer leaves unchanged', () => {
+		expect(artifactHtmlHasBlockedInteractivity('<p>Hello</p>')).toBe(false);
+		expect(
+			artifactHtmlHasBlockedInteractivity(
+				'<style>.x{color:red}</style><img src="https://cdn.example.com/a.png">'
+			)
+		).toBe(false);
+	});
+
+	it('is true when the sanitizer would strip active content', () => {
+		expect(artifactHtmlHasBlockedInteractivity('<script>alert(1)</script>')).toBe(true);
+		expect(artifactHtmlHasBlockedInteractivity('<p onclick="alert(1)">Hi</p>')).toBe(true);
+		expect(artifactHtmlHasBlockedInteractivity('<a href="javascript:alert(1)">x</a>')).toBe(true);
+		expect(
+			artifactHtmlHasBlockedInteractivity('<meta http-equiv="refresh" content="0;url=https://x.com">')
+		).toBe(true);
+		expect(artifactHtmlHasBlockedInteractivity('<form action="/x"></form>')).toBe(true);
+		expect(artifactHtmlHasBlockedInteractivity('<iframe src="https://x.com"></iframe>')).toBe(true);
+		expect(
+			artifactHtmlHasBlockedInteractivity('<link rel="modulepreload" href="https://x.com/a.js">')
+		).toBe(true);
+	});
+
+	it('matches sanitizeArtifactPreviewHtml output', () => {
+		const samples = [
+			'<p>Hi</p>',
+			'<script>alert(1)</script><p>Hi</p>',
+			'<link rel="preload" href="https://evil.com/app.js">',
+			'<a href="vbscript:msgbox(1)">bad</a>'
+		];
+
+		for (const sample of samples) {
+			expect(artifactHtmlHasBlockedInteractivity(sample)).toBe(
+				sanitizeArtifactPreviewHtml(sample) !== sample
+			);
+		}
 	});
 });

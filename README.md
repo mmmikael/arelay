@@ -364,7 +364,7 @@ Approve requires Cloudflare Email Sending to be configured on the account.
 - Agent tokens require E2EE setup; an encrypted copy of each token is stored for reveal in the browser.
 - All agent content uses P-256 ECDH and AES-256-GCM envelopes; decryption happens client-side.
 - Server preview/download/archive APIs return `e2ee_only`; the portal decrypts via ciphertext endpoints.
-- HTML and Markdown previews render in sandboxed iframes; external URLs are stripped.
+- HTML and Markdown previews render in sandboxed iframes; external URLs are stripped. Users can optionally open HTML artifacts or email drafts in a new browser tab to view unsanitized content they trust.
 - Artifact uploads are capped at 25 MB per file and 500 MB per account.
 - Download and preview URLs are short-lived.
 

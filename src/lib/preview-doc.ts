@@ -137,6 +137,24 @@ function buildPreviewDocFromSanitized(sanitized: string, dark = false): string {
 	return `<!doctype html><html${className}><head><meta charset="utf-8">${FONT_PREVIEW_HEAD}${styleTag}</head><body><div class="wrap">${sanitized}</div></body></html>`;
 }
 
+/** Full-bleed wrapper for HTML/email fragments (no max-width reading column). */
+const ARTIFACT_FRAGMENT_PREVIEW_STYLES = `
+	:root { color-scheme: light; }
+	:root.dark { color-scheme: dark; }
+	html, body {
+		margin: 0;
+		padding: 0;
+		min-height: 100%;
+	}
+	img { max-width: 100%; height: auto; }
+`;
+
+function buildArtifactFragmentPreviewDoc(sanitized: string, dark = false): string {
+	const styleTag = `<style>${ARTIFACT_FRAGMENT_PREVIEW_STYLES}</style>`;
+	const className = dark ? ' class="dark"' : '';
+	return `<!doctype html><html${className}><head><meta charset="utf-8">${FONT_PREVIEW_HEAD}${styleTag}</head><body>${sanitized}</body></html>`;
+}
+
 function buildPlainTextPreviewDoc(text: string, dark = false): string {
 	const styleTag = `<style>${PLAIN_TEXT_PREVIEW_STYLES}</style>`;
 	const className = dark ? ' class="dark"' : '';
@@ -152,7 +170,7 @@ export function toPreviewHtmlDocument(html: string, dark = false): string {
 		return buildPlainTextPreviewDoc(html, dark);
 	}
 	const sanitized = sanitizeArtifactPreviewHtml(html);
-	return buildPreviewDocFromSanitized(sanitized, dark);
+	return buildArtifactFragmentPreviewDoc(sanitized, dark);
 }
 
 /** Prepare html field for outbound email (preview parity). */

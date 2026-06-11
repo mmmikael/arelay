@@ -10,10 +10,11 @@ describe('isFullHtmlDocument', () => {
 });
 
 describe('toPreviewHtmlDocument', () => {
-	it('wraps fragments and preserves full documents', () => {
+	it('wraps HTML fragments full-bleed and preserves full documents', () => {
 		const fragment = toPreviewHtmlDocument('<p>Hello</p>', false);
-		expect(fragment).toContain('<div class="wrap">');
+		expect(fragment).not.toContain('class="wrap"');
 		expect(fragment).toContain('<p>Hello</p>');
+		expect(fragment).toContain('<body><p>Hello</p></body>');
 
 		const full = toPreviewHtmlDocument('<!doctype html><html><body><p>Hi</p></body></html>', false);
 		expect(full).toContain('<!doctype html>');

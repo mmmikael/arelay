@@ -22,15 +22,12 @@
 		reviewPayloadNeeded
 	} from '$lib/email-draft-review-actions';
 	import { looksLikePlainTextBody, toPreviewHtmlDocument } from '$lib/preview-doc';
+	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import type { DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
 	import type { EmailDraftRecord } from '$plugins/email-review-relay/server';
-	import {
-		HTML_ARTIFACT_PREVIEW_SANDBOX,
-		HTML_PREVIEW_REFERRER_POLICY
-	} from '$lib/preview-sandbox';
 
 	const REVIEW_AUTOSAVE_MS = 800;
 
@@ -510,13 +507,12 @@
 				class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 sm:h-[72vh] sm:min-h-[32rem]"
 			></textarea>
 		{:else if activeEmailDraft?.html || (editingBody && emailPreviewDoc)}
-			<iframe
-				srcdoc={emailPreviewDoc}
+			<HtmlArtifactPreview
+				sourceHtml={editableHtml}
+				previewDoc={emailPreviewDoc}
 				title={editableSubject || activeEmailDraft?.subject || 'Email preview'}
-				sandbox={HTML_ARTIFACT_PREVIEW_SANDBOX}
-				referrerpolicy={HTML_PREVIEW_REFERRER_POLICY}
-				class="block h-[calc(100dvh-13rem)] min-h-[28rem] w-full border-0 bg-white dark:bg-slate-950 sm:h-[72vh] sm:min-h-[32rem]"
-			></iframe>
+				class="h-[calc(100dvh-13rem)] min-h-[28rem] w-full sm:h-[72vh] sm:min-h-[32rem]"
+			/>
 		{:else}
 			<div
 				class="flex h-[28rem] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
