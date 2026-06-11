@@ -9,6 +9,8 @@ declare global {
 			user: User | null;
 			agentUser: User | null;
 			currentPasskeyId: string | null;
+			/** Set by hooks for portal page requests to avoid duplicate getE2eeConfig. */
+			e2eeConfigured?: boolean;
 			requestId: string;
 			log: Logger;
 		}

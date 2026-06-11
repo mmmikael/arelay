@@ -1,21 +1,22 @@
-import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isEmailReviewRelayEnabled } from '$lib/plugins';
 import {
 	getAccountStorageUsedBytes,
 	getE2eeConfig,
+	getInboxSessionStats,
 	listAgentApiTokensForUser,
 	listPasskeysForUser,
 	listSessions
 } from '$lib/server/db';
 import {
 	decryptCloudflareAccountId,
+	getEmailDraftStats,
 	getUserCloudflareEmail,
 	isUserCloudflareEmailConfigured,
 	listEmailDraftSummariesForUser,
 	type EmailDraftStatus
 } from '$plugins/email-review-relay/server';
-import { resolvePortalE2eeRedirect } from '$lib/server/portal-gate';
+import { inboxVersionFromStats } from '$lib/inbox-version';
 import { MAX_ACCOUNT_STORAGE_BYTES, MAX_ARTIFACT_BYTES } from '$lib/storage-limits';
 
 type EmailDraftSummaryMap = Record<
@@ -23,8 +24,9 @@ type EmailDraftSummaryMap = Record<
 	{ status: EmailDraftStatus; encryption_version: string; updated_at: Date }
 >;
 const EMPTY_EMAIL_DRAFT_SUMMARIES: EmailDraftSummaryMap = {};
+const EMPTY_DRAFT_STATS = { draftCount: 0, latestUpdatedAt: null };
 
-export const load: LayoutServerLoad = async ({ depends, locals, url }) => {
+export const load: LayoutServerLoad = async ({ depends, locals }) => {
 	depends('inbox:sessions');
 	depends('account:passkeys');
 	depends('account:agent-tokens');
@@ -35,31 +37,40 @@ export const load: LayoutServerLoad = async ({ depends, locals, url }) => {
 	}
 	const userId = locals.user!.id;
 	const emailReviewRelayEnabled = isEmailReviewRelayEnabled();
-	const [sessions, passkeys, agentTokens, usedBytes, emailDraftSummaries, cloudflareEmail, e2ee] =
-		await Promise.all([
-			listSessions(userId),
-			listPasskeysForUser(userId),
-			listAgentApiTokensForUser(userId),
-			getAccountStorageUsedBytes(userId),
-			emailReviewRelayEnabled
-				? listEmailDraftSummariesForUser(userId)
-				: Promise.resolve(EMPTY_EMAIL_DRAFT_SUMMARIES),
-			emailReviewRelayEnabled
-				? getUserCloudflareEmail(userId)
-				: Promise.resolve(null),
-			getE2eeConfig(userId)
-		]);
+	const needsE2eeFetch = locals.e2eeConfigured === undefined;
+	const [
+		sessions,
+		passkeys,
+		agentTokens,
+		usedBytes,
+		sessionStats,
+		emailDraftSummaries,
+		draftStats,
+		cloudflareEmail,
+		e2ee
+	] = await Promise.all([
+		listSessions(userId),
+		listPasskeysForUser(userId),
+		listAgentApiTokensForUser(userId),
+		getAccountStorageUsedBytes(userId),
+		getInboxSessionStats(userId),
+		emailReviewRelayEnabled
+			? listEmailDraftSummariesForUser(userId)
+			: Promise.resolve(EMPTY_EMAIL_DRAFT_SUMMARIES),
+		emailReviewRelayEnabled ? getEmailDraftStats(userId) : Promise.resolve(EMPTY_DRAFT_STATS),
+		emailReviewRelayEnabled ? getUserCloudflareEmail(userId) : Promise.resolve(null),
+		needsE2eeFetch ? getE2eeConfig(userId) : Promise.resolve(null)
+	]);
 
-	const e2eeConfigured = Boolean(e2ee);
-	const pathname = url.pathname;
-
-	const portalRedirect = resolvePortalE2eeRedirect(pathname, e2eeConfigured);
-	if (portalRedirect) {
-		redirect(303, portalRedirect);
-	}
+	// The E2EE setup redirect lives in hooks.server.ts: reading url.pathname
+	// here would make this load depend on the URL, refetching the entire
+	// layout payload on every session switch.
+	const e2eeConfigured = locals.e2eeConfigured ?? Boolean(e2ee);
 
 	return {
 		sessions,
+		// Baseline for the client poll against /api/inbox/version.
+		inboxVersion: inboxVersionFromStats(sessionStats, usedBytes, draftStats),
 		emailDraftSummaries,
 		e2eeConfigured,
 		plugins: {

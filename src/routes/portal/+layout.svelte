@@ -24,6 +24,7 @@
 	import type { LayoutData } from './$types';
 
 	const POLL_MS = 5000;
+	const POLL_MAX_BACKOFF_MS = 60_000;
 	const NAV_PENDING_TIMEOUT_MS = 5_000;
 	// Roughly one sidebar viewport of sessions; matches the sidebar's own hint.
 	const INITIAL_DECRYPT_PRIORITY_COUNT = 8;
@@ -167,24 +168,56 @@
 		void warmSessionById(sessionId, privateKey, { warmArtifactBytes: true });
 	});
 
+	// Baseline for the poll; kept in sync with layout reloads so a refetch
+	// triggered elsewhere (mark read, delete, ...) does not re-invalidate.
+	let lastInboxVersion: string | null = null;
+	$effect(() => {
+		lastInboxVersion = data.inboxVersion;
+	});
+
 	onMount(() => {
 		void e2eeShell?.loadE2eeConfig();
 
-		let timer: ReturnType<typeof setInterval> | null = null;
+		let timer: ReturnType<typeof setTimeout> | null = null;
+		let stopped = false;
+		let pollFailures = 0;
 
-		const refresh = () => {
-			if (document.hidden) return;
-			void Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
+		// Poll a tiny version endpoint and only refetch the layout payload when
+		// something changed; back off while the network is failing.
+		const refresh = async () => {
+			try {
+				const response = await fetch('/api/inbox/version');
+				if (!response.ok) throw new Error(`poll failed: ${response.status}`);
+				const body = (await response.json()) as { version?: string };
+				pollFailures = 0;
+				const version = body.version ?? '';
+				if (version === lastInboxVersion) return;
+				await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
+				// $effect syncs lastInboxVersion from data.inboxVersion after reload.
+			} catch {
+				pollFailures += 1;
+			}
 		};
 
-		const start = () => {
-			if (timer) return;
-			timer = setInterval(refresh, POLL_MS);
+		const pollDelay = () =>
+			Math.min(POLL_MS * 2 ** Math.min(pollFailures, 8), POLL_MAX_BACKOFF_MS);
+
+		const schedule = () => {
+			if (stopped || timer) return;
+			timer = setTimeout(run, pollDelay());
+		};
+
+		const run = async () => {
+			timer = null;
+			if (!document.hidden) {
+				await refresh();
+			}
+			if (!document.hidden) schedule();
 		};
 
 		const stop = () => {
 			if (!timer) return;
-			clearInterval(timer);
+			clearTimeout(timer);
 			timer = null;
 		};
 
@@ -193,13 +226,14 @@
 				stop();
 				return;
 			}
-			refresh();
-			start();
+			stop();
+			void run();
 		};
 
-		start();
+		schedule();
 		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
+			stopped = true;
 			stop();
 			document.removeEventListener('visibilitychange', onVisibility);
 		};

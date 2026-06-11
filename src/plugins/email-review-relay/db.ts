@@ -283,6 +283,23 @@ export async function saveEmailDraftSentSnapshot(input: {
 	return rows[0] ?? null;
 }
 
+export async function getEmailDraftStats(ownerUserId: string): Promise<{
+	draftCount: number;
+	latestUpdatedAt: Date | null;
+}> {
+	const db = getDb();
+	const rows = await db<{ draft_count: number; latest_updated_at: Date | null }[]>`
+		SELECT COUNT(*)::int AS draft_count, MAX(updated_at) AS latest_updated_at
+		FROM email_drafts
+		WHERE owner_user_id = ${ownerUserId}
+	`;
+	const row = rows[0];
+	return {
+		draftCount: Number(row?.draft_count ?? 0),
+		latestUpdatedAt: row?.latest_updated_at ?? null
+	};
+}
+
 export async function listEmailDraftSummariesForUser(
 	ownerUserId: string
 ): Promise<

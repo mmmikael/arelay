@@ -1,4 +1,4 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import type { ResolveOptions } from '@sveltejs/kit';
 import {
@@ -10,7 +10,7 @@ import {
 	peekFailedAgentAuthIpRateLimit,
 	recordFailedAgentAuthIpRateLimit
 } from '$lib/server/agent-rate-limit';
-import { ensureSchema, getUser } from '$lib/server/db';
+import { ensureSchema, getE2eeConfig, getUser } from '$lib/server/db';
 import { hasCurrentLegalVersions } from '$lib/legal';
 import { routeRateLimitResponse } from '$lib/server/api-error';
 import { enforceHealthReadyIpRateLimit } from '$lib/server/health-rate-limit';
@@ -25,6 +25,7 @@ import { createRequestLogger, rootLogger } from '$lib/server/logger';
 import { resolveRequestId } from '$lib/server/request-id';
 import { getRequestClientIp } from '$lib/server/request-client-ip';
 import { getSessionCookieName, verifySession } from '$lib/server/session';
+import { resolvePortalE2eeRedirect } from '$lib/server/portal-gate';
 
 function stripDevPwaMarkup(html: string): string {
 	return html
@@ -229,6 +230,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 			path !== '/api/legal/accept'
 		) {
 			return hookJsonError(ctx, 428, 'Legal acceptance required.');
+		}
+		// E2EE setup gate for portal pages. Lives here (not in the portal
+		// layout load) so the layout load does not depend on the URL, which
+		// would refetch the entire layout payload on every session switch.
+		if (!isHumanApi && !needsLegalAcceptance) {
+			// Data requests carry the page path with a /__data.json suffix.
+			const pagePath = path.endsWith('/__data.json')
+				? path.slice(0, -'/__data.json'.length) || '/'
+				: path;
+			const e2eeConfigured = Boolean(await getE2eeConfig(event.locals.user!.id));
+			event.locals.e2eeConfigured = e2eeConfigured;
+			const portalRedirect = resolvePortalE2eeRedirect(pagePath, e2eeConfigured);
+			if (portalRedirect) {
+				redirect(303, portalRedirect);
+			}
 		}
 	}
 

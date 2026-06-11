@@ -4,6 +4,7 @@ export {
 	getEmailDraftById,
 	getEmailDraftByIdempotencyKey,
 	getEmailDraftBySessionId,
+	getEmailDraftStats,
 	getSessionDeliveryType,
 	getUserCloudflareEmail,
 	listEmailDraftSummariesForUser,
