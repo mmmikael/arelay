@@ -23,6 +23,7 @@
 	} from '$lib/email-draft-review-actions';
 	import { looksLikePlainTextBody, toPreviewHtmlDocument } from '$lib/preview-doc';
 	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
+	import HtmlPreviewOpenInTabButton from '$lib/components/portal/HtmlPreviewOpenInTabButton.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -480,20 +481,28 @@
 	</div>
 
 	<div class="space-y-3 px-4 pb-4 sm:px-6">
-		{#if canEditDraft && (activeEmailDraft?.html || editingBody)}
+		{#if (canEditDraft && (activeEmailDraft?.html || editingBody)) || (!canEditDraft && (activeEmailDraft?.html || editableHtml))}
 			<div class="flex flex-wrap items-center gap-2">
-				{#if !editingBody}
-					<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={startBodyEdit}>
-						{editBodyLabel}
-					</Button>
-				{:else if bodyView === 'code'}
-					<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyPreview}>
-						Preview
-					</Button>
-				{:else}
-					<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyCode}>
-						{bodyIsPlainText ? 'Edit text' : 'Edit'}
-					</Button>
+				{#if canEditDraft}
+					{#if !editingBody}
+						<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={startBodyEdit}>
+							{editBodyLabel}
+						</Button>
+					{:else if bodyView === 'code'}
+						<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyPreview}>
+							Preview
+						</Button>
+					{:else}
+						<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyCode}>
+							{bodyIsPlainText ? 'Edit text' : 'Edit'}
+						</Button>
+					{/if}
+				{/if}
+				{#if bodyView === 'preview' && (editableHtml || activeEmailDraft?.html)}
+					<HtmlPreviewOpenInTabButton
+						sourceHtml={editableHtml || activeEmailDraft?.html || ''}
+						disabled={emailActionBusy}
+					/>
 				{/if}
 			</div>
 		{/if}
