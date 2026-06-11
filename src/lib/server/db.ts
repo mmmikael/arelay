@@ -139,6 +139,31 @@ export async function listSessions(ownerUserId: string): Promise<InboxSession[]>
 	}));
 }
 
+export async function getInboxSessionStats(ownerUserId: string): Promise<{
+	sessionCount: number;
+	readCount: number;
+	latestUpdatedAt: Date | null;
+}> {
+	await ensureSchema();
+	const db = getDb();
+	const rows = await db<
+		{ session_count: number; read_count: number; latest_updated_at: Date | null }[]
+	>`
+		SELECT
+			COUNT(*)::int AS session_count,
+			COUNT(read_at)::int AS read_count,
+			MAX(updated_at) AS latest_updated_at
+		FROM inbox_sessions
+		WHERE owner_user_id = ${ownerUserId}
+	`;
+	const row = rows[0];
+	return {
+		sessionCount: Number(row?.session_count ?? 0),
+		readCount: Number(row?.read_count ?? 0),
+		latestUpdatedAt: row?.latest_updated_at ?? null
+	};
+}
+
 export async function getSession(id: string, ownerUserId?: string): Promise<InboxSession | null> {
 	await ensureSchema();
 	const db = getDb();
