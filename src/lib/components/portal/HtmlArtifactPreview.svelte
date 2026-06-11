@@ -1,6 +1,5 @@
 <script lang="ts">
 	import HtmlPreviewSecurityNotice from '$lib/components/portal/HtmlPreviewSecurityNotice.svelte';
-	import { openTrustedHtmlInNewTab } from '$lib/preview-html-interactivity';
 	import { artifactHtmlHasBlockedInteractivity } from '$lib/preview-sanitize';
 	import {
 		HTML_ARTIFACT_PREVIEW_SANDBOX,
@@ -13,45 +12,25 @@
 		previewDoc: string;
 		title: string;
 		class?: string;
+		/** Hide the security notice (e.g. fullscreen preview). */
+		hideNotice?: boolean;
 	};
 
-	let { sourceHtml, previewDoc, title, class: className }: Props = $props();
-
-	let openTabError = $state('');
+	let { sourceHtml, previewDoc, title, class: className, hideNotice = false }: Props = $props();
 
 	const hasRestrictedContent = $derived(artifactHtmlHasBlockedInteractivity(sourceHtml));
-
-	$effect(() => {
-		sourceHtml;
-		openTabError = '';
-	});
 
 	$effect(() => {
 		if (hasRestrictedContent) {
 			console.debug('[preview] HTML contains active content blocked by sandboxed preview');
 		}
 	});
-
-	function openInNewTab() {
-		if (!sourceHtml.trim()) return;
-
-		openTabError = '';
-		try {
-			openTrustedHtmlInNewTab(sourceHtml);
-		} catch (err) {
-			openTabError =
-				err instanceof Error ? err.message : 'Could not open HTML in a new tab';
-			console.warn('[preview] trusted HTML open failed:', err);
-		}
-	}
 </script>
 
 <div class={cn('flex min-h-0 flex-col', className)}>
-	<HtmlPreviewSecurityNotice
-		{hasRestrictedContent}
-		openError={openTabError}
-		onOpenTrusted={openInNewTab}
-	/>
+	{#if !hideNotice}
+		<HtmlPreviewSecurityNotice {hasRestrictedContent} />
+	{/if}
 	<iframe
 		srcdoc={previewDoc}
 		{title}

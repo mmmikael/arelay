@@ -18,6 +18,7 @@
 	import { buildSessionActivityLines } from '$lib/session-activity';
 	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
 	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
+	import HtmlPreviewOpenInTabButton from '$lib/components/portal/HtmlPreviewOpenInTabButton.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { ENSURE_E2EE_UNLOCK_KEY, SESSION_UPDATED_AT_LOOKUP_KEY, type EnsureE2eeUnlock, type SessionUpdatedAtLookup } from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -529,6 +530,7 @@
 			{previewDoc}
 			title={previewFilename}
 			class="h-full"
+			hideNotice={previewExpanded}
 		/>
 	{:else if (previewKind === 'markdown' || previewKind === 'text') && previewDoc}
 		<iframe
@@ -682,6 +684,9 @@
 							</div>
 							<div class="flex shrink-0 items-center gap-1">
 								{#if !previewLoading && !previewError}
+									{#if previewKind === 'html' && previewSourceDoc}
+										<HtmlPreviewOpenInTabButton sourceHtml={previewSourceDoc} />
+									{/if}
 									<Button
 										variant="ghost"
 										size="icon"
@@ -760,6 +765,23 @@
 				{previewFilename || 'File preview'}
 			</p>
 			<div class="flex shrink-0 items-center gap-1">
+				{#if previewKind === 'html' && previewSourceDoc}
+					<HtmlPreviewOpenInTabButton sourceHtml={previewSourceDoc} />
+				{/if}
+				{#if !previewLoading && !previewError}
+					{@const activeArtifact = data.artifacts.find((artifact) => artifact.id === activeArtifactId)}
+					{#if activeArtifact}
+						<Button
+							variant="ghost"
+							size="icon"
+							title="Download"
+							aria-label="Download file"
+							onclick={() => downloadArtifactRecord(activeArtifact)}
+						>
+							<Download class="h-4 w-4" />
+						</Button>
+					{/if}
+				{/if}
 				<Button
 					variant="ghost"
 					size="icon"
