@@ -1,8 +1,4 @@
-import {
-	decryptBytes,
-	payloadToEnvelope,
-	type EncryptedPayload
-} from '$lib/e2ee';
+import { decryptPayloadBytes, type EncryptedPayload } from '$lib/e2ee';
 import {
 	getCachedArtifactPlaintext,
 	setCachedArtifactPlaintext
@@ -33,8 +29,11 @@ export async function fetchAndDecryptArtifactBytes(
 		const res = await fetch(`/api/artifacts/${artifact.id}/ciphertext`);
 		if (!res.ok) throw new Error('Could not fetch encrypted artifact');
 		const ciphertextBytes = new Uint8Array(await res.arrayBuffer());
-		const plaintext = await decryptBytes(
-			payloadToEnvelope(artifact.encrypted_payload as EncryptedPayload, ciphertextBytes),
+		// Decrypt straight from the fetched bytes; round-tripping megabyte
+		// ciphertexts through base64 stalls the main thread.
+		const plaintext = await decryptPayloadBytes(
+			artifact.encrypted_payload as EncryptedPayload,
+			ciphertextBytes,
 			privateKey
 		);
 		setCachedArtifactPlaintext(artifact.id, plaintext);

@@ -82,20 +82,17 @@ export async function decryptEmailDraftFields(
 	}
 
 	try {
-		return {
-			to: await decryptString(asEnvelope(emailDraft.encrypted_to), privateKey),
-			from_email: await decryptString(asEnvelope(emailDraft.encrypted_from_email), privateKey),
-			from_name: emailDraft.encrypted_from_name
-				? await decryptString(asEnvelope(emailDraft.encrypted_from_name), privateKey)
-				: null,
-			subject: await decryptString(asEnvelope(emailDraft.encrypted_subject), privateKey),
-			html: await decryptString(asEnvelope(emailDraft.encrypted_html), privateKey),
-			text: emailDraft.encrypted_text
-				? await decryptString(asEnvelope(emailDraft.encrypted_text), privateKey)
-				: null,
-			review: await decryptReviewOverlay(emailDraft, privateKey),
-			sent: await decryptSentOverlay(emailDraft, privateKey)
-		};
+		const [to, from_email, from_name, subject, html, text, review, sent] = await Promise.all([
+			decryptString(asEnvelope(emailDraft.encrypted_to), privateKey),
+			decryptString(asEnvelope(emailDraft.encrypted_from_email), privateKey),
+			decryptOptionalField(emailDraft.encrypted_from_name, privateKey),
+			decryptString(asEnvelope(emailDraft.encrypted_subject), privateKey),
+			decryptString(asEnvelope(emailDraft.encrypted_html), privateKey),
+			decryptOptionalField(emailDraft.encrypted_text, privateKey),
+			decryptReviewOverlay(emailDraft, privateKey),
+			decryptSentOverlay(emailDraft, privateKey)
+		]);
+		return { to, from_email, from_name, subject, html, text, review, sent };
 	} catch (err) {
 		console.error('[e2ee] email draft decrypt failed:', err);
 		return null;

@@ -17,7 +17,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 	return new Response(Buffer.from(bytes), {
 		headers: {
 			'Content-Type': 'application/octet-stream',
-			'Cache-Control': 'private, max-age=60'
+			// Artifacts are insert-only: the ciphertext for an id never changes,
+			// so the browser can keep it for the session without revalidating.
+			'Cache-Control': 'private, max-age=31536000, immutable'
 		}
 	});
 };

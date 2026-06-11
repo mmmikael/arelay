@@ -47,7 +47,6 @@
 	import type { PageData } from './$types';
 
 	type LucideIcon = Component<IconProps>;
-	import { marked } from 'marked';
 
 	let { data }: { data: PageData } = $props();
 
@@ -184,16 +183,25 @@
 				...(cached?.artifacts ?? {})
 			};
 			let nextSession: { title: string; summary: string | null } | null = cached?.session ?? null;
+			let nextEmailDraft: DecryptedEmailDraftFields | null = cached?.emailDraft ?? null;
+
+			// Session meta, artifact metadata, and the email draft are independent
+			// envelopes; decrypt them all concurrently instead of one await at a time.
+			const tasks: Promise<void>[] = [];
 
 			if (data.session.encrypted_title && !nextSession) {
-				nextSession = await decryptEncryptedSessionMeta(
-					data.session.encrypted_title,
-					data.session.encrypted_summary,
-					privateKey
+				tasks.push(
+					(async () => {
+						nextSession = await decryptEncryptedSessionMeta(
+							data.session.encrypted_title,
+							data.session.encrypted_summary,
+							privateKey
+						);
+						if (!nextSession) {
+							console.error('[e2ee] detail session decrypt failed');
+						}
+					})()
 				);
-				if (!nextSession) {
-					console.error('[e2ee] detail session decrypt failed');
-				}
 			}
 
 			for (const artifact of data.artifacts) {
@@ -201,26 +209,36 @@
 					continue;
 				}
 				if (nextArtifacts[artifact.id]) continue;
-				try {
-					nextArtifacts[artifact.id] = {
-						filename: await decryptString(
-							artifact.encrypted_filename as unknown as EncryptedEnvelope,
-							privateKey
-						),
-						contentType: await decryptString(
-							artifact.encrypted_content_type as unknown as EncryptedEnvelope,
-							privateKey
-						)
-					};
-				} catch (err) {
-					console.error('[e2ee] artifact metadata decrypt failed:', err);
-				}
+				tasks.push(
+					(async () => {
+						try {
+							const [filename, contentType] = await Promise.all([
+								decryptString(
+									artifact.encrypted_filename as unknown as EncryptedEnvelope,
+									privateKey
+								),
+								decryptString(
+									artifact.encrypted_content_type as unknown as EncryptedEnvelope,
+									privateKey
+								)
+							]);
+							nextArtifacts[artifact.id] = { filename, contentType };
+						} catch (err) {
+							console.error('[e2ee] artifact metadata decrypt failed:', err);
+						}
+					})()
+				);
 			}
 
-			let nextEmailDraft: DecryptedEmailDraftFields | null = cached?.emailDraft ?? null;
 			if (emailDraft && cached?.emailDraft === undefined) {
-				nextEmailDraft = await decryptEmailDraftFields(emailDraft, privateKey);
+				tasks.push(
+					(async () => {
+						nextEmailDraft = await decryptEmailDraftFields(emailDraft, privateKey);
+					})()
+				);
 			}
+
+			await Promise.all(tasks);
 
 			if (!cancelled) {
 				decryptedSession = nextSession;
@@ -294,14 +312,10 @@
 		}
 
 		try {
-			const filename = await decryptString(
-				artifact.encrypted_filename as unknown as EncryptedEnvelope,
-				privateKey
-			);
-			const contentType = await decryptString(
-				artifact.encrypted_content_type as unknown as EncryptedEnvelope,
-				privateKey
-			);
+			const [filename, contentType] = await Promise.all([
+				decryptString(artifact.encrypted_filename as unknown as EncryptedEnvelope, privateKey),
+				decryptString(artifact.encrypted_content_type as unknown as EncryptedEnvelope, privateKey)
+			]);
 			decryptedArtifacts = {
 				...decryptedArtifacts,
 				[artifact.id]: { filename, contentType }
@@ -381,7 +395,7 @@
 			const filename = meta.filename;
 			const contentType = meta.contentType;
 			const plaintext = await decryptArtifactBytes(artifact);
-			const url = URL.createObjectURL(new Blob([bytesToArrayBuffer(plaintext)], { type: contentType }));
+			const url = URL.createObjectURL(new Blob([plaintext as Uint8Array<ArrayBuffer>], { type: contentType }));
 			const link = document.createElement('a');
 			link.href = url;
 			link.download = filename;
@@ -448,14 +462,14 @@
 				const text = new TextDecoder().decode(bytes);
 				const content =
 					kind === 'markdown'
-						? sanitizePreviewHtml(await marked.parse(text, { gfm: true, breaks: true }))
+						? sanitizePreviewHtml(await renderMarkdown(text))
 						: kind === 'text'
 							? `<pre>${escapeHtml(text)}</pre>`
 							: text;
 				previewSourceDoc = content;
 				previewDoc = buildPreviewContent(kind, content, darkMode);
 			} else {
-				previewObjectUrl = URL.createObjectURL(new Blob([bytesToArrayBuffer(bytes)], { type: contentType }));
+				previewObjectUrl = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: contentType }));
 				previewUrl = previewObjectUrl;
 			}
 		} catch (err) {
@@ -490,8 +504,11 @@
 			.replaceAll('"', '&quot;');
 	}
 
-	function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-		return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+	// marked is only needed for markdown previews; loading it on demand keeps
+	// it out of the session page bundle.
+	async function renderMarkdown(text: string): Promise<string> {
+		const { marked } = await import('marked');
+		return marked.parse(text, { gfm: true, breaks: true });
 	}
 </script>
 

@@ -166,28 +166,25 @@ async function warmSessionPageData(
 		}
 
 		const artifactMeta: Record<string, { filename: string; contentType: string }> = {};
-		for (const artifact of pageData.artifacts) {
-			if (!artifact.encrypted_filename || !artifact.encrypted_content_type) continue;
-			const cachedArtifact = cached?.artifacts[artifact.id];
-			if (cachedArtifact) {
-				artifactMeta[artifact.id] = cachedArtifact;
-				continue;
-			}
-			try {
-				artifactMeta[artifact.id] = {
-					filename: await decryptString(
-						artifact.encrypted_filename as EncryptedEnvelope,
-						privateKey
-					),
-					contentType: await decryptString(
-						artifact.encrypted_content_type as EncryptedEnvelope,
-						privateKey
-					)
-				};
-			} catch (err) {
-				console.error('[prefetch] artifact metadata decrypt failed:', err);
-			}
-		}
+		await Promise.all(
+			pageData.artifacts.map(async (artifact) => {
+				if (!artifact.encrypted_filename || !artifact.encrypted_content_type) return;
+				const cachedArtifact = cached?.artifacts[artifact.id];
+				if (cachedArtifact) {
+					artifactMeta[artifact.id] = cachedArtifact;
+					return;
+				}
+				try {
+					const [filename, contentType] = await Promise.all([
+						decryptString(artifact.encrypted_filename as EncryptedEnvelope, privateKey),
+						decryptString(artifact.encrypted_content_type as EncryptedEnvelope, privateKey)
+					]);
+					artifactMeta[artifact.id] = { filename, contentType };
+				} catch (err) {
+					console.error('[prefetch] artifact metadata decrypt failed:', err);
+				}
+			})
+		);
 
 		let emailDraft = null;
 		if (cached?.emailDraft !== undefined) {
