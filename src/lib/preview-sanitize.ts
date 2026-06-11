@@ -171,3 +171,11 @@ export function sanitizeArtifactPreviewHtml(html: string): string {
 	out = stripDangerousUrlAttributes(out);
 	return out;
 }
+
+/**
+ * True when artifact sanitization would change the HTML (scripts, embeds, handlers, etc.).
+ * Uses the same pipeline as the sandboxed iframe preview — single source of truth for notices.
+ */
+export function artifactHtmlHasBlockedInteractivity(html: string): boolean {
+	return sanitizeArtifactPreviewHtml(html) !== html;
+}
