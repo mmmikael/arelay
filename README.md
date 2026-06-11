@@ -8,9 +8,11 @@
 [![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](https://svelte.dev/)
 [![Website](https://img.shields.io/badge/website-arelay.app-blue)](https://arelay.app)
 
-Agent Relay is an open-source, end-to-end encrypted inbox for AI agents. Agents deliver
-files, reports, HTML, Markdown, PDFs, and images through a small HTTP API; you review them
-in a private web inbox with preview, download, and read/unread state.
+Agent Relay is an open-source, end-to-end encrypted inbox for AI agents. Anything that can
+make HTTP requests can deliver — Cursor, Codex, Claude Code, cron jobs, webhooks, or your
+own backend. Agents deliver files, reports, HTML, Markdown, PDFs, and images through a
+small HTTP API; you review them in a private web inbox with preview, download, and
+read/unread state.
 
 An optional **Email Review Relay** plugin adds a human-in-the-loop outbound email path: agents submit
 encrypted drafts, you preview them in the same inbox, then approve or reject before anything
@@ -74,6 +76,26 @@ prompted to accept the new versions before continuing.
 
 ### Connect your AI agent
 
+Agent Relay is agent-agnostic: any client that speaks HTTP and follows the
+[E2EE envelope format](#encryption-required) can deliver. Pick the path that fits your setup:
+
+| Integration path | Best for |
+| --- | --- |
+| [Agent skill](#agent-skill) | Cursor, Codex, Claude Code, Hermes Agent, and other [Agent Skills](https://agentskills.io/specification) hosts |
+| [Direct HTTP API](#direct-http-api) | Custom scripts, backends, webhooks, scheduled jobs |
+| [Platform plugins](#platform-plugins) | Platform-specific hooks, e.g. Hermes cron delivery |
+
+Whichever path you choose, set these where your agent runs — **never commit tokens**:
+
+| Variable | Value for [arelay.app](https://arelay.app) |
+| --- | --- |
+| `AGENT_RELAY_URL` | `https://arelay.app` |
+| `AGENT_API_TOKEN` | Token from Account → Agent tokens |
+
+Every request uses `Authorization: Bearer <AGENT_API_TOKEN>`.
+
+#### Agent skill
+
 Install the [`agent-relay`](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay) skill (requires
 [portal E2EE setup](#encryption-required)):
 
@@ -88,16 +110,16 @@ hermes skills tap add mmmikael/arelay-skills
 hermes skills install mmmikael/arelay-skills/agent-relay
 ```
 
-Set these where your agent runs — **never commit tokens**:
+#### Direct HTTP API
 
-| Variable | Value for [arelay.app](https://arelay.app) |
-| --- | --- |
-| `AGENT_RELAY_URL` | `https://arelay.app` |
-| `AGENT_API_TOKEN` | Token from Account → Agent tokens |
+Anything that can POST JSON can deliver: fetch the public key from
+`GET /api/agent/e2ee/config`, encrypt locally, create a session, and upload artifacts. See
+the [API reference](https://github.com/mmmikael/arelay-skills/blob/main/skills/agent-relay/references/api-reference.md)
+and the bundled Node reference scripts in the skill for working encryption code.
 
-Every request uses `Authorization: Bearer <AGENT_API_TOKEN>`.
+#### Platform plugins
 
-**Hermes cron** (`--deliver arelay`) also needs [arelay-hermes-plugin](https://github.com/mmmikael/arelay-hermes-plugin).
+**Hermes cron** (`--deliver arelay`) needs [arelay-hermes-plugin](https://github.com/mmmikael/arelay-hermes-plugin).
 Cron runs in the **gateway**, not the interactive CLI — put credentials in
 `~/.hermes/.env` (including `AGENT_RELAY_HOME_CHANNEL=https://arelay.app`), install the
 plugin, then restart the gateway:
