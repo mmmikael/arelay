@@ -8,10 +8,12 @@ export async function decryptEncryptedSessionMeta(
 	if (!encryptedTitle) return null;
 
 	try {
-		const title = await decryptString(encryptedTitle as EncryptedEnvelope, privateKey);
-		const summary = encryptedSummary
-			? await decryptString(encryptedSummary as EncryptedEnvelope, privateKey)
-			: null;
+		const [title, summary] = await Promise.all([
+			decryptString(encryptedTitle as EncryptedEnvelope, privateKey),
+			encryptedSummary
+				? decryptString(encryptedSummary as EncryptedEnvelope, privateKey)
+				: Promise.resolve(null)
+		]);
 		return { title, summary };
 	} catch {
 		return null;

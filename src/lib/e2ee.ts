@@ -504,15 +504,23 @@ export async function decryptBytes(
 	envelope: EncryptedEnvelope,
 	recipientPrivateKey: CryptoKey
 ): Promise<Uint8Array> {
-	if (envelope.v !== 1 || envelope.alg !== 'P-256-ECDH-A256GCM') {
+	return decryptPayloadBytes(envelope, base64UrlToBytes(envelope.ciphertext), recipientPrivateKey);
+}
+
+export async function decryptPayloadBytes(
+	payload: EncryptedPayload,
+	ciphertextBytes: Uint8Array,
+	recipientPrivateKey: CryptoKey
+): Promise<Uint8Array> {
+	if (payload.v !== 1 || payload.alg !== 'P-256-ECDH-A256GCM') {
 		throw new Error('Unsupported encrypted payload format');
 	}
-	const ephemeralPublicKey = await importPublicKey(envelope.epk);
+	const ephemeralPublicKey = await importPublicKey(payload.epk);
 	const contentKey = await deriveContentKey(recipientPrivateKey, ephemeralPublicKey, ['decrypt']);
 	const plaintext = await crypto.subtle.decrypt(
-		{ name: 'AES-GCM', iv: toArrayBuffer(base64UrlToBytes(envelope.iv)) },
+		{ name: 'AES-GCM', iv: toArrayBuffer(base64UrlToBytes(payload.iv)) },
 		contentKey,
-		toArrayBuffer(base64UrlToBytes(envelope.ciphertext))
+		toArrayBuffer(ciphertextBytes)
 	);
 	return new Uint8Array(plaintext);
 }

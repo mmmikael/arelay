@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	createE2eeKeyring,
 	decryptBytes,
+	decryptPayloadBytes,
 	decryptString,
 	encryptBytes,
 	encryptString,
@@ -43,6 +44,23 @@ describe('e2ee roundtrip', () => {
 		expect(filename).toBe('report.md');
 		expect(contentType).toBe('text/markdown');
 		expect(new TextDecoder().decode(plaintext)).toBe('# Hello\n\nBody');
+	});
+
+	it('decrypts directly from payload metadata and raw ciphertext bytes', async () => {
+		const keyring = await createE2eeKeyring('ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567');
+		const envelope = await encryptBytes(new TextEncoder().encode('raw bytes'), keyring.publicKeyJwk);
+		const { payload, ciphertextBytes } = envelopeToPayload(envelope);
+
+		const plaintext = await decryptPayloadBytes(payload, ciphertextBytes, keyring.privateKey);
+		expect(new TextDecoder().decode(plaintext)).toBe('raw bytes');
+
+		await expect(
+			decryptPayloadBytes(
+				{ ...payload, alg: 'RSA-OAEP' as (typeof payload)['alg'] },
+				ciphertextBytes,
+				keyring.privateKey
+			)
+		).rejects.toThrow('Unsupported encrypted payload format');
 	});
 
 	it('rejects envelopes with the wrong algorithm', async () => {
