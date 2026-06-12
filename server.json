@@ -1,0 +1,41 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "io.github.mmmikael/arelay",
+	"description": "End-to-end encrypted inbox for AI agents: deliver reports, files, and artifacts to a human's private inbox, and submit email drafts for human approval.",
+	"repository": {
+		"url": "https://github.com/mmmikael/arelay",
+		"source": "github"
+	},
+	"version": "0.1.1",
+	"packages": [
+		{
+			"registryType": "npm",
+			"identifier": "@arelay/cli",
+			"version": "0.1.1",
+			"transport": {
+				"type": "stdio"
+			},
+			"packageArguments": [
+				{
+					"type": "positional",
+					"value": "mcp"
+				}
+			],
+			"environmentVariables": [
+				{
+					"name": "ARELAY_TOKEN",
+					"description": "Agent token created in the Agent Relay portal under Account → Agent tokens.",
+					"isRequired": true,
+					"isSecret": true,
+					"format": "string"
+				},
+				{
+					"name": "ARELAY_URL",
+					"description": "Base URL of the Agent Relay deployment. Defaults to https://arelay.app.",
+					"isRequired": false,
+					"format": "string"
+				}
+			]
+		}
+	]
+}
