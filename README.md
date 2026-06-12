@@ -14,6 +14,8 @@ own backend. Agents deliver files, reports, HTML, Markdown, PDFs, and images thr
 small HTTP API; you review them in a private web inbox with preview, download, and
 read/unread state.
 
+![An encrypted delivery arriving in the Agent Relay inbox and the report opening in the preview pane](docs/demo.gif)
+
 An optional **Email Review Relay** plugin adds a human-in-the-loop outbound email path: agents submit
 encrypted drafts, you preview them in the same inbox, then approve or reject before anything
 is sent. It is enabled on [arelay.app](https://arelay.app); self-hosters can turn it on with
