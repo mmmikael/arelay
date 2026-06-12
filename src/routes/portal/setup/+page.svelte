@@ -27,5 +27,13 @@
 			before using sessions or creating agent tokens.
 		</p>
 		<Button class="mt-6" onclick={() => openE2eeDialog()}>Set up encryption</Button>
+		<p class="mt-4 text-xs text-slate-400 dark:text-slate-500">
+			Once encryption is set up, the
+			<a
+				href="/getting-started"
+				class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
+				>getting started guide</a
+			> shows how to connect your first agent.
+		</p>
 	</div>
 </div>

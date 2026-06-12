@@ -37,9 +37,23 @@
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import LockKeyhole from '@lucide/svelte/icons/lock-keyhole';
+	import Rocket from '@lucide/svelte/icons/rocket';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import { PRIVACY_VERSION, TERMS_VERSION } from '$lib/legal';
+
+	const CONNECT_COMMAND = 'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
+	let connectCopied = $state(false);
+
+	async function copyConnectCommand() {
+		try {
+			await navigator.clipboard.writeText(CONNECT_COMMAND);
+			connectCopied = true;
+			setTimeout(() => (connectCopied = false), 2000);
+		} catch {
+			// Clipboard unavailable; the command stays selectable.
+		}
+	}
 
 	let authMode = $state<'signin' | 'signup'>('signin');
 	let signupEmail = $state('');
@@ -267,9 +281,10 @@
 	<header class="login-header">
 		<a href="/" class="flex items-center gap-3 text-slate-950 dark:text-white">
 			<Logo class="h-11 w-11" />
-			<span class="text-xl font-bold sm:text-2xl">Agent Relay</span>
+			<span class="text-xl font-bold whitespace-nowrap sm:text-2xl">Agent Relay</span>
 		</a>
 		<div class="header-actions">
+			<a href="#connect-agent" class="header-link">Getting started</a>
 			<ThemeToggle />
 			<a
 				href="https://github.com/mmmikael/arelay"
@@ -475,6 +490,10 @@
 					</div>
 
 					<p class="access-note">No passwords. No social login.</p>
+					<p class="access-guide">
+						New to Agent Relay?
+						<a href="/getting-started">Set up in 5 minutes →</a>
+					</p>
 				</div>
 			</div>
 		</section>
@@ -519,6 +538,32 @@
 		</div>
 	</main>
 
+	<section class="login-connect" id="connect-agent" aria-label="Connect your agent">
+		<div class="connect-copy">
+			<p class="login-eyebrow">
+				<span aria-hidden="true"></span>
+				Connect your agent
+			</p>
+			<h2>Works with Claude Code, Cursor, Codex — and anything that speaks HTTP.</h2>
+			<p>
+				Create an agent token, run one command, and your agent can deliver encrypted reports,
+				files, and finished work straight to your inbox.
+			</p>
+		</div>
+		<div class="connect-action">
+			<div class="connect-command">
+				<code>{CONNECT_COMMAND}</code>
+				<button type="button" class="connect-copy-btn" onclick={copyConnectCommand}>
+					{connectCopied ? 'Copied ✓' : 'Copy'}
+				</button>
+			</div>
+			<a href="/getting-started" class="connect-link">
+				<Rocket class="h-4 w-4" />
+				Getting started guide
+			</a>
+		</div>
+	</section>
+
 	<footer class="login-footer">
 		<a
 			href="https://github.com/mmmikael/arelay"
@@ -529,7 +574,8 @@
 			<Github class="h-4 w-4" />
 			View source and self-host
 		</a>
-		<nav aria-label="Legal">
+		<nav aria-label="Site">
+			<a href="/getting-started">Getting started</a>
 			<a href="/terms">Terms</a>
 			<a href="/privacy">Privacy</a>
 		</nav>
@@ -538,6 +584,8 @@
 
 <style>
 	.login-page {
+		display: flex;
+		flex-direction: column;
 		min-height: 100vh;
 		overflow: hidden;
 		background: #f5f7fb;
@@ -581,6 +629,7 @@
 	.login-header {
 		align-items: center;
 		display: flex;
+		gap: 1rem;
 		justify-content: space-between;
 		padding-top: 2rem;
 	}
@@ -589,6 +638,32 @@
 		align-items: center;
 		display: flex;
 		gap: 0.65rem;
+	}
+
+	.header-link {
+		color: #334155;
+		font-size: 0.78rem;
+		font-weight: 700;
+		transition: color 150ms ease;
+		white-space: nowrap;
+	}
+
+	@media (max-width: 520px) {
+		.header-actions .source-badge {
+			display: none;
+		}
+	}
+
+	.header-link:hover {
+		color: #2563eb;
+	}
+
+	:global(.dark) .header-link {
+		color: #cbd5e1;
+	}
+
+	:global(.dark) .header-link:hover {
+		color: #93c5fd;
 	}
 
 	.source-badge {
@@ -622,7 +697,9 @@
 	}
 
 	.login-grid {
+		align-content: center;
 		display: grid;
+		flex: 1;
 		gap: 2rem;
 		grid-template-areas:
 			'story'
@@ -763,6 +840,33 @@
 		font-size: 0.75rem;
 		margin-top: 1.25rem;
 		text-align: center;
+	}
+
+	.access-guide {
+		border-top: 1px solid #eef2f8;
+		color: #64748b;
+		font-size: 0.8rem;
+		margin-top: 1rem;
+		padding-top: 1rem;
+		text-align: center;
+	}
+
+	.access-guide a {
+		color: #2563eb;
+		font-weight: 700;
+	}
+
+	.access-guide a:hover {
+		text-decoration: underline;
+	}
+
+	:global(.dark) .access-guide {
+		border-top-color: #1e293b;
+		color: #94a3b8;
+	}
+
+	:global(.dark) .access-guide a {
+		color: #93c5fd;
 	}
 
 	.relay-visual {
@@ -913,6 +1017,115 @@
 		padding: 0.28rem 0.5rem;
 	}
 
+	:global(html) {
+		scroll-behavior: smooth;
+	}
+
+	.login-connect {
+		align-items: center;
+		background: #ffffff;
+		border: 1px solid #dce3ee;
+		border-radius: 8px;
+		display: grid;
+		gap: 1.5rem;
+		margin-bottom: 2rem;
+		margin-inline: auto;
+		max-width: 1180px;
+		padding: 1.75rem;
+		scroll-margin-top: 1.5rem;
+		width: calc(100% - 2rem);
+	}
+
+	.connect-copy h2 {
+		color: #0b1220;
+		font-size: 1.35rem;
+		font-weight: 750;
+		line-height: 1.25;
+		margin-top: 0.85rem;
+		max-width: 26ch;
+	}
+
+	.connect-copy p:last-child {
+		color: #526177;
+		font-size: 0.9rem;
+		line-height: 1.65;
+		margin-top: 0.75rem;
+		max-width: 36rem;
+	}
+
+	.connect-copy,
+	.connect-action {
+		min-width: 0;
+	}
+
+	.connect-action {
+		display: flex;
+		flex-direction: column;
+		gap: 0.85rem;
+	}
+
+	.connect-command {
+		align-items: center;
+		background: #101827;
+		border: 1px solid #1e293b;
+		border-radius: 8px;
+		display: flex;
+		gap: 0.5rem;
+		min-width: 0;
+		padding-right: 0.55rem;
+	}
+
+	.connect-command code {
+		color: #e2e8f0;
+		display: block;
+		flex: 1;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.75rem;
+		line-height: 1.6;
+		min-width: 0;
+		overflow-wrap: anywhere;
+		padding: 0.85rem 0.5rem 0.85rem 1rem;
+		white-space: pre-wrap;
+	}
+
+	.connect-copy-btn {
+		background: #1e293b;
+		border: 1px solid #334155;
+		border-radius: 6px;
+		color: #94a3b8;
+		flex: 0 0 auto;
+		font-size: 0.7rem;
+		font-weight: 700;
+		padding: 0.25rem 0.6rem;
+		transition:
+			color 150ms ease,
+			border-color 150ms ease;
+	}
+
+	.connect-copy-btn:hover {
+		border-color: #60a5fa;
+		color: #bfdbfe;
+	}
+
+	.connect-link {
+		align-items: center;
+		background: #2563eb;
+		border-radius: 6px;
+		color: #ffffff;
+		display: inline-flex;
+		font-size: 0.8rem;
+		font-weight: 700;
+		gap: 0.5rem;
+		justify-content: center;
+		padding: 0.65rem 1.1rem;
+		transition: background 150ms ease;
+		width: fit-content;
+	}
+
+	.connect-link:hover {
+		background: #1d4ed8;
+	}
+
 	.login-footer {
 		align-items: center;
 		color: #64748b;
@@ -965,15 +1178,20 @@
 			width: calc(100% - 4rem);
 		}
 
+		.login-connect {
+			grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+			padding: 2rem 2.25rem;
+			width: calc(100% - 4rem);
+		}
+
 		.login-grid {
-			gap: 2.5rem 4.5rem;
+			gap: 2rem 4.5rem;
 			grid-template-areas:
 				'story access'
 				'visual access';
 			grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.75fr);
 			grid-template-rows: auto auto;
-			min-height: calc(100vh - 10.5rem);
-			padding-block: 3.25rem 2.5rem;
+			padding-block: 2.5rem 2rem;
 		}
 
 		.login-story {
@@ -1007,6 +1225,14 @@
 			padding-top: 1.5rem;
 		}
 
+		.connect-copy h2 {
+			font-size: 1.15rem;
+		}
+
+		.login-connect {
+			padding: 1.4rem;
+		}
+
 		.login-grid {
 			padding-top: 2rem;
 		}
@@ -1037,10 +1263,19 @@
 	}
 
 	:global(.dark) .source-badge,
-	:global(.dark) .access-card {
+	:global(.dark) .access-card,
+	:global(.dark) .login-connect {
 		background: #0f172a;
 		border-color: #263449;
 		color: #cbd5e1;
+	}
+
+	:global(.dark) .connect-copy h2 {
+		color: #f8fafc;
+	}
+
+	:global(.dark) .connect-copy p:last-child {
+		color: #94a3b8;
 	}
 
 	:global(.dark) .source-license {
