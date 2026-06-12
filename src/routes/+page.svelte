@@ -284,7 +284,7 @@
 			<span class="text-xl font-bold whitespace-nowrap sm:text-2xl">Agent Relay</span>
 		</a>
 		<div class="header-actions">
-			<a href="#connect-agent" class="header-link">Getting started</a>
+			<a href="/getting-started" class="header-link">Getting started</a>
 			<ThemeToggle />
 			<a
 				href="https://github.com/mmmikael/arelay"
@@ -1015,10 +1015,6 @@
 		color: #047857;
 		font-size: 0.65rem;
 		padding: 0.28rem 0.5rem;
-	}
-
-	:global(html) {
-		scroll-behavior: smooth;
 	}
 
 	.login-connect {
