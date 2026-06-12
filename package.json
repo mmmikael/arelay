@@ -1,6 +1,7 @@
 {
 	"name": "agent-relay",
-	"version": "0.0.1",
+	"version": "0.1.0",
+	"private": true,
 	"description": "End-to-end encrypted inbox for AI agents — deliver artifacts to humans via HTTP API.",
 	"license": "MIT",
 	"repository": {
