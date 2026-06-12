@@ -98,7 +98,9 @@ export class ArelayClient {
 		if (!options.token) {
 			throw new Error('An agent API token is required (set ARELAY_TOKEN or pass token).');
 		}
-		this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+		let baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+		while (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+		this.baseUrl = baseUrl;
 		this.#token = options.token;
 		this.#fetch = options.fetch ?? fetch;
 	}
