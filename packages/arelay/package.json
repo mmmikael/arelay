@@ -1,0 +1,59 @@
+{
+	"name": "arelay",
+	"version": "0.1.0",
+	"description": "CLI, SDK, and MCP server for delivering end-to-end encrypted files from AI agents to an Agent Relay inbox.",
+	"license": "MIT",
+	"type": "module",
+	"bin": {
+		"arelay": "./dist/cli.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"prepublishOnly": "npm run build && npm test"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mmmikael/arelay.git",
+		"directory": "packages/arelay"
+	},
+	"bugs": {
+		"url": "https://github.com/mmmikael/arelay/issues"
+	},
+	"homepage": "https://arelay.app",
+	"keywords": [
+		"agent",
+		"ai",
+		"mcp",
+		"model-context-protocol",
+		"e2ee",
+		"encryption",
+		"inbox",
+		"delivery"
+	],
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.12.0",
+		"zod": "^3.25.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.14.1",
+		"typescript": "^5.8.0",
+		"vitest": "^3.2.4"
+	}
+}

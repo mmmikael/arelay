@@ -81,6 +81,7 @@ Agent Relay is agent-agnostic: any client that speaks HTTP and follows the
 
 | Integration path | Best for |
 | --- | --- |
+| [CLI & MCP server](#cli--mcp-server) | Fastest start: one command from any shell, or native MCP tools in Claude Code, Cursor, and Claude Desktop |
 | [Agent skill](#agent-skill) | Cursor, Codex, Claude Code, Hermes Agent, and other [Agent Skills](https://agentskills.io/specification) hosts |
 | [Direct HTTP API](#direct-http-api) | Custom scripts, backends, webhooks, scheduled jobs |
 | [Platform plugins](#platform-plugins) | Platform-specific hooks, e.g. Hermes cron delivery |
@@ -93,6 +94,29 @@ Whichever path you choose, set these where your agent runs — **never commit to
 | `AGENT_API_TOKEN` | Token from Account → Agent tokens |
 
 Every request uses `Authorization: Bearer <AGENT_API_TOKEN>`.
+
+#### CLI & MCP server
+
+The [`arelay`](./packages/arelay) npm package wraps the API and all envelope encryption.
+Deliver from any shell:
+
+```bash
+export ARELAY_TOKEN=ar_...   # from Account → Agent tokens
+npx -y arelay send report.md --title "Q2 revenue report"
+```
+
+Or register it as an MCP server so agents can deliver work natively
+(`deliver_to_inbox`, `list_inbox_sessions`, `submit_email_draft` tools):
+
+```bash
+# Claude Code
+claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y arelay mcp
+```
+
+`npx -y arelay check` verifies the token and encryption setup. The package also exports a
+typed SDK (`import { ArelayClient } from 'arelay'`) — see its
+[README](./packages/arelay/README.md). Self-hosters point it at their deployment with
+`ARELAY_URL` (the legacy `AGENT_RELAY_URL` / `AGENT_API_TOKEN` names work too).
 
 #### Agent skill
 
