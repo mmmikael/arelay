@@ -34,7 +34,7 @@ Environment:
 Examples:
   arelay send report.md --title "Q2 revenue report"
   arelay send build/report.pdf metrics.csv --title "Nightly metrics" --summary "All checks green"
-  claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y arelay mcp
+  claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp
 `;
 
 function fail(message: string): never {

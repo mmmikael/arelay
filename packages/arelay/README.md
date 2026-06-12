@@ -1,4 +1,4 @@
-# arelay
+# @arelay/cli
 
 CLI, SDK, and MCP server for [Agent Relay](https://arelay.app) — an open-source, end-to-end
 encrypted inbox for AI agents. Deliver reports, files, and finished work to a human's
@@ -15,14 +15,14 @@ recipient's browser.
 Verify everything is wired up:
 
 ```sh
-npx -y arelay check
+npx -y @arelay/cli check
 ```
 
 ## Deliver files from the command line
 
 ```sh
-npx -y arelay send report.md --title "Q2 revenue report"
-npx -y arelay send build/report.pdf metrics.csv --title "Nightly metrics" --summary "All checks green"
+npx -y @arelay/cli send report.md --title "Q2 revenue report"
+npx -y @arelay/cli send build/report.pdf metrics.csv --title "Nightly metrics" --summary "All checks green"
 ```
 
 Prints JSON with `session_id` and `portal_url`. Titles, summaries, filenames, content
@@ -35,7 +35,7 @@ deliver work directly:
 
 ```sh
 # Claude Code
-claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y arelay mcp
+claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp
 ```
 
 Or in JSON MCP config:
@@ -45,7 +45,7 @@ Or in JSON MCP config:
 	"mcpServers": {
 		"arelay": {
 			"command": "npx",
-			"args": ["-y", "arelay", "mcp"],
+			"args": ["-y", "@arelay/cli", "mcp"],
 			"env": { "ARELAY_TOKEN": "ar_..." }
 		}
 	}
@@ -61,7 +61,7 @@ Tools:
 ## SDK
 
 ```ts
-import { ArelayClient } from 'arelay';
+import { ArelayClient } from '@arelay/cli';
 
 const client = new ArelayClient({ token: process.env.ARELAY_TOKEN! });
 

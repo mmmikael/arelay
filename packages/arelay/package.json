@@ -1,6 +1,9 @@
 {
-	"name": "arelay",
+	"name": "@arelay/cli",
 	"version": "0.1.0",
+	"publishConfig": {
+		"access": "public"
+	},
 	"description": "CLI, SDK, and MCP server for delivering end-to-end encrypted files from AI agents to an Agent Relay inbox.",
 	"license": "MIT",
 	"type": "module",
