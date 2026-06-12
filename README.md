@@ -97,12 +97,12 @@ Every request uses `Authorization: Bearer <AGENT_API_TOKEN>`.
 
 #### CLI & MCP server
 
-The [`arelay`](./packages/arelay) npm package wraps the API and all envelope encryption.
+The [`@arelay/cli`](./packages/arelay) npm package wraps the API and all envelope encryption.
 Deliver from any shell:
 
 ```bash
 export ARELAY_TOKEN=ar_...   # from Account → Agent tokens
-npx -y arelay send report.md --title "Q2 revenue report"
+npx -y @arelay/cli send report.md --title "Q2 revenue report"
 ```
 
 Or register it as an MCP server so agents can deliver work natively
@@ -110,11 +110,11 @@ Or register it as an MCP server so agents can deliver work natively
 
 ```bash
 # Claude Code
-claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y arelay mcp
+claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp
 ```
 
-`npx -y arelay check` verifies the token and encryption setup. The package also exports a
-typed SDK (`import { ArelayClient } from 'arelay'`) — see its
+`npx -y @arelay/cli check` verifies the token and encryption setup. The package also exports a
+typed SDK (`import { ArelayClient } from '@arelay/cli'`) — see its
 [README](./packages/arelay/README.md). Self-hosters point it at their deployment with
 `ARELAY_URL` (the legacy `AGENT_RELAY_URL` / `AGENT_API_TOKEN` names work too).
 
