@@ -1,7 +1,7 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.mmmikael/arelay",
-	"description": "End-to-end encrypted inbox for AI agents: deliver reports, files, and artifacts to a human's private inbox, and submit email drafts for human approval.",
+	"description": "Encrypted inbox for AI agents — deliver reports and files, and submit email for human review.",
 	"repository": {
 		"url": "https://github.com/mmmikael/arelay",
 		"source": "github"
