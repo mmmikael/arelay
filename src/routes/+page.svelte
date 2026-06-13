@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import {
 		startAuthentication,
 		startRegistration,
@@ -33,6 +35,9 @@
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Bot from '@lucide/svelte/icons/bot';
 	import FileText from '@lucide/svelte/icons/file-text';
+	import FileCode from '@lucide/svelte/icons/file-code';
+	import Mail from '@lucide/svelte/icons/mail';
+	import Activity from '@lucide/svelte/icons/activity';
 	import Github from '@lucide/svelte/icons/github';
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import KeyRound from '@lucide/svelte/icons/key-round';
@@ -54,6 +59,22 @@
 			// Clipboard unavailable; the command stays selectable.
 		}
 	}
+
+	const deliveries = [
+		{ icon: FileText, title: 'Weekly sales report', files: 'report.md · metrics.csv', status: 'Delivered', tone: 'ok' },
+		{ icon: FileCode, title: 'Overnight repo audit', files: 'audit.md · 2 findings', status: 'Delivered', tone: 'ok' },
+		{ icon: Mail, title: 'Intro email to investor', files: 'draft.html', status: 'Awaiting approval', tone: 'review' },
+		{ icon: Activity, title: 'Server health check', files: 'status.html', status: 'Delivered', tone: 'ok' }
+	];
+	let deliveryIndex = $state(0);
+
+	onMount(() => {
+		if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+		const id = setInterval(() => {
+			deliveryIndex = (deliveryIndex + 1) % deliveries.length;
+		}, 3500);
+		return () => clearInterval(id);
+	});
 
 	let authMode = $state<'signin' | 'signup'>('signin');
 	let signupEmail = $state('');
@@ -268,9 +289,9 @@
 </script>
 
 <svelte:head>
-	<title>Agent Relay — Sign in</title>
-	<meta property="og:title" content="Agent Relay — Your agents have something for you" />
-	<meta name="twitter:title" content="Agent Relay — Your agents have something for you" />
+	<title>Agent Relay — Where your AI's work lands</title>
+	<meta property="og:title" content="Agent Relay — Where your AI's work lands" />
+	<meta name="twitter:title" content="Agent Relay — Where your AI's work lands" />
 </svelte:head>
 
 <div class="login-page">
@@ -303,12 +324,13 @@
 		<section class="login-story">
 			<p class="login-eyebrow">
 				<span aria-hidden="true"></span>
-				Private delivery channel
+				Built for AI agents
 			</p>
-			<h1>Your agents have something for you.</h1>
+			<h1>Where your AI's work lands.</h1>
 			<p class="login-intro">
-				Reports, files, and finished work arrive encrypted in secure agent sessions, ready when you
-				are.
+				When a script, an AI assistant, or an automation finishes a job — a report, a file, a draft
+				email — it lands in a private inbox you control. Your AI never gets access to your email,
+				and only you can open what arrives.
 			</p>
 			<ul class="login-proof" aria-label="Agent Relay features">
 				<li><KeyRound class="h-4 w-4 text-blue-600" />Passkey access</li>
@@ -338,7 +360,7 @@
 						</div>
 						<div>
 							<h2>
-								{authMode === 'signin' ? 'Open your secure sessions' : 'Create your account'}
+								{authMode === 'signin' ? 'Sign in to your inbox' : 'Create your account'}
 							</h2>
 							<p>
 								{authMode === 'signin'
@@ -526,13 +548,19 @@
 					</div>
 				</div>
 
-				<div class="delivery-preview">
-					<div class="delivery-file"><FileText class="h-5 w-5" /></div>
-					<div class="min-w-0 flex-1">
-						<p>Weekly agent report</p>
-						<span>report.md · metrics.csv · brief.pdf</span>
-					</div>
-					<strong>Delivered</strong>
+				<div class="delivery-rotator">
+					{#key deliveryIndex}
+						{@const d = deliveries[deliveryIndex]}
+						{@const Icon = d.icon}
+						<div class="delivery-preview" in:fade={{ duration: 450 }} out:fade={{ duration: 450 }}>
+							<div class="delivery-file"><Icon class="h-5 w-5" /></div>
+							<div class="min-w-0 flex-1">
+								<p>{d.title}</p>
+								<span>{d.files}</span>
+							</div>
+							<strong class="delivery-status-{d.tone}">{d.status}</strong>
+						</div>
+					{/key}
 				</div>
 			</div>
 		</div>
@@ -1009,12 +1037,31 @@
 		white-space: nowrap;
 	}
 
+	.delivery-rotator {
+		height: 4rem;
+		position: relative;
+	}
+
+	.delivery-rotator .delivery-preview {
+		inset: 0;
+		position: absolute;
+	}
+
 	.delivery-preview strong {
-		background: #d1fae5;
 		border-radius: 999px;
-		color: #047857;
 		font-size: 0.65rem;
 		padding: 0.28rem 0.5rem;
+		white-space: nowrap;
+	}
+
+	.delivery-status-ok {
+		background: #d1fae5;
+		color: #047857;
+	}
+
+	.delivery-status-review {
+		background: #fef3c7;
+		color: #b45309;
 	}
 
 	.login-connect {
