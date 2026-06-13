@@ -47,6 +47,7 @@ is sent. It is enabled on [arelay.app](https://arelay.app); self-hosters can tur
 
 ### Reference
 
+- [Contributing & help wanted](#contributing--help-wanted)
 - [Security model](#security-model)
 - [Terms of Service](https://arelay.app/terms) · [Privacy Policy](https://arelay.app/privacy)
 - [Contributing](./CONTRIBUTING.md)
@@ -380,6 +381,30 @@ Approve requires Cloudflare Email Sending to be configured on the account.
 - SvelteKit 2, Svelte 5, TypeScript, Tailwind CSS
 - PostgreSQL, S3-compatible object storage
 - WebAuthn/passkeys
+
+---
+
+## Contributing & help wanted
+
+Agent Relay is open source (MIT) and built in the open — contributions of all sizes are
+welcome, and there's real room to have an impact while the project is young.
+
+The fastest way in is to **build an integration**. Most integrations talk to the HTTP API
+through the [`@arelay/cli`](./packages/arelay) SDK and never touch the core app, so you can
+ship something useful without learning the whole codebase or the encryption internals. The
+[**Building integrations guide**](./docs/building-integrations.md) walks through four levels
+— from a dozen-line delivery script to a full server-side feature plugin — with working
+examples.
+
+A few things that would genuinely help:
+
+- Delivery bridges and notifiers (Slack, Discord, Telegram)
+- A GitHub Action for delivering CI artifacts
+- Platform plugins for more agent runners
+- An additional email backend (e.g. SMTP) for Email Review Relay
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for dev setup and conventions. Rough ideas are
+welcome — open an issue to start a conversation.
 
 ---
 

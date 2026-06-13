@@ -15,6 +15,14 @@ features, architecture changes, or changes to the encryption and authentication 
 opening an issue first is helpful so we can agree on the direction and avoid duplicated
 work.
 
+## Building an integration
+
+The easiest place to start is an **integration** — most talk to the HTTP API through the
+[`@arelay/cli`](./packages/arelay) SDK and never touch the core app or the encryption
+internals. The [Building integrations guide](./docs/building-integrations.md) covers four
+levels (delivery scripts, agent skills, platform plugins, and core feature plugins) with
+working examples, plus a list of integrations that would be especially welcome.
+
 ## Before you start
 
 - Search existing issues and pull requests to see whether someone is already working on
