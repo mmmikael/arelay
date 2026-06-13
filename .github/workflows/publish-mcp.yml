@@ -32,7 +32,15 @@ jobs:
 
       - name: Publish @arelay/cli to npm
         working-directory: packages/arelay
-        run: npm publish # prepublishOnly runs build + tests
+        # Skip if this version is already on npm so the registry step can be
+        # re-run (e.g. via workflow_dispatch) without aborting here.
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@arelay/cli@$VERSION" version >/dev/null 2>&1; then
+            echo "@arelay/cli@$VERSION already published; skipping npm publish."
+          else
+            npm publish # prepublishOnly runs build + tests
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
