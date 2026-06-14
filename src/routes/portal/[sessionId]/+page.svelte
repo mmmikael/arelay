@@ -12,6 +12,7 @@
 	import { isSessionPagePrefetched } from '$lib/session-prefetch';
 	import { decryptEmailDraftFields, type DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
 	import {
+		emailDraftForActiveSession,
 		emptySessionDetailViewState,
 		sessionDetailViewFromCache
 	} from '$lib/portal/session-detail-view-state';
@@ -81,10 +82,17 @@
 	let decryptedSession = $state<{ title: string; summary: string | null } | null>(null);
 	let decryptedArtifacts = $state<Record<string, { filename: string; contentType: string }>>({});
 	let decryptedEmailDraft = $state<DecryptedEmailDraftFields | null>(null);
+	// The session id `decryptedEmailDraft` was produced for. `data` updates
+	// synchronously on navigation but the decrypt effect lags, so without this
+	// the review panel can briefly receive a previous session's draft and latch
+	// onto it. See emailDraftForActiveSession for the full rationale.
+	let decryptedEmailDraftSessionId = $state<string | null>(null);
 
-	const activeEmailDraft = $derived(decryptedEmailDraft);
+	const activeEmailDraft = $derived(
+		emailDraftForActiveSession(decryptedEmailDraft, decryptedEmailDraftSessionId, data.session.id)
+	);
 
-	const emailDraftNeedsUnlock = $derived(Boolean(data.emailDraft && !decryptedEmailDraft));
+	const emailDraftNeedsUnlock = $derived(Boolean(data.emailDraft && !activeEmailDraft));
 	const previewOpen = $derived(activeArtifactId !== null);
 
 	let lastPreviewSessionId = $state<string | null>(null);
@@ -159,6 +167,7 @@
 			decryptedSession = locked.session;
 			decryptedArtifacts = locked.artifacts;
 			decryptedEmailDraft = locked.emailDraft;
+			decryptedEmailDraftSessionId = sessionId;
 			return;
 		}
 
@@ -167,6 +176,7 @@
 		decryptedSession = view.session;
 		decryptedArtifacts = view.artifacts;
 		decryptedEmailDraft = view.emailDraft;
+		decryptedEmailDraftSessionId = sessionId;
 
 		const encryptedArtifacts = data.artifacts.filter(
 			(artifact) => artifact.encrypted_filename && artifact.encrypted_content_type
@@ -244,6 +254,7 @@
 				decryptedSession = nextSession;
 				decryptedArtifacts = nextArtifacts;
 				decryptedEmailDraft = nextEmailDraft;
+				decryptedEmailDraftSessionId = sessionId;
 				mergeSessionDetailCache(sessionId, cacheKey, {
 					session: nextSession,
 					artifacts: nextArtifacts,
