@@ -7,6 +7,7 @@
 	import PortalE2eeShell from '$lib/components/portal/PortalE2eeShell.svelte';
 	import PortalInboxSidebar from '$lib/components/portal/PortalInboxSidebar.svelte';
 	import PortalShellHeader from '$lib/components/portal/PortalShellHeader.svelte';
+	import { INBOX_POLL_INVALIDATIONS } from '$lib/portal/inbox-poll-invalidations';
 	import { SESSION_UPDATED_AT_LOOKUP_KEY, type SessionUpdatedAtLookup } from '$lib/portal-context';
 	import {
 		loadSidebarSessionTitles,
@@ -192,7 +193,12 @@
 				pollFailures = 0;
 				const version = body.version ?? '';
 				if (version === lastInboxVersion) return;
-				await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
+				// Refresh the sidebar list AND the open session detail. The inbox
+				// version also bumps when the active session's own content changes,
+				// so without `inbox:session` the right panel keeps showing stale
+				// data while the sidebar updates — a visible session/content
+				// mismatch. See INBOX_POLL_INVALIDATIONS for the full rationale.
+				await Promise.all(INBOX_POLL_INVALIDATIONS.map((dep) => invalidate(dep)));
 				// $effect syncs lastInboxVersion from data.inboxVersion after reload.
 			} catch {
 				pollFailures += 1;
