@@ -71,4 +71,34 @@ describe('inboxVersionFromStats', () => {
 			)
 		).toBe('1:0::0:0:');
 	});
+
+	// Adding an artifact to an existing session must move the inbox version
+	// token so the background poll fires and the open detail panel reloads
+	// (createArtifact touches the session's updated_at and adds storage bytes
+	// without changing the session count). If the token stayed put, new
+	// artifacts would not show up until a manual refresh.
+	it('changes when an artifact is added to an existing session', () => {
+		const before = inboxVersionFromStats(
+			{ sessionCount: 3, readCount: 3, latestUpdatedAt: new Date('2026-06-14T10:00:00.000Z') },
+			1024,
+			{ draftCount: 0, latestUpdatedAt: null }
+		);
+		// createArtifact bumps updated_at, clears read_at (readCount drops), and
+		// grows storage — session count is unchanged.
+		const after = inboxVersionFromStats(
+			{ sessionCount: 3, readCount: 2, latestUpdatedAt: new Date('2026-06-14T10:05:00.000Z') },
+			1024 + 4096,
+			{ draftCount: 0, latestUpdatedAt: null }
+		);
+		expect(after).not.toBe(before);
+	});
+
+	it('changes on added storage bytes alone', () => {
+		const updatedAt = new Date('2026-06-14T10:00:00.000Z');
+		const stats = { sessionCount: 3, readCount: 3, latestUpdatedAt: updatedAt };
+		const drafts = { draftCount: 0, latestUpdatedAt: null };
+		expect(inboxVersionFromStats(stats, 1024 + 4096, drafts)).not.toBe(
+			inboxVersionFromStats(stats, 1024, drafts)
+		);
+	});
 });
