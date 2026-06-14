@@ -34,3 +34,26 @@ export function emptySessionDetailViewState(): SessionDetailViewState {
 		emailDraft: null
 	};
 }
+
+/**
+ * Expose a decrypted email draft to the review panel only when it actually
+ * belongs to the currently-loaded session.
+ *
+ * On navigation `data` (and therefore the active session id) updates
+ * synchronously, but the effect that re-decrypts the draft runs slightly
+ * later. During that window `decryptedEmailDraft` still holds the previously
+ * viewed session's draft. The review panel keys its "should re-sync" guard on
+ * the *encrypted* record identity, which has already advanced to the new
+ * session — so if it sees the stale decrypted draft it latches onto it and
+ * never corrects, rendering one session's title beside another's body. Gating
+ * on the session id collapses that mismatch to `null` until the decrypt for the
+ * active session lands.
+ */
+export function emailDraftForActiveSession(
+	decryptedEmailDraft: DecryptedEmailDraftFields | null,
+	decryptedForSessionId: string | null,
+	activeSessionId: string
+): DecryptedEmailDraftFields | null {
+	if (!decryptedEmailDraft) return null;
+	return decryptedForSessionId === activeSessionId ? decryptedEmailDraft : null;
+}

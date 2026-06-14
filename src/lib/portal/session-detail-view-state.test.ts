@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	emailDraftForActiveSession,
 	emptySessionDetailViewState,
 	sessionDetailViewFromCache,
 	type SessionDetailCacheSnapshot
@@ -70,5 +71,24 @@ describe('emptySessionDetailViewState', () => {
 			artifacts: {},
 			emailDraft: null
 		});
+	});
+});
+
+describe('emailDraftForActiveSession', () => {
+	it('exposes the draft when it belongs to the active session', () => {
+		expect(emailDraftForActiveSession(investorDraft, 'session-b', 'session-b')).toBe(investorDraft);
+	});
+
+	// The regression: during the navigation window the decrypt effect has not
+	// re-run yet, so the still-decrypted draft belongs to the previously viewed
+	// session while the active session id has already advanced. Returning it
+	// would render one session's title beside another's email body.
+	it('hides a draft left over from the previously viewed session', () => {
+		expect(emailDraftForActiveSession(partnerDraft, 'session-a', 'session-b')).toBeNull();
+	});
+
+	it('returns null when nothing is decrypted yet', () => {
+		expect(emailDraftForActiveSession(null, null, 'session-b')).toBeNull();
+		expect(emailDraftForActiveSession(null, 'session-b', 'session-b')).toBeNull();
 	});
 });
