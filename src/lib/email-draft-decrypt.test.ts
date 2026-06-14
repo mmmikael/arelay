@@ -20,6 +20,8 @@ describe('emailDraftDisplayFields', () => {
 	it('prefers review fields while pending', () => {
 		expect(emailDraftDisplayFields(fields, 'pending')).toEqual({
 			to: 'user@example.com',
+			cc: [],
+			bcc: [],
 			from_email: 'noreply@example.com',
 			from_name: null,
 			subject: 'Review subject',

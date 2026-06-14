@@ -47,6 +47,8 @@ export type EncryptedEmailDraftPayload = {
 
 export type EmailDraftSendFields = {
 	to: string;
+	cc?: string[];
+	bcc?: string[];
 	from: { email: string; name?: string };
 	subject: string;
 	html: string;

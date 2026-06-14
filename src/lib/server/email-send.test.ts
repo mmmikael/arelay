@@ -33,6 +33,8 @@ describe('sendViaCloudflare', () => {
 				accountId: 'acct-1',
 				apiToken: 'token-1',
 				to: 'user@example.com',
+				cc: ['copy@example.com'],
+				bcc: ['archive@example.com'],
 				from: { email: 'noreply@yourdomain.com', name: 'Company' },
 				subject: 'Hello',
 				html: '<p>Hi</p>',
@@ -46,6 +48,8 @@ describe('sendViaCloudflare', () => {
 		expect(init.method).toBe('POST');
 		expect(JSON.parse(String(init.body))).toMatchObject({
 			to: 'user@example.com',
+			cc: ['copy@example.com'],
+			bcc: ['archive@example.com'],
 			from: { address: 'noreply@yourdomain.com', name: 'Company' },
 			subject: 'Hello',
 			html: '<p>Hi</p>',

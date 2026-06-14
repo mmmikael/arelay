@@ -7,6 +7,8 @@ type EncryptStringFn = typeof encryptString;
 
 export function buildEditableBundle(input: {
 	to: string;
+	cc: string;
+	bcc: string;
 	from_email: string;
 	from_name: string | null;
 	subject: string;
@@ -14,11 +16,20 @@ export function buildEditableBundle(input: {
 }): EmailDraftBundle {
 	return {
 		to: input.to.trim(),
+		cc: parseRecipientInput(input.cc),
+		bcc: parseRecipientInput(input.bcc),
 		from_email: input.from_email.trim(),
 		from_name: input.from_name?.trim() ? input.from_name.trim() : null,
 		subject: input.subject.trim(),
 		html: input.html
 	};
+}
+
+export function parseRecipientInput(value: string): string[] {
+	return value
+		.split(/[;,]/)
+		.map((recipient) => recipient.trim())
+		.filter(Boolean);
 }
 
 export function reviewPayloadNeeded(
@@ -78,6 +89,8 @@ export async function buildApproveRequestInit(input: {
 
 	const payload: Record<string, unknown> = {
 		to: input.sentBundle.to,
+		cc: input.sentBundle.cc.length ? input.sentBundle.cc : undefined,
+		bcc: input.sentBundle.bcc.length ? input.sentBundle.bcc : undefined,
 		from: {
 			email: input.sentBundle.from_email,
 			name: input.sentBundle.from_name ?? undefined

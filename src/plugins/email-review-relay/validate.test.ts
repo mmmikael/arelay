@@ -56,8 +56,15 @@ describe('parseEmailDraftBody', () => {
 
 describe('parseEmailDraftSendFields', () => {
 	it('validates decrypted approve payloads', () => {
-		const result = parseEmailDraftSendFields(validApprovePayload);
+		const result = parseEmailDraftSendFields({
+			...validApprovePayload,
+			cc: ['Copy@Example.com'],
+			bcc: 'archive@example.com'
+		});
 		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.cc).toEqual(['copy@example.com']);
+		expect(result.value.bcc).toEqual(['archive@example.com']);
 	});
 
 	it('rejects invalid email addresses', () => {
@@ -67,6 +74,12 @@ describe('parseEmailDraftSendFields', () => {
 		expect(parseEmailDraftSendFields({ ...validApprovePayload, from: { email: 'bad' } }).ok).toBe(
 			false
 		);
+		expect(parseEmailDraftSendFields({ ...validApprovePayload, cc: ['bad'] }).ok).toBe(false);
+	});
+
+	it('enforces the combined recipient limit', () => {
+		const cc = Array.from({ length: 50 }, (_, index) => `copy-${index}@example.com`);
+		expect(parseEmailDraftSendFields({ ...validApprovePayload, cc }).ok).toBe(false);
 	});
 
 	it('requires subject and html', () => {

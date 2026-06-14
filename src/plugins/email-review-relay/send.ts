@@ -38,6 +38,8 @@ export async function sendApprovedEmailDraft(input: {
 		accountId,
 		apiToken,
 		to: fields.to,
+		cc: fields.cc,
+		bcc: fields.bcc,
 		from: {
 			email: fields.from.email,
 			name: fields.from.name

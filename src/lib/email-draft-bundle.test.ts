@@ -42,6 +42,23 @@ describe('emailDraftBundle', () => {
 		expect(parseEmailDraftBundleJson(JSON.stringify(bundle))).toEqual(bundle);
 	});
 
+	it('defaults missing recipient lists for older bundles', () => {
+		expect(parseEmailDraftBundleJson(JSON.stringify(agent))).toEqual({
+			...agent,
+			cc: [],
+			bcc: []
+		});
+	});
+
+	it('preserves cc and bcc recipients', () => {
+		const bundle = agentFieldsToBundle({
+			...agent,
+			cc: ['copy@example.com'],
+			bcc: ['archive@example.com']
+		});
+		expect(parseEmailDraftBundleJson(JSON.stringify(bundle))).toEqual(bundle);
+	});
+
 	it('detects unchanged bundle', () => {
 		expect(bundleMatchesAgent(agentFieldsToBundle(agent), agent)).toBe(true);
 	});
