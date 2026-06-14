@@ -58,10 +58,14 @@
 	let emailActionError = $state('');
 	let approveDialogOpen = $state(false);
 	let editableTo = $state('');
+	let editableCc = $state('');
+	let editableBcc = $state('');
 	let editableFromEmail = $state('');
 	let editableFromName = $state('');
 	let editableSubject = $state('');
 	let editableHtml = $state('');
+	let showCc = $state(false);
+	let showBcc = $state(false);
 	let editingBody = $state(false);
 	let bodyView = $state<'preview' | 'code'>('preview');
 	let loadedDraftKey = $state('');
@@ -84,6 +88,8 @@
 	const editableBundle = $derived(
 		buildEditableBundle({
 			to: editableTo,
+			cc: editableCc,
+			bcc: editableBcc,
 			from_email: editableFromEmail,
 			from_name: editableFromName.trim() ? editableFromName.trim() : null,
 			subject: editableSubject,
@@ -112,10 +118,14 @@
 			loadedDraftKey = '';
 			loadedReviewKey = '';
 			editableTo = '';
+			editableCc = '';
+			editableBcc = '';
 			editableFromEmail = '';
 			editableFromName = '';
 			editableSubject = '';
 			editableHtml = '';
+			showCc = false;
+			showBcc = false;
 			editingBody = false;
 			bodyView = 'preview';
 			reviewSaveStatus = 'idle';
@@ -148,10 +158,14 @@
 
 		const display = emailDraftDisplayFields(activeEmailDraft, emailDraft.status);
 		editableTo = display.to;
+		editableCc = display.cc.join(', ');
+		editableBcc = display.bcc.join(', ');
 		editableFromEmail = display.from_email;
 		editableFromName = display.from_name ?? '';
 		editableSubject = display.subject;
 		editableHtml = display.html;
+		showCc = display.cc.length > 0;
+		showBcc = display.bcc.length > 0;
 
 		const agent = emailDraftAgentFields(activeEmailDraft);
 		if (activeEmailDraft.review) {
@@ -177,6 +191,18 @@
 	}
 
 	function handleDraftInput() {
+		scheduleReviewSave();
+	}
+
+	function removeCc() {
+		editableCc = '';
+		showCc = false;
+		scheduleReviewSave();
+	}
+
+	function removeBcc() {
+		editableBcc = '';
+		showBcc = false;
 		scheduleReviewSave();
 	}
 
@@ -339,21 +365,98 @@
 	class="overflow-hidden bg-white dark:bg-slate-900 sm:rounded-xl sm:border sm:border-slate-100 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:border-slate-800 sm:dark:shadow-none"
 >
 	<div class="space-y-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-6">
-		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div class="min-w-0 flex-1 space-y-3 text-sm">
+		<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+			<span
+				class="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300 sm:col-start-2 sm:row-start-1"
+			>
+				{emailDraftStatusLabel(emailDraft.status, 'detail')}
+			</span>
+			<div class="min-w-0 space-y-3 text-sm sm:col-start-1 sm:row-start-1">
 				{#if activeEmailDraft}
 					{#if canEditDraft}
 						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
 							<label for="draft-to" class="font-semibold text-slate-900 dark:text-slate-100">To</label>
-							<Input
-								id="draft-to"
-								type="email"
-								bind:value={editableTo}
-								oninput={handleDraftInput}
-								disabled={emailActionBusy}
-								class="h-9"
-							/>
+							<div class="flex min-w-0 items-center gap-1">
+								<Input
+									id="draft-to"
+									type="email"
+									bind:value={editableTo}
+									oninput={handleDraftInput}
+									disabled={emailActionBusy}
+									class="h-9 min-w-0 flex-1"
+								/>
+								{#if !showCc}
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={emailActionBusy}
+										aria-controls="draft-cc"
+										aria-expanded="false"
+										onclick={() => (showCc = true)}>Cc</Button
+									>
+								{/if}
+								{#if !showBcc}
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={emailActionBusy}
+										aria-controls="draft-bcc"
+										aria-expanded="false"
+										onclick={() => (showBcc = true)}>Bcc</Button
+									>
+								{/if}
+							</div>
 						</div>
+						{#if showCc}
+							<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+								<label for="draft-cc" class="font-semibold text-slate-900 dark:text-slate-100"
+									>Cc</label
+								>
+								<div class="flex min-w-0 items-center gap-1">
+									<Input
+										id="draft-cc"
+										type="text"
+										bind:value={editableCc}
+										oninput={handleDraftInput}
+										disabled={emailActionBusy}
+										placeholder="Separate addresses with commas"
+										class="h-9 min-w-0 flex-1"
+									/>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={emailActionBusy}
+										aria-label="Remove Cc field"
+										onclick={removeCc}>Remove</Button
+									>
+								</div>
+							</div>
+						{/if}
+						{#if showBcc}
+							<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+								<label for="draft-bcc" class="font-semibold text-slate-900 dark:text-slate-100"
+									>Bcc</label
+								>
+								<div class="flex min-w-0 items-center gap-1">
+									<Input
+										id="draft-bcc"
+										type="text"
+										bind:value={editableBcc}
+										oninput={handleDraftInput}
+										disabled={emailActionBusy}
+										placeholder="Separate addresses with commas"
+										class="h-9 min-w-0 flex-1"
+									/>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={emailActionBusy}
+										aria-label="Remove Bcc field"
+										onclick={removeBcc}>Remove</Button
+									>
+								</div>
+							</div>
+						{/if}
 						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
 							<label for="draft-from-email" class="font-semibold text-slate-900 dark:text-slate-100"
 								>From</label
@@ -397,6 +500,18 @@
 							<span class="font-semibold">To:</span>
 							{editableTo || activeEmailDraft.to}
 						</p>
+						{#if editableBundle.cc.length}
+							<p class="text-slate-900 dark:text-slate-100">
+								<span class="font-semibold">Cc:</span>
+								{editableBundle.cc.join(', ')}
+							</p>
+						{/if}
+						{#if editableBundle.bcc.length}
+							<p class="text-slate-900 dark:text-slate-100">
+								<span class="font-semibold">Bcc:</span>
+								{editableBundle.bcc.join(', ')}
+							</p>
+						{/if}
 						<p class="text-slate-900 dark:text-slate-100">
 							<span class="font-semibold">From:</span>
 							{formatEmailFrom({
@@ -420,11 +535,6 @@
 					{/if}
 				{/if}
 			</div>
-			<span
-				class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-			>
-				{emailDraftStatusLabel(emailDraft.status, 'detail')}
-			</span>
 		</div>
 
 		{#if canEditDraft && draftWasEdited}

@@ -7,6 +7,7 @@ const MAX_SUBJECT_LENGTH = 500;
 const MAX_HTML_LENGTH = 256 * 1024;
 const MAX_TEXT_LENGTH = 256 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+const MAX_RECIPIENTS = 50;
 
 export type ParsedEncryptedEmailDraftPayload = EncryptedEmailDraftPayload;
 
@@ -64,6 +65,17 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 		return { ok: false, error: 'Valid to address required' };
 	}
 
+	const cc = parseOptionalRecipients(record.cc, 'cc');
+	if (!cc.ok) return cc;
+	const bcc = parseOptionalRecipients(record.bcc, 'bcc');
+	if (!bcc.ok) return bcc;
+	if (1 + cc.value.length + bcc.value.length > MAX_RECIPIENTS) {
+		return {
+			ok: false,
+			error: `to, cc, and bcc may contain at most ${MAX_RECIPIENTS} recipients combined`
+		};
+	}
+
 	const fromRaw = record.from;
 	if (!fromRaw || typeof fromRaw !== 'object') {
 		return { ok: false, error: 'from object with email required' };
@@ -103,12 +115,36 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 		ok: true,
 		value: {
 			to,
+			cc: cc.value.length ? cc.value : undefined,
+			bcc: bcc.value.length ? bcc.value : undefined,
 			from: { email: fromEmail, name: fromName },
 			subject,
 			html,
 			text
 		}
 	};
+}
+
+function parseOptionalRecipients(
+	value: unknown,
+	field: 'cc' | 'bcc'
+): { ok: true; value: string[] } | { ok: false; error: string } {
+	if (value === undefined) return { ok: true, value: [] };
+
+	const rawRecipients = typeof value === 'string' ? [value] : value;
+	if (!Array.isArray(rawRecipients)) {
+		return { ok: false, error: `${field} must be an email address or array of email addresses` };
+	}
+
+	const recipients: string[] = [];
+	for (const recipient of rawRecipients) {
+		const normalized = normalizeEmail(recipient);
+		if (!normalized) {
+			return { ok: false, error: `Valid ${field} addresses required` };
+		}
+		recipients.push(normalized);
+	}
+	return { ok: true, value: recipients };
 }
 
 export function parseEncryptedEmailDraftPayload(body: unknown):
