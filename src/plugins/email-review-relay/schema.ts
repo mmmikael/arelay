@@ -33,6 +33,8 @@ export const emailDrafts = pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		encryptionVersion: text('encryption_version').default('e2ee-v1').notNull(),
 		encryptedTo: jsonb('encrypted_to').$type<JsonObject>().notNull(),
+		encryptedCc: jsonb('encrypted_cc').$type<JsonObject>(),
+		encryptedBcc: jsonb('encrypted_bcc').$type<JsonObject>(),
 		encryptedFromEmail: jsonb('encrypted_from_email').$type<JsonObject>().notNull(),
 		encryptedFromName: jsonb('encrypted_from_name').$type<JsonObject>(),
 		encryptedSubject: jsonb('encrypted_subject').$type<JsonObject>().notNull(),

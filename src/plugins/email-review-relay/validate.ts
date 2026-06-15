@@ -249,6 +249,10 @@ export function parseEncryptedEmailDraftPayload(body: unknown):
 	const encryptedHtml = requireEncryptedField(record, 'encrypted_html');
 	if (!encryptedHtml.ok) return encryptedHtml;
 
+	const encryptedCc = optionalEncryptedField(record, 'encrypted_cc');
+	if (!encryptedCc.ok) return encryptedCc;
+	const encryptedBcc = optionalEncryptedField(record, 'encrypted_bcc');
+	if (!encryptedBcc.ok) return encryptedBcc;
 	const encryptedFromName = optionalEncryptedField(record, 'encrypted_from_name');
 	if (!encryptedFromName.ok) return encryptedFromName;
 	const encryptedText = optionalEncryptedField(record, 'encrypted_text');
@@ -265,6 +269,8 @@ export function parseEncryptedEmailDraftPayload(body: unknown):
 		ok: true,
 		value: {
 			encrypted_to: encryptedTo.value,
+			encrypted_cc: encryptedCc.value,
+			encrypted_bcc: encryptedBcc.value,
 			encrypted_from_email: encryptedFromEmail.value,
 			encrypted_from_name: encryptedFromName.value,
 			encrypted_subject: encryptedSubject.value,
