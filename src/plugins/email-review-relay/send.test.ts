@@ -29,4 +29,25 @@ describe('prepareEmailDraftSendFields', () => {
 		expect(prepared.html).toContain('Line one');
 		expect(prepared.html).toContain('Line two');
 	});
+
+	it('preserves CID images and inline attachments', () => {
+		const prepared = prepareEmailDraftSendFields({
+			to: 'user@example.com',
+			from: { email: 'noreply@yourdomain.com' },
+			subject: 'Hello',
+			html: '<p><img src="cid:arelay-inline-1" alt="Preview"></p>',
+			attachments: [
+				{
+					content: 'aGVsbG8=',
+					filename: 'inline-image-1.jpg',
+					type: 'image/jpeg',
+					disposition: 'inline',
+					content_id: 'arelay-inline-1'
+				}
+			]
+		});
+
+		expect(prepared.html).toContain('src="cid:arelay-inline-1"');
+		expect(prepared.attachments?.[0].content_id).toBe('arelay-inline-1');
+	});
 });

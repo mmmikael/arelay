@@ -55,6 +55,22 @@ describe('email-draft-review-actions', () => {
 		expect(sent.html).toContain('<p>Hi</p>');
 	});
 
+	it('turns embedded images into CID attachments before sanitizing', () => {
+		const sent = buildSentEmailBundle(
+			agentBundle,
+			'<p><img src="data:image/jpeg;base64,aGVsbG8=" alt="Preview"></p>'
+		);
+
+		expect(sent.html).toContain('src="cid:arelay-inline-1"');
+		expect(sent.attachments).toHaveLength(1);
+		expect(sent.attachments?.[0]).toMatchObject({
+			content: 'aGVsbG8=',
+			type: 'image/jpeg',
+			disposition: 'inline',
+			content_id: 'arelay-inline-1'
+		});
+	});
+
 	it('includes optional recipient lists in the approve request', async () => {
 		const init = await buildApproveRequestInit({
 			sentBundle: {
@@ -71,6 +87,30 @@ describe('email-draft-review-actions', () => {
 			to: 'user@example.com',
 			cc: ['copy@example.com'],
 			bcc: ['archive@example.com']
+		});
+	});
+
+	it('includes inline attachments in the approve request', async () => {
+		const init = await buildApproveRequestInit({
+			sentBundle: {
+				...agentBundle,
+				attachments: [
+					{
+						content: 'aGVsbG8=',
+						filename: 'inline-image-1.jpg',
+						type: 'image/jpeg',
+						disposition: 'inline',
+						content_id: 'arelay-inline-1'
+					}
+				]
+			},
+			encryptionVersion: 'e2ee-v1',
+			publicKeyJwk: null,
+			encryptString: vi.fn()
+		});
+
+		expect(JSON.parse(String(init.body))).toMatchObject({
+			attachments: [{ content_id: 'arelay-inline-1', disposition: 'inline' }]
 		});
 	});
 });

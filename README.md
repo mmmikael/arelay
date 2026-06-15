@@ -376,6 +376,10 @@ with `GET /api/agent/email-drafts/{id}` or `GET /api/agent/sessions/{id}` (inclu
 fields in the request body so mail can be sent without storing plaintext server-side.
 Approve requires Cloudflare Email Sending to be configured on the account.
 
+Base64 `data:image/...` sources in approved HTML are converted in the browser to CID inline
+attachments before sanitization and send. This keeps the encrypted portal preview
+self-contained while making embedded images compatible with Gmail and other email clients.
+
 ### Tech stack
 
 - SvelteKit 2, Svelte 5, TypeScript, Tailwind CSS
