@@ -19,6 +19,7 @@
 	} from '$lib/session-prefetch';
 	import Archive from '@lucide/svelte/icons/archive';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
+	import Check from '@lucide/svelte/icons/check';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import FileText from '@lucide/svelte/icons/file-text';
@@ -101,8 +102,11 @@
 	const ensureE2eeUnlocked = getContext<EnsureE2eeUnlock>(ENSURE_E2EE_UNLOCK_KEY);
 
 	let deleteDialogOpen = $state(false);
-	let deleteSessionId = $state<string | null>(null);
+	let deleteTargetIds = $state<string[]>([]);
 	let deleting = $state(false);
+	let removedSessionIds = $state<Set<string>>(new Set());
+	let selectionMode = $state(false);
+	let selectedIds = $state<Set<string>>(new Set());
 	let markingReadSessionId = $state<string | null>(null);
 	let sessionPointer = $state<SessionPointer | null>(null);
 	let suppressedSessionClick = $state<SuppressedSessionClick | null>(null);
@@ -115,26 +119,58 @@
 
 	const effectiveSidebarCollapsed = $derived(isDesktop && sidebarCollapsed);
 
+	// Sessions the server still reports but that the user has already deleted in
+	// this session are hidden immediately (optimistic removal); the actual DELETE
+	// runs in the background. Everything visible derives from this list.
+	const availableSessions = $derived(
+		sessions.filter((session) => !removedSessionIds.has(session.id))
+	);
+
 	const activeSessionCount = $derived(
-		sessions.filter((session) => !session.is_archived).length
+		availableSessions.filter((session) => !session.is_archived).length
 	);
 
 	const filteredSessions = $derived.by(() => {
 		switch (activeFilter) {
 			case 'unread':
-				return sessions.filter((session) => !session.is_read && !session.is_archived);
+				return availableSessions.filter((session) => !session.is_read && !session.is_archived);
 			case 'email':
-				return sessions.filter(
+				return availableSessions.filter(
 					(session) => Boolean(emailDraftSummaries[session.id]) && !session.is_archived
 				);
 			case 'files':
-				return sessions.filter(
+				return availableSessions.filter(
 					(session) => (session.artifact_count ?? 0) > 0 && !session.is_archived
 				);
 			case 'archived':
-				return sessions.filter((session) => session.is_archived);
+				return availableSessions.filter((session) => session.is_archived);
 			default:
-				return sessions.filter((session) => !session.is_archived);
+				return availableSessions.filter((session) => !session.is_archived);
+		}
+	});
+
+	const allFilteredSelected = $derived(
+		filteredSessions.length > 0 && filteredSessions.every((session) => selectedIds.has(session.id))
+	);
+
+	// Once the server load reflects a deletion (the id is gone from `sessions`),
+	// drop it from the optimistic-removal and selection sets so they don't grow
+	// unbounded and so a future session reusing the id wouldn't stay hidden.
+	$effect(() => {
+		const present = new Set(sessions.map((session) => session.id));
+		let removedChanged = false;
+		for (const id of removedSessionIds) {
+			if (!present.has(id)) removedChanged = true;
+		}
+		if (removedChanged) {
+			removedSessionIds = new Set([...removedSessionIds].filter((id) => present.has(id)));
+		}
+		let selectedChanged = false;
+		for (const id of selectedIds) {
+			if (!present.has(id)) selectedChanged = true;
+		}
+		if (selectedChanged) {
+			selectedIds = new Set([...selectedIds].filter((id) => present.has(id)));
 		}
 	});
 
@@ -289,11 +325,46 @@
 	function confirmDeleteSession(id: string, event: MouseEvent) {
 		event.preventDefault();
 		event.stopPropagation();
-		deleteSessionId = id;
+		deleteTargetIds = [id];
+		deleteDialogOpen = true;
+	}
+
+	function enterSelectionMode() {
+		selectionMode = true;
+		selectedIds = new Set();
+	}
+
+	function exitSelectionMode() {
+		selectionMode = false;
+		selectedIds = new Set();
+	}
+
+	function toggleSessionSelected(id: string) {
+		const next = new Set(selectedIds);
+		if (next.has(id)) {
+			next.delete(id);
+		} else {
+			next.add(id);
+		}
+		selectedIds = next;
+	}
+
+	function toggleSelectAll() {
+		if (allFilteredSelected) {
+			selectedIds = new Set();
+		} else {
+			selectedIds = new Set(filteredSessions.map((session) => session.id));
+		}
+	}
+
+	function confirmDeleteSelected() {
+		if (selectedIds.size === 0) return;
+		deleteTargetIds = [...selectedIds];
 		deleteDialogOpen = true;
 	}
 
 	function startSessionPointer(id: string, event: PointerEvent) {
+		if (selectionMode) return;
 		if (event.button !== 0) return;
 		sessionPointer = {
 			id,
@@ -319,6 +390,7 @@
 	}
 
 	function finishSessionPointer(id: string, event: PointerEvent) {
+		if (selectionMode) return;
 		if (event.button !== 0) return;
 
 		const start = sessionPointer;
@@ -341,6 +413,12 @@
 	}
 
 	async function handleSessionClick(id: string, event: MouseEvent) {
+		if (selectionMode) {
+			event.preventDefault();
+			toggleSessionSelected(id);
+			return;
+		}
+
 		if (suppressedSessionClick) {
 			if (suppressedSessionClick.until < Date.now()) {
 				suppressedSessionClick = null;
@@ -395,26 +473,45 @@
 		}
 	}
 
-	async function doDeleteSession() {
-		const id = deleteSessionId;
-		if (!id || deleting) return;
-		deleting = true;
-		try {
-			const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-			if (!res.ok) throw new Error('Delete failed');
-			forgetSessionPrefetch(id);
-			const wasActive = activeSessionId === id;
-			if (wasActive) {
-				await goto('/portal', { replaceState: true });
-			}
-			await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
-		} catch (err) {
-			alert(err instanceof Error ? err.message : 'Delete failed');
-		} finally {
-			deleting = false;
-			deleteDialogOpen = false;
-			deleteSessionId = null;
+	async function doDeleteSessions() {
+		const ids = deleteTargetIds;
+		if (ids.length === 0 || deleting) return;
+
+		// Hide the sessions from the UI right away, then delete in the background —
+		// the list updates instantly instead of waiting on the network round-trip.
+		removedSessionIds = new Set([...removedSessionIds, ...ids]);
+		for (const id of ids) forgetSessionPrefetch(id);
+		selectionMode = false;
+		selectedIds = new Set();
+		deleteDialogOpen = false;
+		deleteTargetIds = [];
+
+		// If the open session was deleted, leave the detail view.
+		if (activeSessionId && ids.includes(activeSessionId)) {
+			await goto('/portal', { replaceState: true });
 		}
+
+		const results = await Promise.allSettled(
+			ids.map((id) => fetch(`/api/sessions/${id}`, { method: 'DELETE' }))
+		);
+
+		// Restore any sessions whose deletion failed so they reappear in the list.
+		const failedIds = ids.filter((_, index) => {
+			const result = results[index];
+			return result.status === 'rejected' || !result.value.ok;
+		});
+		if (failedIds.length > 0) {
+			const restored = new Set(removedSessionIds);
+			for (const id of failedIds) restored.delete(id);
+			removedSessionIds = restored;
+			alert(
+				failedIds.length === ids.length
+					? 'Delete failed'
+					: `Failed to delete ${failedIds.length} of ${ids.length} sessions`
+			);
+		}
+
+		await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
 	}
 
 	function toggleSidebar() {
@@ -605,25 +702,73 @@
 			Work delivered by your agents
 		</p>
 
-		<div class="mt-3.5 flex flex-nowrap gap-1.5 overflow-x-auto">
-			{#each FILTER_OPTIONS as filter (filter.id)}
+		<div class="mt-3.5 flex items-center gap-2">
+			<div
+				class="flex min-w-0 flex-1 flex-nowrap gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+			>
+				{#each FILTER_OPTIONS as filter (filter.id)}
+					<button
+						type="button"
+						onclick={() => {
+							activeFilter = filter.id;
+						}}
+						class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors {activeFilter ===
+						filter.id
+							? 'border-[#2563eb] bg-blue-50 text-[#2563eb] dark:border-blue-400 dark:bg-blue-950/50 dark:text-blue-300'
+							: 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600'}"
+					>
+						{#if filter.icon === 'mail'}
+							<Mail class="h-3 w-3 shrink-0" aria-hidden="true" />
+						{/if}
+						{filter.label}
+					</button>
+				{/each}
+			</div>
+			{#if availableSessions.length > 0 && !selectionMode}
 				<button
 					type="button"
-					onclick={() => {
-						activeFilter = filter.id;
-					}}
-					class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors {activeFilter ===
-					filter.id
-						? 'border-[#2563eb] bg-blue-50 text-[#2563eb] dark:border-blue-400 dark:bg-blue-950/50 dark:text-blue-300'
-						: 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600'}"
+					onclick={enterSelectionMode}
+					class="shrink-0 whitespace-nowrap border-l border-slate-200 pl-2.5 text-[13px] font-medium text-slate-600 transition-colors hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
 				>
-					{#if filter.icon === 'mail'}
-						<Mail class="h-3 w-3 shrink-0" aria-hidden="true" />
-					{/if}
-					{filter.label}
+					Select
 				</button>
-			{/each}
+			{/if}
 		</div>
+
+		{#if availableSessions.length > 0 && selectionMode}
+			<div class="mt-3 flex min-h-[28px] items-center justify-between gap-2">
+					<div class="flex min-w-0 items-center gap-2 text-[13px]">
+						<span class="shrink-0 whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">
+							{selectedIds.size} selected
+						</span>
+						<button
+							type="button"
+							onclick={toggleSelectAll}
+							class="shrink-0 whitespace-nowrap text-[#2563eb] transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+						>
+							{allFilteredSelected ? 'Clear' : 'Select all'}
+						</button>
+					</div>
+					<div class="flex shrink-0 items-center gap-1.5">
+						<button
+							type="button"
+							onclick={confirmDeleteSelected}
+							disabled={selectedIds.size === 0}
+							class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-950/40"
+						>
+							<Trash2 class="h-3.5 w-3.5" />
+							Delete
+						</button>
+						<button
+							type="button"
+							onclick={exitSelectionMode}
+							class="shrink-0 rounded-md px-2 py-1 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+						>
+							Cancel
+						</button>
+					</div>
+			</div>
+		{/if}
 	</div>
 
 	<div
@@ -650,11 +795,14 @@
 					{@const summary = displaySessionCardSummary(session, emailDraft)}
 					{@const agentName = emailDraft ? null : meta.agentName}
 					{@const iconKind = sessionIconKind(session, emailDraft)}
+					{@const isSelected = selectedIds.has(session.id)}
 					<li data-session-id={session.id}>
 						<div
-							class="group relative rounded-[10px] border transition-colors {isCurrent || isPending
-								? 'border-[#2563eb]/35 bg-[#eff6ff] dark:border-blue-400/40 dark:bg-blue-950/40'
-								: 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800/60'}"
+							class="group relative rounded-[10px] border transition-colors {selectionMode && isSelected
+								? 'border-[#2563eb]/60 bg-[#eff6ff] dark:border-blue-400/50 dark:bg-blue-950/40'
+								: isCurrent || isPending
+									? 'border-[#2563eb]/35 bg-[#eff6ff] dark:border-blue-400/40 dark:bg-blue-950/40'
+									: 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800/60'}"
 						>
 							<a
 								href="/portal/{session.id}"
@@ -668,26 +816,43 @@
 								onclick={(event) => handleSessionClick(session.id, event)}
 								class="flex items-start gap-3 px-3 py-2.5 pr-10 text-left"
 							>
-								<span
-									class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] {iconContainerClass(
-										iconKind
-									)}"
-									aria-hidden="true"
-								>
-									{#if iconKind === 'server'}
-										<Server class="h-4 w-4" />
-									{:else if iconKind === 'warning'}
-										<TriangleAlert class="h-4 w-4" />
-									{:else if iconKind === 'document'}
-										<FileText class="h-4 w-4" />
-									{:else if iconKind === 'chart'}
-										<BarChart3 class="h-4 w-4" />
-									{:else if iconKind === 'email'}
-										<Mail class="h-4 w-4" />
-									{:else}
-										<Inbox class="h-4 w-4" />
-									{/if}
-								</span>
+								{#if selectionMode}
+									<span
+										class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center"
+										aria-hidden="true"
+									>
+										<span
+											class="flex h-5 w-5 items-center justify-center rounded-[6px] border-2 transition-colors {isSelected
+												? 'border-[#2563eb] bg-[#2563eb] text-white dark:border-blue-400 dark:bg-blue-500'
+												: 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900'}"
+										>
+											{#if isSelected}
+												<Check class="h-3.5 w-3.5" />
+											{/if}
+										</span>
+									</span>
+								{:else}
+									<span
+										class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] {iconContainerClass(
+											iconKind
+										)}"
+										aria-hidden="true"
+									>
+										{#if iconKind === 'server'}
+											<Server class="h-4 w-4" />
+										{:else if iconKind === 'warning'}
+											<TriangleAlert class="h-4 w-4" />
+										{:else if iconKind === 'document'}
+											<FileText class="h-4 w-4" />
+										{:else if iconKind === 'chart'}
+											<BarChart3 class="h-4 w-4" />
+										{:else if iconKind === 'email'}
+											<Mail class="h-4 w-4" />
+										{:else}
+											<Inbox class="h-4 w-4" />
+										{/if}
+									</span>
+								{/if}
 
 								<span class="min-w-0 flex-1">
 									<span
@@ -747,6 +912,7 @@
 								></span>
 							{/if}
 
+							{#if !selectionMode}
 							<div
 								class="absolute bottom-2 right-2 flex shrink-0 items-center gap-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
 							>
@@ -783,6 +949,7 @@
 									</button>
 								{/if}
 							</div>
+							{/if}
 						</div>
 					</li>
 				{/each}
@@ -827,20 +994,26 @@
 <AlertDialog.Root
 	bind:open={deleteDialogOpen}
 	onOpenChange={(open) => {
-		if (!open && !deleting) deleteSessionId = null;
+		if (!open) deleteTargetIds = [];
 	}}
 >
 	<AlertDialog.Content>
 		<AlertDialog.Header>
-			<AlertDialog.Title>Delete session?</AlertDialog.Title>
+			<AlertDialog.Title>
+				{deleteTargetIds.length > 1
+					? `Delete ${deleteTargetIds.length} sessions?`
+					: 'Delete session?'}
+			</AlertDialog.Title>
 			<AlertDialog.Description>
-				This removes the session and all artifacts. This cannot be undone.
+				{deleteTargetIds.length > 1
+					? 'This removes the selected sessions and all their artifacts. This cannot be undone.'
+					: 'This removes the session and all artifacts. This cannot be undone.'}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel disabled={deleting}>Cancel</AlertDialog.Cancel>
-			<AlertDialog.Action on:click={doDeleteSession} disabled={deleting}>
-				{deleting ? 'Deleting…' : 'Delete'}
+			<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+			<AlertDialog.Action on:click={doDeleteSessions}>
+				{deleteTargetIds.length > 1 ? `Delete ${deleteTargetIds.length}` : 'Delete'}
 			</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
