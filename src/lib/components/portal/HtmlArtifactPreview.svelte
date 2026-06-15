@@ -12,13 +12,23 @@
 		previewDoc: string;
 		title: string;
 		class?: string;
+		restrictedContentOverride?: boolean;
 		/** Hide the security notice (e.g. fullscreen preview). */
 		hideNotice?: boolean;
 	};
 
-	let { sourceHtml, previewDoc, title, class: className, hideNotice = false }: Props = $props();
+	let {
+		sourceHtml,
+		previewDoc,
+		title,
+		class: className,
+		restrictedContentOverride,
+		hideNotice = false
+	}: Props = $props();
 
-	const hasRestrictedContent = $derived(artifactHtmlHasBlockedInteractivity(sourceHtml));
+	const hasRestrictedContent = $derived(
+		restrictedContentOverride ?? artifactHtmlHasBlockedInteractivity(sourceHtml)
+	);
 
 	$effect(() => {
 		if (hasRestrictedContent) {

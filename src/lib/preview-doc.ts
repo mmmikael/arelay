@@ -1,4 +1,8 @@
-import { sanitizeArtifactPreviewHtml, sanitizePreviewHtml } from '$lib/preview-sanitize';
+import {
+	sanitizeArtifactPreviewHtml,
+	sanitizeEmailPreviewHtml,
+	sanitizePreviewHtml
+} from '$lib/preview-sanitize';
 
 const PREVIEW_STYLES = `
 	:root { color-scheme: light; }
@@ -170,6 +174,18 @@ export function toPreviewHtmlDocument(html: string, dark = false): string {
 		return buildPlainTextPreviewDoc(html, dark);
 	}
 	const sanitized = sanitizeArtifactPreviewHtml(html);
+	return buildArtifactFragmentPreviewDoc(sanitized, dark);
+}
+
+/** Sanitize an email draft while preserving safe embedded raster images. */
+export function toEmailPreviewHtmlDocument(html: string, dark = false): string {
+	if (isFullHtmlDocument(html)) {
+		return injectPreviewFontHints(sanitizeEmailPreviewHtml(html));
+	}
+	if (looksLikePlainTextBody(html)) {
+		return buildPlainTextPreviewDoc(html, dark);
+	}
+	const sanitized = sanitizeEmailPreviewHtml(html);
 	return buildArtifactFragmentPreviewDoc(sanitized, dark);
 }
 

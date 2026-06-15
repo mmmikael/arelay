@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildPreviewDoc, injectPreviewFontHints, isFullHtmlDocument, toPreviewHtmlDocument } from './preview-doc';
+import {
+	buildPreviewDoc,
+	injectPreviewFontHints,
+	isFullHtmlDocument,
+	toEmailPreviewHtmlDocument,
+	toPreviewHtmlDocument
+} from './preview-doc';
 
 describe('isFullHtmlDocument', () => {
 	it('detects full HTML documents', () => {
@@ -41,5 +47,18 @@ describe('toPreviewHtmlDocument', () => {
 		expect(doc).toContain('Line one');
 		expect(doc).toContain('Line two');
 		expect(doc).not.toContain('class="wrap"');
+	});
+});
+
+describe('toEmailPreviewHtmlDocument', () => {
+	it('renders supported embedded images while keeping the preview sandbox-safe', () => {
+		const doc = toEmailPreviewHtmlDocument(
+			'<p onclick="alert(1)">Preview</p><img src="data:image/png;base64,aGk="><script>alert(2)</script>',
+			false
+		);
+
+		expect(doc).toContain('src="data:image/png;base64,aGk="');
+		expect(doc).not.toContain('onclick');
+		expect(doc).not.toContain('<script');
 	});
 });
