@@ -15,7 +15,7 @@ export const FAILED_AGENT_AUTH_IP_LIMIT: RateLimitConfig = {
 };
 
 export const AGENT_SESSION_CREATE_LIMIT: RateLimitConfig = {
-	limit: 30,
+	limit: 300,
 	windowMs: 60 * 60_000
 };
 
