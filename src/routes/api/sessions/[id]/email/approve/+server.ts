@@ -87,7 +87,10 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Email send failed';
-		const status = message.includes('not configured') ? 428 : 502;
+		// Use 4xx, not 5xx: the hosting edge replaces 5xx response bodies with its own
+		// HTML error page, which hid the real send error from the reviewer (client saw
+		// "<!DOCTYPE …" instead of JSON). 422 keeps the JSON error body intact.
+		const status = message.includes('not configured') ? 428 : 422;
 		const failed = await transitionEmailDraftStatus({
 			draftId: approved.id,
 			ownerUserId: userId,

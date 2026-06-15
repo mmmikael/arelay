@@ -54,12 +54,20 @@ export async function sendViaCloudflare(input: SendEmailInput): Promise<Cloudfla
 		}
 	);
 
-	const result = (await response.json().catch(() => null)) as {
-		success?: boolean;
-		errors?: Array<{ message?: string }>;
-	} | null;
+	const rawBody = await response.text();
+	let result: { success?: boolean; errors?: Array<{ message?: string }> } | null = null;
+	try {
+		result = rawBody ? JSON.parse(rawBody) : null;
+	} catch {
+		result = null;
+	}
 
 	if (!response.ok || !result?.success) {
+		// Log the raw Cloudflare response so send failures are diagnosable (the
+		// caller turns this into an error the reviewer can see; never logs the token).
+		console.error(
+			`[email-send] Cloudflare send failed: status=${response.status} body=${rawBody.slice(0, 2000)}`
+		);
 		const message =
 			result?.errors?.[0]?.message || `Cloudflare email send failed (${response.status})`;
 		throw new Error(message);
