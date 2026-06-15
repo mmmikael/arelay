@@ -62,7 +62,8 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 		from: approveFields.from,
 		subject: approveFields.subject,
 		html: approveFields.html,
-		text: approveFields.text
+		text: approveFields.text,
+		attachments: approveFields.attachments
 	};
 
 	const approved = await transitionEmailDraftStatus({

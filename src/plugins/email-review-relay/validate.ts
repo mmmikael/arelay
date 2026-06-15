@@ -8,6 +8,17 @@ const MAX_HTML_LENGTH = 256 * 1024;
 const MAX_TEXT_LENGTH = 256 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 const MAX_RECIPIENTS = 50;
+const MAX_INLINE_ATTACHMENTS = 20;
+const MAX_INLINE_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const MAX_INLINE_ATTACHMENTS_TOTAL_BYTES = 10 * 1024 * 1024;
+const ALLOWED_INLINE_IMAGE_TYPES = new Set([
+	'image/png',
+	'image/jpeg',
+	'image/gif',
+	'image/webp'
+]);
+const BASE64_PATTERN = /^[a-z0-9+/]*={0,2}$/i;
+const CONTENT_ID_PATTERN = /^[a-z0-9._-]{1,200}$/i;
 
 export type ParsedEncryptedEmailDraftPayload = EncryptedEmailDraftPayload;
 
@@ -110,6 +121,8 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 		typeof record.text === 'string' && record.text.trim()
 			? record.text.slice(0, MAX_TEXT_LENGTH)
 			: undefined;
+	const attachments = parseInlineAttachments(record.attachments);
+	if (!attachments.ok) return attachments;
 
 	return {
 		ok: true,
@@ -120,9 +133,77 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 			from: { email: fromEmail, name: fromName },
 			subject,
 			html,
-			text
+			text,
+			attachments: attachments.value.length ? attachments.value : undefined
 		}
 	};
+}
+
+function decodedBase64Size(content: string): number {
+	const padding = content.endsWith('==') ? 2 : content.endsWith('=') ? 1 : 0;
+	return Math.floor((content.length * 3) / 4) - padding;
+}
+
+function parseInlineAttachments(
+	value: unknown
+):
+	| { ok: true; value: NonNullable<EmailDraftSendFields['attachments']> }
+	| { ok: false; error: string } {
+	if (value === undefined) return { ok: true, value: [] };
+	if (!Array.isArray(value) || value.length > MAX_INLINE_ATTACHMENTS) {
+		return {
+			ok: false,
+			error: `attachments must be an array with at most ${MAX_INLINE_ATTACHMENTS} items`
+		};
+	}
+
+	const attachments: NonNullable<EmailDraftSendFields['attachments']> = [];
+	let totalBytes = 0;
+	for (const [index, item] of value.entries()) {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) {
+			return { ok: false, error: `attachments[${index}] must be an object` };
+		}
+		const record = item as Record<string, unknown>;
+		const content = typeof record.content === 'string' ? record.content.replace(/\s+/g, '') : '';
+		const filename = typeof record.filename === 'string' ? record.filename.trim() : '';
+		const type = typeof record.type === 'string' ? record.type.toLowerCase() : '';
+		const contentId = typeof record.content_id === 'string' ? record.content_id.trim() : '';
+		if (
+			!content ||
+			!BASE64_PATTERN.test(content) ||
+			content.length % 4 !== 0 ||
+			!filename ||
+			filename.length > 255 ||
+			record.disposition !== 'inline' ||
+			!ALLOWED_INLINE_IMAGE_TYPES.has(type) ||
+			!CONTENT_ID_PATTERN.test(contentId)
+		) {
+			return { ok: false, error: `attachments[${index}] is not a valid inline image` };
+		}
+
+		const size = decodedBase64Size(content);
+		if (size > MAX_INLINE_ATTACHMENT_BYTES) {
+			return {
+				ok: false,
+				error: `attachments[${index}] exceeds ${MAX_INLINE_ATTACHMENT_BYTES} bytes`
+			};
+		}
+		totalBytes += size;
+		if (totalBytes > MAX_INLINE_ATTACHMENTS_TOTAL_BYTES) {
+			return {
+				ok: false,
+				error: `attachments exceed ${MAX_INLINE_ATTACHMENTS_TOTAL_BYTES} bytes combined`
+			};
+		}
+		attachments.push({
+			content,
+			filename,
+			type,
+			disposition: 'inline',
+			content_id: contentId
+		});
+	}
+	return { ok: true, value: attachments };
 }
 
 function parseOptionalRecipients(

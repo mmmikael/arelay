@@ -38,7 +38,16 @@ describe('sendViaCloudflare', () => {
 				from: { email: 'noreply@yourdomain.com', name: 'Company' },
 				subject: 'Hello',
 				html: '<p>Hi</p>',
-				text: 'Hi'
+				text: 'Hi',
+				attachments: [
+					{
+						content: 'aGVsbG8=',
+						filename: 'preview.jpg',
+						type: 'image/jpeg',
+						disposition: 'inline',
+						content_id: 'preview-1'
+					}
+				]
 			})
 		).resolves.toEqual({ success: true });
 
@@ -53,7 +62,8 @@ describe('sendViaCloudflare', () => {
 			from: { address: 'noreply@yourdomain.com', name: 'Company' },
 			subject: 'Hello',
 			html: '<p>Hi</p>',
-			text: 'Hi'
+			text: 'Hi',
+			attachments: [{ content_id: 'preview-1', disposition: 'inline' }]
 		});
 	});
 

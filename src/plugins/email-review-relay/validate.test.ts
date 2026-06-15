@@ -98,6 +98,42 @@ describe('parseEmailDraftApproveFields', () => {
 		if (!result.ok) return;
 		expect(result.value.encrypted_sent).toEqual(envelope);
 	});
+
+	it('accepts validated inline image attachments', () => {
+		const result = parseEmailDraftApproveFields({
+			...validApprovePayload,
+			attachments: [
+				{
+					content: 'aGVsbG8=',
+					filename: 'preview.jpg',
+					type: 'image/jpeg',
+					disposition: 'inline',
+					content_id: 'preview-1'
+				}
+			]
+		});
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.attachments?.[0].content_id).toBe('preview-1');
+	});
+
+	it('rejects invalid inline image attachments', () => {
+		expect(
+			parseEmailDraftApproveFields({
+				...validApprovePayload,
+				attachments: [
+					{
+						content: 'not base64',
+						filename: 'preview.svg',
+						type: 'image/svg+xml',
+						disposition: 'inline',
+						content_id: 'bad cid'
+					}
+				]
+			}).ok
+		).toBe(false);
+	});
 });
 
 describe('parseEmailDraftReviewBody', () => {

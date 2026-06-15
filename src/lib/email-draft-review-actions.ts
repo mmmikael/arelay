@@ -1,5 +1,9 @@
 import type { EmailDraftBundle } from '$lib/email-draft-bundle';
 import type { EncryptedEnvelope, encryptString } from '$lib/e2ee';
+import {
+	extractInlineDataImages,
+	type EmailInlineAttachment
+} from '$lib/email-inline-images';
 import { prepareHtmlBodyForEmail } from '$lib/preview-doc';
 
 type RecipientPublicKey = Parameters<typeof encryptString>[1];
@@ -68,15 +72,17 @@ export async function persistEmailDraftReview(input: {
 export function buildSentEmailBundle(
 	editableBundle: EmailDraftBundle,
 	html: string
-): EmailDraftBundle {
+): EmailDraftBundle & { attachments?: EmailInlineAttachment[] } {
+	const prepared = extractInlineDataImages(html);
 	return {
 		...editableBundle,
-		html: prepareHtmlBodyForEmail(html)
+		html: prepareHtmlBodyForEmail(prepared.html),
+		attachments: prepared.attachments.length ? prepared.attachments : undefined
 	};
 }
 
 export async function buildApproveRequestInit(input: {
-	sentBundle: EmailDraftBundle;
+	sentBundle: EmailDraftBundle & { attachments?: EmailInlineAttachment[] };
 	plainText?: string | null;
 	encryptionVersion: string;
 	publicKeyJwk: RecipientPublicKey | null;
@@ -97,7 +103,8 @@ export async function buildApproveRequestInit(input: {
 		},
 		subject: input.sentBundle.subject,
 		html: input.sentBundle.html,
-		text: input.plainText?.trim() ? input.plainText : undefined
+		text: input.plainText?.trim() ? input.plainText : undefined,
+		attachments: input.sentBundle.attachments
 	};
 	if (input.publicKeyJwk) {
 		payload.encrypted_sent = await input.encryptString(

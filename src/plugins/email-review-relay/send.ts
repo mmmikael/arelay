@@ -47,6 +47,7 @@ export async function sendApprovedEmailDraft(input: {
 		subject: fields.subject,
 		html: fields.html,
 		text: fields.text,
+		attachments: fields.attachments,
 		headers: {
 			'X-Agent-Relay-Origin': input.origin,
 			'X-Agent-Relay-Draft-Id': input.draft.id

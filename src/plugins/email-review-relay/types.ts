@@ -1,4 +1,5 @@
 import type { JsonObject } from '$lib/server/db';
+import type { EmailInlineAttachment } from '$lib/email-inline-images';
 
 export type EmailDraftStatus = 'pending' | 'approved' | 'rejected' | 'sent' | 'failed';
 
@@ -53,6 +54,7 @@ export type EmailDraftSendFields = {
 	subject: string;
 	html: string;
 	text?: string;
+	attachments?: EmailInlineAttachment[];
 };
 
 export type EmailDraftApproveFields = EmailDraftSendFields & {

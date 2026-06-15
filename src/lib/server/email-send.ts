@@ -13,6 +13,13 @@ export type SendEmailInput = {
 	subject: string;
 	html: string;
 	text?: string;
+	attachments?: Array<{
+		content: string;
+		filename: string;
+		type: string;
+		disposition: 'inline' | 'attachment';
+		content_id?: string;
+	}>;
 	headers?: Record<string, string>;
 };
 
@@ -41,6 +48,7 @@ export async function sendViaCloudflare(input: SendEmailInput): Promise<Cloudfla
 				subject: input.subject,
 				text: input.text ?? undefined,
 				html: input.html,
+				attachments: input.attachments?.length ? input.attachments : undefined,
 				headers: input.headers
 			})
 		}
