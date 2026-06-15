@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
 	artifactHtmlHasBlockedInteractivity,
+	emailHtmlHasBlockedInteractivity,
 	isExternalUrl,
 	isDangerousUrl,
 	sanitizeArtifactPreviewHtml,
+	sanitizeEmailPreviewHtml,
 	sanitizePreviewHtml
 } from './preview-sanitize';
 
@@ -111,6 +113,28 @@ describe('isDangerousUrl', () => {
 		expect(isDangerousUrl('javascript:alert(1)')).toBe(true);
 		expect(isDangerousUrl('data:text/html,<script>alert(1)</script>')).toBe(true);
 		expect(isDangerousUrl('https://example.com')).toBe(false);
+	});
+});
+
+describe('sanitizeEmailPreviewHtml', () => {
+	it('preserves supported raster data images', () => {
+		const input =
+			'<p><img src="data:image/jpeg;base64,aGVsbG8=" alt="Preview"></p>';
+
+		expect(sanitizeEmailPreviewHtml(input)).toBe(input);
+		expect(emailHtmlHasBlockedInteractivity(input)).toBe(false);
+	});
+
+	it('still strips active content and unsupported data URLs', () => {
+		const input =
+			'<script>alert(1)</script><img src="data:image/svg+xml;base64,PHN2Zz4="><a href="data:text/html,hi" onclick="alert(2)">bad</a>';
+		const output = sanitizeEmailPreviewHtml(input);
+
+		expect(output).not.toContain('<script');
+		expect(output).not.toContain('data:image/svg+xml');
+		expect(output).not.toContain('data:text/html');
+		expect(output).not.toContain('onclick');
+		expect(emailHtmlHasBlockedInteractivity(input)).toBe(true);
 	});
 });
 

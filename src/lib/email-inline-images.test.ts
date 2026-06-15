@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { extractInlineDataImages } from './email-inline-images';
+import {
+	extractInlineDataImages,
+	restoreInlineDataImages
+} from './email-inline-images';
 
 describe('extractInlineDataImages', () => {
 	it('converts embedded data images to CID attachments', () => {
@@ -27,6 +30,13 @@ describe('extractInlineDataImages', () => {
 		expect(extractInlineDataImages(html)).toEqual({ html, attachments: [] });
 	});
 
+	it('does not treat data-src as the rendered image source', () => {
+		const html =
+			'<img data-src="data:image/png;base64,aGk=" src="https://example.com/image.png">';
+
+		expect(extractInlineDataImages(html)).toEqual({ html, attachments: [] });
+	});
+
 	it('assigns a distinct CID to each embedded image', () => {
 		const result = extractInlineDataImages(
 			"<img src='data:image/png;base64,aGk='><img src=\"data:image/webp;base64,aG8=\">"
@@ -38,5 +48,34 @@ describe('extractInlineDataImages', () => {
 			'arelay-inline-1',
 			'arelay-inline-2'
 		]);
+	});
+
+	it('avoids colliding with CID references already present in the draft', () => {
+		const result = extractInlineDataImages(
+			'<img src="cid:arelay-inline-1"><img src="data:image/png;base64,aGk=">'
+		);
+
+		expect(result.html).toContain('src="cid:arelay-inline-1-2"');
+		expect(result.attachments[0].content_id).toBe('arelay-inline-1-2');
+	});
+});
+
+describe('restoreInlineDataImages', () => {
+	it('restores only matching img src CID references', () => {
+		const attachments = [
+			{
+				content: 'aGVsbG8=',
+				filename: 'inline-image-1.jpg',
+				type: 'image/jpeg',
+				disposition: 'inline' as const,
+				content_id: 'arelay-inline-1'
+			}
+		];
+		const html =
+			'<img src="cid:arelay-inline-1"><a href="cid:arelay-inline-1">link</a>';
+		const restored = restoreInlineDataImages(html, attachments);
+
+		expect(restored).toContain('src="data:image/jpeg;base64,aGVsbG8="');
+		expect(restored).toContain('href="cid:arelay-inline-1"');
 	});
 });

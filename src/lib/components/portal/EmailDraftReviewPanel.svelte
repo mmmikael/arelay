@@ -21,7 +21,8 @@
 		persistEmailDraftReview,
 		reviewPayloadNeeded
 	} from '$lib/email-draft-review-actions';
-	import { looksLikePlainTextBody, toPreviewHtmlDocument } from '$lib/preview-doc';
+	import { looksLikePlainTextBody, toEmailPreviewHtmlDocument } from '$lib/preview-doc';
+	import { emailHtmlHasBlockedInteractivity } from '$lib/preview-sanitize';
 	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
 	import HtmlPreviewOpenInTabButton from '$lib/components/portal/HtmlPreviewOpenInTabButton.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -251,7 +252,11 @@
 	}
 
 	const emailPreviewDoc = $derived(
-		editableHtml.trim() ? toPreviewHtmlDocument(editableHtml, darkMode) : ''
+		editableHtml.trim() ? toEmailPreviewHtmlDocument(editableHtml, darkMode) : ''
+	);
+
+	const emailPreviewHasRestrictedContent = $derived(
+		editableHtml.trim() ? emailHtmlHasBlockedInteractivity(editableHtml) : false
 	);
 
 	$effect(() => {
@@ -630,6 +635,7 @@
 				sourceHtml={editableHtml}
 				previewDoc={emailPreviewDoc}
 				title={editableSubject || activeEmailDraft?.subject || 'Email preview'}
+				restrictedContentOverride={emailPreviewHasRestrictedContent}
 				class="h-[calc(100dvh-13rem)] min-h-[28rem] w-full sm:h-[72vh] sm:min-h-[32rem]"
 			/>
 		{:else}

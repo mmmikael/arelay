@@ -1,3 +1,8 @@
+import {
+	extractInlineDataImages,
+	restoreInlineDataImages
+} from '$lib/email-inline-images';
+
 const BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'form', 'base', 'link', 'style'] as const;
 
 /** Artifact iframe preview: allow author CSS; scripts stay blocked by tag strip + sandbox. */
@@ -173,9 +178,26 @@ export function sanitizeArtifactPreviewHtml(html: string): string {
 }
 
 /**
+ * Sanitize email HTML while preserving safe raster data images for review.
+ * CID placeholders pass through the generic sanitizer, then are restored only
+ * to matching img src attributes.
+ */
+export function sanitizeEmailPreviewHtml(html: string): string {
+	const prepared = extractInlineDataImages(html);
+	const sanitized = sanitizeArtifactPreviewHtml(prepared.html);
+	return restoreInlineDataImages(sanitized, prepared.attachments);
+}
+
+/**
  * True when artifact sanitization would change the HTML (scripts, embeds, handlers, etc.).
  * Uses the same pipeline as the sandboxed iframe preview — single source of truth for notices.
  */
 export function artifactHtmlHasBlockedInteractivity(html: string): boolean {
 	return sanitizeArtifactPreviewHtml(html) !== html;
+}
+
+/** True when the email-specific preview sanitizer blocks part of the draft HTML. */
+export function emailHtmlHasBlockedInteractivity(html: string): boolean {
+	const prepared = extractInlineDataImages(html);
+	return sanitizeArtifactPreviewHtml(prepared.html) !== prepared.html;
 }
