@@ -8,6 +8,8 @@ export type EmailDraftRecord = {
 	owner_user_id: string;
 	encryption_version: string;
 	encrypted_to: JsonObject;
+	encrypted_cc: JsonObject | null;
+	encrypted_bcc: JsonObject | null;
 	encrypted_from_email: JsonObject;
 	encrypted_from_name: JsonObject | null;
 	encrypted_subject: JsonObject;
@@ -35,6 +37,8 @@ export type UserCloudflareEmailRecord = {
 
 export type EncryptedEmailDraftPayload = {
 	encrypted_to: JsonObject;
+	encrypted_cc?: JsonObject;
+	encrypted_bcc?: JsonObject;
 	encrypted_from_email: JsonObject;
 	encrypted_from_name?: JsonObject;
 	encrypted_subject: JsonObject;
@@ -47,6 +51,8 @@ export type EncryptedEmailDraftPayload = {
 
 export type EmailDraftSendFields = {
 	to: string;
+	cc?: string;
+	bcc?: string;
 	from: { email: string; name?: string };
 	subject: string;
 	html: string;

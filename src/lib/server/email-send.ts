@@ -7,6 +7,8 @@ export type SendEmailInput = {
 	accountId: string;
 	apiToken: string;
 	to: string;
+	cc?: string[];
+	bcc?: string[];
 	from: EmailFromAddress;
 	subject: string;
 	html: string;
@@ -33,6 +35,8 @@ export async function sendViaCloudflare(input: SendEmailInput): Promise<Cloudfla
 			},
 			body: JSON.stringify({
 				to: input.to,
+				cc: input.cc && input.cc.length > 0 ? input.cc : undefined,
+				bcc: input.bcc && input.bcc.length > 0 ? input.bcc : undefined,
 				from: cloudflareFromField(input.from),
 				subject: input.subject,
 				text: input.text ?? undefined,

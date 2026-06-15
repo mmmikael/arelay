@@ -10,6 +10,8 @@ import type { JsonObject } from '$lib/server/db';
 
 export type DecryptedEmailDraftFields = {
 	to: string;
+	cc: string | null;
+	bcc: string | null;
 	from_email: string;
 	from_name: string | null;
 	subject: string;
@@ -22,6 +24,8 @@ export type DecryptedEmailDraftFields = {
 type EncryptedEmailDraftRecord = {
 	encryption_version: string;
 	encrypted_to: JsonObject | null;
+	encrypted_cc?: JsonObject | null;
+	encrypted_bcc?: JsonObject | null;
 	encrypted_from_email: JsonObject | null;
 	encrypted_from_name: JsonObject | null;
 	encrypted_subject: JsonObject | null;
@@ -82,17 +86,20 @@ export async function decryptEmailDraftFields(
 	}
 
 	try {
-		const [to, from_email, from_name, subject, html, text, review, sent] = await Promise.all([
-			decryptString(asEnvelope(emailDraft.encrypted_to), privateKey),
-			decryptString(asEnvelope(emailDraft.encrypted_from_email), privateKey),
-			decryptOptionalField(emailDraft.encrypted_from_name, privateKey),
-			decryptString(asEnvelope(emailDraft.encrypted_subject), privateKey),
-			decryptString(asEnvelope(emailDraft.encrypted_html), privateKey),
-			decryptOptionalField(emailDraft.encrypted_text, privateKey),
-			decryptReviewOverlay(emailDraft, privateKey),
-			decryptSentOverlay(emailDraft, privateKey)
-		]);
-		return { to, from_email, from_name, subject, html, text, review, sent };
+		const [to, cc, bcc, from_email, from_name, subject, html, text, review, sent] =
+			await Promise.all([
+				decryptString(asEnvelope(emailDraft.encrypted_to), privateKey),
+				decryptOptionalField(emailDraft.encrypted_cc, privateKey),
+				decryptOptionalField(emailDraft.encrypted_bcc, privateKey),
+				decryptString(asEnvelope(emailDraft.encrypted_from_email), privateKey),
+				decryptOptionalField(emailDraft.encrypted_from_name, privateKey),
+				decryptString(asEnvelope(emailDraft.encrypted_subject), privateKey),
+				decryptString(asEnvelope(emailDraft.encrypted_html), privateKey),
+				decryptOptionalField(emailDraft.encrypted_text, privateKey),
+				decryptReviewOverlay(emailDraft, privateKey),
+				decryptSentOverlay(emailDraft, privateKey)
+			]);
+		return { to, cc, bcc, from_email, from_name, subject, html, text, review, sent };
 	} catch (err) {
 		console.error('[e2ee] email draft decrypt failed:', err);
 		return null;
@@ -102,6 +109,8 @@ export async function decryptEmailDraftFields(
 export function emailDraftAgentFields(fields: DecryptedEmailDraftFields): EmailDraftAgentFields {
 	return {
 		to: fields.to,
+		cc: fields.cc,
+		bcc: fields.bcc,
 		from_email: fields.from_email,
 		from_name: fields.from_name,
 		subject: fields.subject,

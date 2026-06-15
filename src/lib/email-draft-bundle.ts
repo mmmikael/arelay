@@ -1,6 +1,8 @@
 /** Human review or sent snapshot of editable email draft fields (encrypted as one JSON blob). */
 export type EmailDraftBundle = {
 	to: string;
+	cc: string | null;
+	bcc: string | null;
 	from_email: string;
 	from_name: string | null;
 	subject: string;
@@ -9,6 +11,8 @@ export type EmailDraftBundle = {
 
 export type EmailDraftAgentFields = {
 	to: string;
+	cc: string | null;
+	bcc: string | null;
 	from_email: string;
 	from_name: string | null;
 	subject: string;
@@ -18,11 +22,20 @@ export type EmailDraftAgentFields = {
 export function agentFieldsToBundle(fields: EmailDraftAgentFields): EmailDraftBundle {
 	return {
 		to: fields.to,
+		cc: fields.cc,
+		bcc: fields.bcc,
 		from_email: fields.from_email,
 		from_name: fields.from_name,
 		subject: fields.subject,
 		html: fields.html
 	};
+}
+
+/** Validate an optional nullable-string bundle field (cc/bcc/from_name). */
+function optionalBundleString(value: unknown): { ok: true; value: string | null } | { ok: false } {
+	if (value === null || value === undefined) return { ok: true, value: null };
+	if (typeof value !== 'string') return { ok: false };
+	return { ok: true, value };
 }
 
 export function parseEmailDraftBundleJson(json: string): EmailDraftBundle | null {
@@ -38,14 +51,18 @@ export function parseEmailDraftBundleJson(json: string): EmailDraftBundle | null
 		) {
 			return null;
 		}
-		const fromName = record.from_name;
-		if (fromName !== null && fromName !== undefined && typeof fromName !== 'string') {
+		const fromName = optionalBundleString(record.from_name);
+		const cc = optionalBundleString(record.cc);
+		const bcc = optionalBundleString(record.bcc);
+		if (!fromName.ok || !cc.ok || !bcc.ok) {
 			return null;
 		}
 		return {
 			to: record.to,
+			cc: cc.value,
+			bcc: bcc.value,
 			from_email: record.from_email,
-			from_name: typeof fromName === 'string' ? fromName : null,
+			from_name: fromName.value,
 			subject: record.subject,
 			html: record.html
 		};
@@ -61,6 +78,8 @@ export function mergeEmailDraftBundle(
 	if (!overlay) return agentFieldsToBundle(base);
 	return {
 		to: overlay.to ?? base.to,
+		cc: overlay.cc !== undefined ? overlay.cc : base.cc,
+		bcc: overlay.bcc !== undefined ? overlay.bcc : base.bcc,
 		from_email: overlay.from_email ?? base.from_email,
 		from_name: overlay.from_name !== undefined ? overlay.from_name : base.from_name,
 		subject: overlay.subject ?? base.subject,
@@ -71,6 +90,8 @@ export function mergeEmailDraftBundle(
 export function bundlesEqual(a: EmailDraftBundle, b: EmailDraftBundle): boolean {
 	return (
 		a.to === b.to &&
+		a.cc === b.cc &&
+		a.bcc === b.bcc &&
 		a.from_email === b.from_email &&
 		a.from_name === b.from_name &&
 		a.subject === b.subject &&
@@ -84,6 +105,8 @@ export function bundleMatchesAgent(
 ): boolean {
 	return (
 		bundle.to === agent.to &&
+		bundle.cc === agent.cc &&
+		bundle.bcc === agent.bcc &&
 		bundle.from_email === agent.from_email &&
 		bundle.from_name === agent.from_name &&
 		bundle.subject === agent.subject &&

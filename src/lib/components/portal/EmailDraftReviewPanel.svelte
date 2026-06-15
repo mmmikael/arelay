@@ -58,6 +58,8 @@
 	let emailActionError = $state('');
 	let approveDialogOpen = $state(false);
 	let editableTo = $state('');
+	let editableCc = $state('');
+	let editableBcc = $state('');
 	let editableFromEmail = $state('');
 	let editableFromName = $state('');
 	let editableSubject = $state('');
@@ -84,6 +86,8 @@
 	const editableBundle = $derived(
 		buildEditableBundle({
 			to: editableTo,
+			cc: editableCc.trim() ? editableCc.trim() : null,
+			bcc: editableBcc.trim() ? editableBcc.trim() : null,
 			from_email: editableFromEmail,
 			from_name: editableFromName.trim() ? editableFromName.trim() : null,
 			subject: editableSubject,
@@ -112,6 +116,8 @@
 			loadedDraftKey = '';
 			loadedReviewKey = '';
 			editableTo = '';
+			editableCc = '';
+			editableBcc = '';
 			editableFromEmail = '';
 			editableFromName = '';
 			editableSubject = '';
@@ -148,6 +154,8 @@
 
 		const display = emailDraftDisplayFields(activeEmailDraft, emailDraft.status);
 		editableTo = display.to;
+		editableCc = display.cc ?? '';
+		editableBcc = display.bcc ?? '';
 		editableFromEmail = display.from_email;
 		editableFromName = display.from_name ?? '';
 		editableSubject = display.subject;
@@ -355,6 +363,30 @@
 							/>
 						</div>
 						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+							<label for="draft-cc" class="font-semibold text-slate-900 dark:text-slate-100">Cc</label>
+							<Input
+								id="draft-cc"
+								type="text"
+								bind:value={editableCc}
+								oninput={handleDraftInput}
+								disabled={emailActionBusy}
+								placeholder="Optional, comma-separated"
+								class="h-9"
+							/>
+						</div>
+						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
+							<label for="draft-bcc" class="font-semibold text-slate-900 dark:text-slate-100">Bcc</label>
+							<Input
+								id="draft-bcc"
+								type="text"
+								bind:value={editableBcc}
+								oninput={handleDraftInput}
+								disabled={emailActionBusy}
+								placeholder="Optional, comma-separated"
+								class="h-9"
+							/>
+						</div>
+						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
 							<label for="draft-from-email" class="font-semibold text-slate-900 dark:text-slate-100"
 								>From</label
 							>
@@ -397,6 +429,18 @@
 							<span class="font-semibold">To:</span>
 							{editableTo || activeEmailDraft.to}
 						</p>
+						{#if editableCc || activeEmailDraft.cc}
+							<p class="text-slate-900 dark:text-slate-100">
+								<span class="font-semibold">Cc:</span>
+								{editableCc || activeEmailDraft.cc}
+							</p>
+						{/if}
+						{#if editableBcc || activeEmailDraft.bcc}
+							<p class="text-slate-900 dark:text-slate-100">
+								<span class="font-semibold">Bcc:</span>
+								{editableBcc || activeEmailDraft.bcc}
+							</p>
+						{/if}
 						<p class="text-slate-900 dark:text-slate-100">
 							<span class="font-semibold">From:</span>
 							{formatEmailFrom({

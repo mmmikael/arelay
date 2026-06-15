@@ -56,6 +56,43 @@ function optionalEncryptedField(
 	return { ok: true, value };
 }
 
+const MAX_RECIPIENT_LIST = 50;
+
+/**
+ * Parse an optional comma/semicolon-separated recipient list (cc/bcc) into a
+ * normalized "a@b.com, c@d.com" string. Returns undefined when absent/empty.
+ */
+function parseOptionalEmailList(
+	value: unknown,
+	label: string
+): { ok: true; value?: string } | { ok: false; error: string } {
+	if (value === undefined || value === null || value === '') {
+		return { ok: true };
+	}
+	if (typeof value !== 'string') {
+		return { ok: false, error: `${label} must be a comma-separated string of addresses` };
+	}
+	const parts = value
+		.split(/[,;]/)
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0);
+	if (parts.length === 0) {
+		return { ok: true };
+	}
+	if (parts.length > MAX_RECIPIENT_LIST) {
+		return { ok: false, error: `${label} must have at most ${MAX_RECIPIENT_LIST} addresses` };
+	}
+	const normalized: string[] = [];
+	for (const part of parts) {
+		const email = normalizeEmail(part);
+		if (!email) {
+			return { ok: false, error: `${label} contains an invalid address: ${part}` };
+		}
+		normalized.push(email);
+	}
+	return { ok: true, value: normalized.join(', ') };
+}
+
 function parsePlaintextEmailFields(record: Record<string, unknown>):
 	| { ok: true; value: EmailDraftSendFields }
 	| { ok: false; error: string } {
@@ -63,6 +100,11 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 	if (!to) {
 		return { ok: false, error: 'Valid to address required' };
 	}
+
+	const cc = parseOptionalEmailList(record.cc, 'cc');
+	if (!cc.ok) return cc;
+	const bcc = parseOptionalEmailList(record.bcc, 'bcc');
+	if (!bcc.ok) return bcc;
 
 	const fromRaw = record.from;
 	if (!fromRaw || typeof fromRaw !== 'object') {
@@ -103,6 +145,8 @@ function parsePlaintextEmailFields(record: Record<string, unknown>):
 		ok: true,
 		value: {
 			to,
+			cc: cc.value,
+			bcc: bcc.value,
 			from: { email: fromEmail, name: fromName },
 			subject,
 			html,
@@ -132,6 +176,10 @@ export function parseEncryptedEmailDraftPayload(body: unknown):
 	const encryptedHtml = requireEncryptedField(record, 'encrypted_html');
 	if (!encryptedHtml.ok) return encryptedHtml;
 
+	const encryptedCc = optionalEncryptedField(record, 'encrypted_cc');
+	if (!encryptedCc.ok) return encryptedCc;
+	const encryptedBcc = optionalEncryptedField(record, 'encrypted_bcc');
+	if (!encryptedBcc.ok) return encryptedBcc;
 	const encryptedFromName = optionalEncryptedField(record, 'encrypted_from_name');
 	if (!encryptedFromName.ok) return encryptedFromName;
 	const encryptedText = optionalEncryptedField(record, 'encrypted_text');
@@ -148,6 +196,8 @@ export function parseEncryptedEmailDraftPayload(body: unknown):
 		ok: true,
 		value: {
 			encrypted_to: encryptedTo.value,
+			encrypted_cc: encryptedCc.value,
+			encrypted_bcc: encryptedBcc.value,
 			encrypted_from_email: encryptedFromEmail.value,
 			encrypted_from_name: encryptedFromName.value,
 			encrypted_subject: encryptedSubject.value,

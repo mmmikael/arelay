@@ -73,6 +73,60 @@ describe('parseEmailDraftSendFields', () => {
 		expect(parseEmailDraftSendFields({ ...validApprovePayload, subject: '  ' }).ok).toBe(false);
 		expect(parseEmailDraftSendFields({ ...validApprovePayload, html: '' }).ok).toBe(false);
 	});
+
+	it('parses and normalizes optional cc/bcc lists', () => {
+		const result = parseEmailDraftSendFields({
+			...validApprovePayload,
+			cc: 'A@Example.com, b@example.com',
+			bcc: 'me@example.com'
+		});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.cc).toBe('a@example.com, b@example.com');
+		expect(result.value.bcc).toBe('me@example.com');
+	});
+
+	it('treats empty cc/bcc as absent and rejects invalid entries', () => {
+		const empty = parseEmailDraftSendFields({ ...validApprovePayload, cc: '', bcc: '   ' });
+		expect(empty.ok).toBe(true);
+		if (empty.ok) {
+			expect(empty.value.cc).toBeUndefined();
+			expect(empty.value.bcc).toBeUndefined();
+		}
+		expect(
+			parseEmailDraftSendFields({ ...validApprovePayload, cc: 'good@x.com, not-an-email' }).ok
+		).toBe(false);
+	});
+});
+
+describe('parseEmailDraftBody encrypted cc/bcc', () => {
+	it('accepts optional encrypted_cc/encrypted_bcc envelopes', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: envelope,
+			encrypted_cc: envelope,
+			encrypted_bcc: envelope,
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: envelope
+		});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.encrypted_cc).toEqual(envelope);
+		expect(result.value.encrypted_bcc).toEqual(envelope);
+	});
+
+	it('rejects a malformed encrypted_bcc envelope', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: envelope,
+			encrypted_bcc: { not: 'an envelope' },
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: envelope
+		});
+		expect(result.ok).toBe(false);
+	});
 });
 
 describe('parseEmailDraftApproveFields', () => {

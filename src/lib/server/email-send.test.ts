@@ -53,6 +53,38 @@ describe('sendViaCloudflare', () => {
 		});
 	});
 
+	it('includes cc/bcc arrays when provided and omits them when empty', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+		vi.stubGlobal('fetch', fetchMock);
+
+		await sendViaCloudflare({
+			accountId: 'acct-1',
+			apiToken: 'token-1',
+			to: 'user@example.com',
+			cc: ['a@x.com', 'b@x.com'],
+			bcc: ['me@x.com'],
+			from: { email: 'noreply@yourdomain.com' },
+			subject: 'Hello',
+			html: '<p>Hi</p>'
+		});
+		const withList = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
+		expect(withList.cc).toEqual(['a@x.com', 'b@x.com']);
+		expect(withList.bcc).toEqual(['me@x.com']);
+
+		await sendViaCloudflare({
+			accountId: 'acct-1',
+			apiToken: 'token-1',
+			to: 'user@example.com',
+			cc: [],
+			from: { email: 'noreply@yourdomain.com' },
+			subject: 'Hello',
+			html: '<p>Hi</p>'
+		});
+		const empty = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body));
+		expect('cc' in empty).toBe(false);
+		expect('bcc' in empty).toBe(false);
+	});
+
 	it('throws with Cloudflare error message on failure', async () => {
 		vi.stubGlobal(
 			'fetch',

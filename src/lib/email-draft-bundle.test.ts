@@ -9,6 +9,8 @@ import {
 
 const agent = {
 	to: 'user@example.com',
+	cc: null,
+	bcc: null,
 	from_email: 'noreply@example.com',
 	from_name: 'Relay',
 	subject: 'Hi',
@@ -44,5 +46,15 @@ describe('emailDraftBundle', () => {
 
 	it('detects unchanged bundle', () => {
 		expect(bundleMatchesAgent(agentFieldsToBundle(agent), agent)).toBe(true);
+	});
+
+	it('round-trips and merges cc/bcc', () => {
+		const withCc = { ...agent, cc: 'a@x.com, b@x.com', bcc: 'me@x.com' };
+		const bundle = agentFieldsToBundle(withCc);
+		expect(parseEmailDraftBundleJson(JSON.stringify(bundle))).toEqual(bundle);
+		// editing bcc is detected as a change
+		expect(bundleMatchesAgent({ ...bundle, bcc: 'other@x.com' }, withCc)).toBe(false);
+		// overlay can clear cc back to null
+		expect(mergeEmailDraftBundle(withCc, { cc: null }).cc).toBeNull();
 	});
 });

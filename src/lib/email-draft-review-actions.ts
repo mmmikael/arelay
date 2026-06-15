@@ -7,6 +7,8 @@ type EncryptStringFn = typeof encryptString;
 
 export function buildEditableBundle(input: {
 	to: string;
+	cc: string | null;
+	bcc: string | null;
 	from_email: string;
 	from_name: string | null;
 	subject: string;
@@ -14,6 +16,8 @@ export function buildEditableBundle(input: {
 }): EmailDraftBundle {
 	return {
 		to: input.to.trim(),
+		cc: input.cc?.trim() ? input.cc.trim() : null,
+		bcc: input.bcc?.trim() ? input.bcc.trim() : null,
 		from_email: input.from_email.trim(),
 		from_name: input.from_name?.trim() ? input.from_name.trim() : null,
 		subject: input.subject.trim(),
@@ -78,6 +82,8 @@ export async function buildApproveRequestInit(input: {
 
 	const payload: Record<string, unknown> = {
 		to: input.sentBundle.to,
+		cc: input.sentBundle.cc ?? undefined,
+		bcc: input.sentBundle.bcc ?? undefined,
 		from: {
 			email: input.sentBundle.from_email,
 			name: input.sentBundle.from_name ?? undefined

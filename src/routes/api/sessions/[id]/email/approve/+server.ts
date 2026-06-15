@@ -57,6 +57,8 @@ export const POST: RequestHandler = async ({ locals, params, request, url }) => 
 	const approveFields = parsed.value;
 	const sendFields = {
 		to: approveFields.to,
+		cc: approveFields.cc,
+		bcc: approveFields.bcc,
 		from: approveFields.from,
 		subject: approveFields.subject,
 		html: approveFields.html,

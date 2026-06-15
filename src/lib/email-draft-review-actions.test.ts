@@ -8,6 +8,8 @@ import {
 
 const agentBundle: EmailDraftBundle = {
 	to: 'user@example.com',
+	cc: null,
+	bcc: null,
 	from_email: 'agent@example.com',
 	from_name: 'Agent',
 	subject: 'Hello',
@@ -19,6 +21,8 @@ describe('email-draft-review-actions', () => {
 		expect(
 			buildEditableBundle({
 				to: ' user@example.com ',
+				cc: null,
+				bcc: null,
 				from_email: ' agent@example.com ',
 				from_name: ' Agent ',
 				subject: ' Hello ',

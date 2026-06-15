@@ -13,6 +13,16 @@ export function prepareEmailDraftSendFields(fields: EmailDraftSendFields): Email
 	};
 }
 
+/** Split a normalized "a@b.com, c@d.com" recipient list into an address array. */
+function recipientList(value: string | undefined): string[] | undefined {
+	if (!value) return undefined;
+	const list = value
+		.split(/[,;]/)
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0);
+	return list.length > 0 ? list : undefined;
+}
+
 export async function sendApprovedEmailDraft(input: {
 	userId: string;
 	draft: EmailDraftRecord;
@@ -38,6 +48,8 @@ export async function sendApprovedEmailDraft(input: {
 		accountId,
 		apiToken,
 		to: fields.to,
+		cc: recipientList(fields.cc),
+		bcc: recipientList(fields.bcc),
 		from: {
 			email: fields.from.email,
 			name: fields.from.name
