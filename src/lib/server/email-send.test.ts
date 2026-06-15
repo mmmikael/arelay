@@ -24,7 +24,7 @@ describe('sendViaCloudflare', () => {
 	it('sends successfully when Cloudflare returns success', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
-			json: async () => ({ success: true })
+			text: async () => JSON.stringify({ success: true })
 		});
 		vi.stubGlobal('fetch', fetchMock);
 
@@ -73,7 +73,7 @@ describe('sendViaCloudflare', () => {
 			vi.fn().mockResolvedValue({
 				ok: false,
 				status: 403,
-				json: async () => ({ success: false, errors: [{ message: 'Invalid token' }] })
+				text: async () => JSON.stringify({ success: false, errors: [{ message: 'Invalid token' }] })
 			})
 		);
 
