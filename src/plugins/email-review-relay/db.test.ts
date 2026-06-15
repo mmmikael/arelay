@@ -17,6 +17,8 @@ function makeDraft(status: EmailDraftStatus): EmailDraftRecord {
 		owner_user_id: 'user-1',
 		encryption_version: 'e2ee-v1',
 		encrypted_to: envelope,
+		encrypted_cc: null,
+		encrypted_bcc: null,
 		encrypted_from_email: envelope,
 		encrypted_from_name: null,
 		encrypted_subject: envelope,

@@ -52,6 +52,34 @@ describe('parseEmailDraftBody', () => {
 		if (result.ok) return;
 		expect(result.error).toContain('encrypted must be true');
 	});
+
+	it('accepts optional agent-supplied encrypted_cc/encrypted_bcc envelopes', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: envelope,
+			encrypted_cc: envelope,
+			encrypted_bcc: envelope,
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: envelope
+		});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.encrypted_cc).toEqual(envelope);
+		expect(result.value.encrypted_bcc).toEqual(envelope);
+	});
+
+	it('rejects a malformed encrypted_bcc envelope', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: envelope,
+			encrypted_bcc: { not: 'an envelope' },
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: envelope
+		});
+		expect(result.ok).toBe(false);
+	});
 });
 
 describe('parseEmailDraftSendFields', () => {

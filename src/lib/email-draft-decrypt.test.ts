@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	emailDraftAgentFields,
 	emailDraftDisplayFields,
 	emailDraftDisplayHtml,
 	type DecryptedEmailDraftFields
@@ -7,6 +8,8 @@ import {
 
 const fields: DecryptedEmailDraftFields = {
 	to: 'user@example.com',
+	cc: [],
+	bcc: [],
 	from_email: 'noreply@example.com',
 	from_name: null,
 	subject: 'Hi',
@@ -32,6 +35,18 @@ describe('emailDraftDisplayFields', () => {
 	it('prefers sent fields after send', () => {
 		expect(emailDraftDisplayFields(fields, 'sent').subject).toBe('Sent subject');
 		expect(emailDraftDisplayFields(fields, 'sent').html).toBe('<p>sent</p>');
+	});
+
+	it('carries agent-supplied cc/bcc into agent fields and the display bundle', () => {
+		const withCc = { ...fields, cc: ['copy@example.com'], bcc: ['archive@example.com'] };
+		expect(emailDraftAgentFields(withCc)).toMatchObject({
+			cc: ['copy@example.com'],
+			bcc: ['archive@example.com']
+		});
+		// With no review/sent overlay, the display bundle shows the agent-supplied recipients.
+		const display = emailDraftDisplayFields({ ...withCc, review: null, sent: null }, 'pending');
+		expect(display.cc).toEqual(['copy@example.com']);
+		expect(display.bcc).toEqual(['archive@example.com']);
 	});
 
 	it('falls back to agent fields', () => {
