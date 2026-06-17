@@ -37,6 +37,8 @@ jobs:
       - run: npm -w @arelay/core test
       - run: npm -w @arelay/cli run build
       - run: npm -w @arelay/cli test
+      - run: npm -w @arelay/client run build
+      - run: npm -w @arelay/client test
 
   db-migrations:
     runs-on: ubuntu-latest

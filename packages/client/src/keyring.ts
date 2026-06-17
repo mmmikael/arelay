@@ -1,0 +1,429 @@
+/**
+ * Browser-only E2EE key management for Agent Relay readers.
+ *
+ * This is the half of the crypto that never runs server-side or in the
+ * delivery CLI: generating an account keyring, and unlocking the private key
+ * in the user's browser via a recovery key (PBKDF2) or a passkey (WebAuthn
+ * PRF). The envelope encrypt/decrypt itself lives in `@arelay/core`.
+ *
+ * Ported from the portal's `src/lib/e2ee.ts` — keep the wrapping formats
+ * (`PBKDF2-SHA256-A256GCM`, `WebAuthnPRF-HKDF-SHA256-A256GCM`) byte-for-byte
+ * compatible with the portal, or existing accounts become unreadable.
+ */
+
+import { base64UrlToBytes, bytesToBase64Url, type JsonWebKeyEnvelope } from '@arelay/core';
+import { DETERMINISTIC_PRF_SALT_B64URL, deterministicPrfSaltBytes } from './passkey-salt.js';
+
+export type EncryptedPrivateKey = {
+	v: 1;
+	alg: 'PBKDF2-SHA256-A256GCM';
+	iterations: number;
+	salt: string;
+	iv: string;
+	ciphertext: string;
+};
+
+export type PasskeyEncryptedPrivateKey = {
+	v: 1;
+	alg: 'WebAuthnPRF-HKDF-SHA256-A256GCM';
+	credentialId: string;
+	salt: string;
+	iv: string;
+	ciphertext: string;
+};
+
+export type E2eeKeyring = {
+	publicKeyJwk: JsonWebKeyEnvelope;
+	privateKey: CryptoKey;
+	encryptedPrivateKey: EncryptedPrivateKey;
+	recoveryKey: string;
+};
+
+export type PrfEvaluationResult = {
+	first: Uint8Array;
+	second: Uint8Array | null;
+};
+
+const TEXT_ENCODER = new TextEncoder();
+const TEXT_DECODER = new TextDecoder();
+const RECOVERY_KEY_BYTES = 32;
+const RECOVERY_KEY_GROUP = 4;
+const PBKDF2_ITERATIONS = 600_000;
+const PASSKEY_TIMEOUT_MS = 60_000;
+const PASSKEY_WRAP_HKDF_SALT = 'Agent Relay passkey PRF private-key wrap v1';
+const PASSKEY_WRAP_HKDF_INFO = 'private-key-wrap';
+
+type PrfClientExtensionResults = {
+	prf?: {
+		enabled?: boolean;
+		results?: {
+			first?: ArrayBuffer;
+			second?: ArrayBuffer;
+		};
+	};
+};
+
+function randomBytes(length: number): Uint8Array {
+	const bytes = new Uint8Array(length);
+	crypto.getRandomValues(bytes);
+	return bytes;
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+export function generateRecoveryKey(): string {
+	const raw = bytesToBase64Url(randomBytes(RECOVERY_KEY_BYTES)).toUpperCase();
+	const groups: string[] = [];
+	for (let i = 0; i < raw.length; i += RECOVERY_KEY_GROUP) {
+		groups.push(raw.slice(i, i + RECOVERY_KEY_GROUP));
+	}
+	return groups.join('-');
+}
+
+function normalizeRecoveryKey(recoveryKey: string): string {
+	return recoveryKey.trim().replaceAll(/[\s-]+/g, '').toUpperCase();
+}
+
+async function deriveWrappingKey(
+	recoveryKey: string,
+	salt: Uint8Array,
+	iterations = PBKDF2_ITERATIONS
+): Promise<CryptoKey> {
+	const material = await crypto.subtle.importKey(
+		'raw',
+		TEXT_ENCODER.encode(normalizeRecoveryKey(recoveryKey)),
+		'PBKDF2',
+		false,
+		['deriveKey']
+	);
+	return crypto.subtle.deriveKey(
+		{
+			name: 'PBKDF2',
+			hash: 'SHA-256',
+			salt: toArrayBuffer(salt),
+			iterations
+		},
+		material,
+		{ name: 'AES-GCM', length: 256 },
+		false,
+		['encrypt', 'decrypt']
+	);
+}
+
+async function importPrivateKey(privateKeyJwk: JsonWebKey): Promise<CryptoKey> {
+	return crypto.subtle.importKey(
+		'jwk',
+		privateKeyJwk,
+		{ name: 'ECDH', namedCurve: 'P-256' },
+		true,
+		['deriveKey']
+	);
+}
+
+async function exportPrivateKeyBytes(privateKey: CryptoKey): Promise<Uint8Array> {
+	const privateKeyJwk = await crypto.subtle.exportKey('jwk', privateKey);
+	return TEXT_ENCODER.encode(JSON.stringify(privateKeyJwk));
+}
+
+async function derivePasskeyWrappingKey(prfOutput: Uint8Array): Promise<CryptoKey> {
+	const material = await crypto.subtle.importKey('raw', toArrayBuffer(prfOutput), 'HKDF', false, [
+		'deriveKey'
+	]);
+	return crypto.subtle.deriveKey(
+		{
+			name: 'HKDF',
+			hash: 'SHA-256',
+			salt: toArrayBuffer(TEXT_ENCODER.encode(PASSKEY_WRAP_HKDF_SALT)),
+			info: toArrayBuffer(TEXT_ENCODER.encode(PASSKEY_WRAP_HKDF_INFO))
+		},
+		material,
+		{ name: 'AES-GCM', length: 256 },
+		false,
+		['encrypt', 'decrypt']
+	);
+}
+
+export async function createE2eeKeyring(recoveryKey = generateRecoveryKey()): Promise<E2eeKeyring> {
+	const keyPair = await crypto.subtle.generateKey(
+		{ name: 'ECDH', namedCurve: 'P-256' },
+		true,
+		['deriveKey']
+	);
+	const publicKeyJwk = (await crypto.subtle.exportKey('jwk', keyPair.publicKey)) as JsonWebKeyEnvelope;
+	const salt = randomBytes(16);
+	const iv = randomBytes(12);
+	const wrappingKey = await deriveWrappingKey(recoveryKey, salt);
+	const ciphertext = await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
+		wrappingKey,
+		toArrayBuffer(await exportPrivateKeyBytes(keyPair.privateKey))
+	);
+
+	return {
+		publicKeyJwk,
+		privateKey: keyPair.privateKey,
+		recoveryKey,
+		encryptedPrivateKey: {
+			v: 1,
+			alg: 'PBKDF2-SHA256-A256GCM',
+			iterations: PBKDF2_ITERATIONS,
+			salt: bytesToBase64Url(salt),
+			iv: bytesToBase64Url(iv),
+			ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
+		}
+	};
+}
+
+export async function unlockPrivateKey(
+	encryptedPrivateKey: EncryptedPrivateKey,
+	recoveryKey: string
+): Promise<CryptoKey> {
+	if (encryptedPrivateKey.v !== 1 || encryptedPrivateKey.alg !== 'PBKDF2-SHA256-A256GCM') {
+		throw new Error('Unsupported encrypted key format');
+	}
+	const salt = base64UrlToBytes(encryptedPrivateKey.salt);
+	const iv = base64UrlToBytes(encryptedPrivateKey.iv);
+	const wrappingKey = await deriveWrappingKey(recoveryKey, salt, encryptedPrivateKey.iterations);
+	const plaintext = await crypto.subtle.decrypt(
+		{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
+		wrappingKey,
+		toArrayBuffer(base64UrlToBytes(encryptedPrivateKey.ciphertext))
+	);
+	return importPrivateKey(JSON.parse(TEXT_DECODER.decode(plaintext)));
+}
+
+export function canAttemptPasskeyPrf(): boolean {
+	return (
+		typeof PublicKeyCredential !== 'undefined' &&
+		typeof navigator !== 'undefined' &&
+		Boolean(navigator.credentials?.create) &&
+		Boolean(navigator.credentials?.get) &&
+		globalThis.isSecureContext !== false
+	);
+}
+
+function getPrfResults(credential: PublicKeyCredential): PrfEvaluationResult | null {
+	const results = credential.getClientExtensionResults() as PrfClientExtensionResults;
+	const first = results.prf?.results?.first;
+	if (!first) return null;
+	const second = results.prf?.results?.second;
+	return {
+		first: new Uint8Array(first),
+		second: second ? new Uint8Array(second) : null
+	};
+}
+
+async function evaluatePasskeyPrf(
+	credentialId: string,
+	salt: Uint8Array,
+	secondSalt?: Uint8Array
+): Promise<PrfEvaluationResult> {
+	if (!canAttemptPasskeyPrf()) {
+		throw new Error('Passkeys are not available in this browser context');
+	}
+	const prfInput: { first: ArrayBuffer; second?: ArrayBuffer } = {
+		first: toArrayBuffer(salt)
+	};
+	if (secondSalt) {
+		prfInput.second = toArrayBuffer(secondSalt);
+	}
+
+	const credential = (await navigator.credentials.get({
+		publicKey: {
+			challenge: toArrayBuffer(randomBytes(32)),
+			allowCredentials: [
+				{
+					type: 'public-key',
+					id: toArrayBuffer(base64UrlToBytes(credentialId))
+				}
+			],
+			timeout: PASSKEY_TIMEOUT_MS,
+			userVerification: 'required',
+			extensions: {
+				prf: {
+					evalByCredential: {
+						[credentialId]: prfInput
+					}
+				}
+			}
+		} as PublicKeyCredentialRequestOptions
+	})) as PublicKeyCredential | null;
+
+	if (!credential) throw new Error('Passkey unlock was cancelled');
+	const output = getPrfResults(credential);
+	if (!output) throw new Error('This passkey did not return a PRF result');
+	return output;
+}
+
+function getDeterministicPrfSalt(): Uint8Array {
+	return deterministicPrfSaltBytes();
+}
+
+export function usesDeterministicPasskeySalt(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+): boolean {
+	return encryptedPrivateKey.salt === DETERMINISTIC_PRF_SALT_B64URL;
+}
+
+async function encryptPrivateKeyWithPrfOutput(
+	credentialId: string,
+	privateKey: CryptoKey,
+	prfOutput: Uint8Array
+): Promise<PasskeyEncryptedPrivateKey> {
+	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
+	const iv = randomBytes(12);
+	const ciphertext = await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv: toArrayBuffer(iv) },
+		wrappingKey,
+		toArrayBuffer(await exportPrivateKeyBytes(privateKey))
+	);
+
+	return {
+		v: 1,
+		alg: 'WebAuthnPRF-HKDF-SHA256-A256GCM',
+		credentialId,
+		salt: DETERMINISTIC_PRF_SALT_B64URL,
+		iv: bytesToBase64Url(iv),
+		ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
+	};
+}
+
+export async function wrapPrivateKeyWithPrfOutput(
+	credentialId: string,
+	privateKey: CryptoKey,
+	prfOutput: Uint8Array
+): Promise<PasskeyEncryptedPrivateKey> {
+	return encryptPrivateKeyWithPrfOutput(credentialId, privateKey, prfOutput);
+}
+
+export async function createEncryptionPasskeyPrivateKey(
+	privateKey: CryptoKey
+): Promise<PasskeyEncryptedPrivateKey> {
+	if (!canAttemptPasskeyPrf()) {
+		throw new Error('Passkeys are not available in this browser context');
+	}
+
+	const prfSalt = getDeterministicPrfSalt();
+	const credential = (await navigator.credentials.create({
+		publicKey: {
+			challenge: toArrayBuffer(randomBytes(32)),
+			rp: { name: 'Agent Relay' },
+			user: {
+				id: toArrayBuffer(randomBytes(16)),
+				name: 'agent-relay-encryption',
+				displayName: 'Agent Relay encryption'
+			},
+			pubKeyCredParams: [
+				{ type: 'public-key', alg: -7 },
+				{ type: 'public-key', alg: -257 }
+			],
+			authenticatorSelection: {
+				residentKey: 'preferred',
+				userVerification: 'required'
+			},
+			timeout: PASSKEY_TIMEOUT_MS,
+			extensions: {
+				prf: {
+					eval: { first: toArrayBuffer(prfSalt) }
+				}
+			}
+		} as PublicKeyCredentialCreationOptions
+	})) as PublicKeyCredential | null;
+
+	if (!credential) throw new Error('Passkey creation was cancelled');
+
+	const credentialId = bytesToBase64Url(new Uint8Array(credential.rawId));
+	const prfOutput =
+		getPrfResults(credential)?.first ?? (await evaluatePasskeyPrf(credentialId, prfSalt)).first;
+	return encryptPrivateKeyWithPrfOutput(credentialId, privateKey, prfOutput);
+}
+
+export async function wrapPrivateKeyWithPasskey(
+	credentialId: string,
+	privateKey: CryptoKey
+): Promise<PasskeyEncryptedPrivateKey> {
+	if (!canAttemptPasskeyPrf()) {
+		throw new Error('Passkeys are not available in this browser context');
+	}
+
+	const prfOutput = await evaluatePasskeyPrf(credentialId, getDeterministicPrfSalt());
+	return encryptPrivateKeyWithPrfOutput(credentialId, privateKey, prfOutput.first);
+}
+
+async function decryptPrivateKeyWithPrfOutput(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey,
+	prfOutput: Uint8Array
+): Promise<CryptoKey> {
+	if (
+		encryptedPrivateKey.v !== 1 ||
+		encryptedPrivateKey.alg !== 'WebAuthnPRF-HKDF-SHA256-A256GCM'
+	) {
+		throw new Error('Unsupported passkey key format');
+	}
+
+	const wrappingKey = await derivePasskeyWrappingKey(prfOutput);
+	const plaintext = await crypto.subtle.decrypt(
+		{ name: 'AES-GCM', iv: toArrayBuffer(base64UrlToBytes(encryptedPrivateKey.iv)) },
+		wrappingKey,
+		toArrayBuffer(base64UrlToBytes(encryptedPrivateKey.ciphertext))
+	);
+	return importPrivateKey(JSON.parse(TEXT_DECODER.decode(plaintext)));
+}
+
+export async function unlockPrivateKeyWithPasskey(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+): Promise<CryptoKey> {
+	const salt = base64UrlToBytes(encryptedPrivateKey.salt);
+	const prfOutput = await evaluatePasskeyPrf(encryptedPrivateKey.credentialId, salt);
+	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput.first);
+}
+
+export async function unlockPrivateKeyWithPrfOutput(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey,
+	prfOutput: Uint8Array
+): Promise<CryptoKey> {
+	return decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput);
+}
+
+export async function unlockPrivateKeyWithLoginPrfOutputs(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey,
+	prfOutputs: PrfEvaluationResult
+): Promise<{ privateKey: CryptoKey; migratedPrivateKey: PasskeyEncryptedPrivateKey | null }> {
+	try {
+		const privateKey = await decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutputs.first);
+		return { privateKey, migratedPrivateKey: null };
+	} catch (firstError) {
+		if (!prfOutputs.second) throw firstError;
+		const privateKey = await decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutputs.second);
+		const migratedPrivateKey = await encryptPrivateKeyWithPrfOutput(
+			encryptedPrivateKey.credentialId,
+			privateKey,
+			prfOutputs.first
+		);
+		return { privateKey, migratedPrivateKey };
+	}
+}
+
+export async function unlockPrivateKeyWithPasskeyMigration(
+	encryptedPrivateKey: PasskeyEncryptedPrivateKey
+): Promise<{ privateKey: CryptoKey; migratedPrivateKey: PasskeyEncryptedPrivateKey | null }> {
+	const shouldMigrate = !usesDeterministicPasskeySalt(encryptedPrivateKey);
+	const prfOutput = await evaluatePasskeyPrf(
+		encryptedPrivateKey.credentialId,
+		base64UrlToBytes(encryptedPrivateKey.salt),
+		shouldMigrate ? getDeterministicPrfSalt() : undefined
+	);
+	const privateKey = await decryptPrivateKeyWithPrfOutput(encryptedPrivateKey, prfOutput.first);
+	const migratedPrivateKey =
+		shouldMigrate && prfOutput.second
+			? await encryptPrivateKeyWithPrfOutput(
+					encryptedPrivateKey.credentialId,
+					privateKey,
+					prfOutput.second
+				)
+			: null;
+
+	return { privateKey, migratedPrivateKey };
+}
