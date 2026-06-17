@@ -19,6 +19,11 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # The portal imports @arelay/client (e.g. the example reader page), which
+      # depends on @arelay/core. Build their dist before type-checking/building
+      # the app so the package types and entrypoints resolve.
+      - run: npm -w @arelay/core run build
+      - run: npm -w @arelay/client run build
       - run: npm run check
       - run: npm test
       - run: npm run build
@@ -37,6 +42,8 @@ jobs:
       - run: npm -w @arelay/core test
       - run: npm -w @arelay/cli run build
       - run: npm -w @arelay/cli test
+      - run: npm -w @arelay/client run build
+      - run: npm -w @arelay/client test
 
   db-migrations:
     runs-on: ubuntu-latest

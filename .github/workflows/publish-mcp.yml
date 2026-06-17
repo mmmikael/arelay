@@ -1,11 +1,11 @@
 name: Publish to npm and MCP Registry
 
-# Publishes @arelay/core and @arelay/cli to npm and the server metadata to the
-# MCP Registry whenever a cli-v* tag is pushed (e.g. cli-v0.1.1). @arelay/cli
-# depends on @arelay/core, so core is published first; each publish is skipped
-# when that version is already on npm, so bumping only the package that changed
-# is enough. Requires the NPM_TOKEN repository secret; MCP Registry auth uses
-# GitHub OIDC (no secret needed).
+# Publishes @arelay/core, @arelay/cli, and @arelay/client to npm and the server
+# metadata to the MCP Registry whenever a cli-v* tag is pushed (e.g. cli-v0.1.1).
+# @arelay/cli and @arelay/client depend on @arelay/core, so core is published
+# first; each publish is skipped when that version is already on npm, so bumping
+# only the package that changed is enough. Requires the NPM_TOKEN repository
+# secret; MCP Registry auth uses GitHub OIDC (no secret needed).
 
 on:
   push:
@@ -56,6 +56,17 @@ jobs:
             echo "@arelay/cli@$VERSION already published; skipping npm publish."
           else
             npm publish -w @arelay/cli # prepublishOnly runs build + tests
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @arelay/client to npm
+        run: |
+          VERSION=$(node -p "require('./packages/client/package.json').version")
+          if npm view "@arelay/client@$VERSION" version >/dev/null 2>&1; then
+            echo "@arelay/client@$VERSION already published; skipping npm publish."
+          else
+            npm publish -w @arelay/client # prepublishOnly runs build + tests
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
