@@ -1,8 +1,11 @@
 name: Publish to npm and MCP Registry
 
-# Publishes @arelay/cli to npm and the server metadata to the MCP Registry
-# whenever a cli-v* tag is pushed (e.g. cli-v0.1.1). Requires the NPM_TOKEN
-# repository secret; MCP Registry auth uses GitHub OIDC (no secret needed).
+# Publishes @arelay/core and @arelay/cli to npm and the server metadata to the
+# MCP Registry whenever a cli-v* tag is pushed (e.g. cli-v0.1.1). @arelay/cli
+# depends on @arelay/core, so core is published first; each publish is skipped
+# when that version is already on npm, so bumping only the package that changed
+# is enough. Requires the NPM_TOKEN repository secret; MCP Registry auth uses
+# GitHub OIDC (no secret needed).
 
 on:
   push:
@@ -24,22 +27,35 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           cache: npm
-          cache-dependency-path: packages/arelay/package-lock.json
 
-      - name: Install CLI dependencies
-        working-directory: packages/arelay
+      - name: Install workspace dependencies
         run: npm ci
 
-      - name: Publish @arelay/cli to npm
-        working-directory: packages/arelay
-        # Skip if this version is already on npm so the registry step can be
-        # re-run (e.g. via workflow_dispatch) without aborting here.
+      # @arelay/cli type-checks against core's emitted dist during its
+      # prepublishOnly build, so build core before either publish.
+      - name: Build @arelay/core
+        run: npm -w @arelay/core run build
+
+      - name: Publish @arelay/core to npm
+        # Skip if this version is already on npm so the run can be re-tried
+        # (e.g. via workflow_dispatch) without aborting here.
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          if npm view "@arelay/core@$VERSION" version >/dev/null 2>&1; then
+            echo "@arelay/core@$VERSION already published; skipping npm publish."
+          else
+            npm publish -w @arelay/core # prepublishOnly runs build + tests
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @arelay/cli to npm
+        run: |
+          VERSION=$(node -p "require('./packages/arelay/package.json').version")
           if npm view "@arelay/cli@$VERSION" version >/dev/null 2>&1; then
             echo "@arelay/cli@$VERSION already published; skipping npm publish."
           else
-            npm publish # prepublishOnly runs build + tests
+            npm publish -w @arelay/cli # prepublishOnly runs build + tests
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

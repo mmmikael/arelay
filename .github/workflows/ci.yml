@@ -23,21 +23,20 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  package-arelay:
+  packages:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/arelay
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: packages/arelay/package-lock.json
       - run: npm ci
-      - run: npm run build
-      - run: npm test
+      # Build core first — @arelay/cli type-checks against its emitted dist.
+      - run: npm -w @arelay/core run build
+      - run: npm -w @arelay/core test
+      - run: npm -w @arelay/cli run build
+      - run: npm -w @arelay/cli test
 
   db-migrations:
     runs-on: ubuntu-latest
