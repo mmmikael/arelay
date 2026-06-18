@@ -6,6 +6,7 @@ import {
 	getSession,
 	listArtifacts,
 	listArtifactStorageKeys,
+	setSessionArchivedState,
 	setSessionReadState
 } from '$lib/server/db';
 import { deleteObjects } from '$lib/server/s3';
@@ -16,17 +17,25 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		return json({ error: 'Session id required' }, { status: 400 });
 	}
 
-	const body = (await request.json()) as { is_read?: boolean };
-	if (typeof body.is_read !== 'boolean') {
-		return json({ error: 'is_read boolean required' }, { status: 400 });
+	const body = (await request.json()) as { is_read?: boolean; is_archived?: boolean };
+
+	if (typeof body.is_archived === 'boolean') {
+		const session = await setSessionArchivedState(sessionId, locals.user!.id, body.is_archived);
+		if (!session) {
+			return json({ error: 'Session not found' }, { status: 404 });
+		}
+		return json({ session: toSessionView(session) });
 	}
 
-	const session = await setSessionReadState(sessionId, locals.user!.id, body.is_read);
-	if (!session) {
-		return json({ error: 'Session not found' }, { status: 404 });
+	if (typeof body.is_read === 'boolean') {
+		const session = await setSessionReadState(sessionId, locals.user!.id, body.is_read);
+		if (!session) {
+			return json({ error: 'Session not found' }, { status: 404 });
+		}
+		return json({ session: toSessionView(session) });
 	}
 
-	return json({ session: toSessionView(session) });
+	return json({ error: 'is_read or is_archived boolean required' }, { status: 400 });
 };
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {

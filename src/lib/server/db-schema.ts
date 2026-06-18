@@ -93,12 +93,16 @@ export const inboxSessions = pgTable(
 		encryptedTitle: jsonb('encrypted_title').$type<JsonObject>(),
 		encryptedSummary: jsonb('encrypted_summary').$type<JsonObject>(),
 		readAt: timestamp('read_at', { withTimezone: true }),
+		archivedAt: timestamp('archived_at', { withTimezone: true }),
 		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 	},
 	(table) => [
 		index('idx_inbox_sessions_owner_user_id').on(table.ownerUserId),
-		index('idx_inbox_sessions_updated_at').on(table.updatedAt.desc())
+		index('idx_inbox_sessions_updated_at').on(table.updatedAt.desc()),
+		index('idx_inbox_sessions_owner_active')
+			.on(table.ownerUserId, table.updatedAt.desc())
+			.where(sql`${table.archivedAt} IS NULL`)
 	]
 );
 

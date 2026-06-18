@@ -15,10 +15,12 @@ export type InboxSession = {
 	encrypted_title: JsonObject | null;
 	encrypted_summary: JsonObject | null;
 	read_at: Date | null;
+	archived_at: Date | null;
 	created_at: Date;
 	updated_at: Date;
 	artifact_count?: number;
 	is_read: boolean;
+	is_archived: boolean;
 };
 
 export type InboxArtifact = {
@@ -123,9 +125,11 @@ export async function listSessions(ownerUserId: string): Promise<InboxSession[]>
 			s.encrypted_title,
 			s.encrypted_summary,
 			s.read_at,
+			s.archived_at,
 			s.created_at,
 			s.updated_at,
 			(s.read_at IS NOT NULL) AS is_read,
+			(s.archived_at IS NOT NULL) AS is_archived,
 			COUNT(a.id)::int AS artifact_count
 		FROM inbox_sessions s
 		LEFT JOIN inbox_artifacts a ON a.session_id = s.id
@@ -142,16 +146,23 @@ export async function listSessions(ownerUserId: string): Promise<InboxSession[]>
 export async function getInboxSessionStats(ownerUserId: string): Promise<{
 	sessionCount: number;
 	readCount: number;
+	archivedCount: number;
 	latestUpdatedAt: Date | null;
 }> {
 	await ensureSchema();
 	const db = getDb();
 	const rows = await db<
-		{ session_count: number; read_count: number; latest_updated_at: Date | null }[]
+		{
+			session_count: number;
+			read_count: number;
+			archived_count: number;
+			latest_updated_at: Date | null;
+		}[]
 	>`
 		SELECT
 			COUNT(*)::int AS session_count,
 			COUNT(read_at)::int AS read_count,
+			COUNT(archived_at)::int AS archived_count,
 			MAX(updated_at) AS latest_updated_at
 		FROM inbox_sessions
 		WHERE owner_user_id = ${ownerUserId}
@@ -160,6 +171,7 @@ export async function getInboxSessionStats(ownerUserId: string): Promise<{
 	return {
 		sessionCount: Number(row?.session_count ?? 0),
 		readCount: Number(row?.read_count ?? 0),
+		archivedCount: Number(row?.archived_count ?? 0),
 		latestUpdatedAt: row?.latest_updated_at ?? null
 	};
 }
@@ -176,9 +188,11 @@ export async function getSession(id: string, ownerUserId?: string): Promise<Inbo
 			encrypted_title,
 			encrypted_summary,
 			read_at,
+			archived_at,
 			created_at,
 			updated_at,
-			(read_at IS NOT NULL) AS is_read
+			(read_at IS NOT NULL) AS is_read,
+			(archived_at IS NOT NULL) AS is_archived
 		FROM inbox_sessions
 		WHERE id = ${id} AND owner_user_id = ${ownerUserId}
 		LIMIT 1
@@ -191,9 +205,11 @@ export async function getSession(id: string, ownerUserId?: string): Promise<Inbo
 			encrypted_title,
 			encrypted_summary,
 			read_at,
+			archived_at,
 			created_at,
 			updated_at,
-			(read_at IS NOT NULL) AS is_read
+			(read_at IS NOT NULL) AS is_read,
+			(archived_at IS NOT NULL) AS is_archived
 		FROM inbox_sessions
 		WHERE id = ${id}
 		LIMIT 1
@@ -232,9 +248,11 @@ export async function createEncryptedSession(input: {
 			encrypted_title,
 			encrypted_summary,
 			read_at,
+			archived_at,
 			created_at,
 			updated_at,
-			(read_at IS NOT NULL) AS is_read
+			(read_at IS NOT NULL) AS is_read,
+			(archived_at IS NOT NULL) AS is_archived
 	`;
 	return rows[0];
 }
@@ -301,9 +319,11 @@ export async function updateEncryptedSession(
 			encrypted_title,
 			encrypted_summary,
 			read_at,
+			archived_at,
 			created_at,
 			updated_at,
-			(read_at IS NOT NULL) AS is_read
+			(read_at IS NOT NULL) AS is_read,
+			(archived_at IS NOT NULL) AS is_archived
 	`;
 	return rows[0] ?? null;
 }
@@ -326,9 +346,40 @@ export async function setSessionReadState(
 			encrypted_title,
 			encrypted_summary,
 			read_at,
+			archived_at,
 			created_at,
 			updated_at,
-			(read_at IS NOT NULL) AS is_read
+			(read_at IS NOT NULL) AS is_read,
+			(archived_at IS NOT NULL) AS is_archived
+	`;
+	return rows[0] ?? null;
+}
+
+export async function setSessionArchivedState(
+	id: string,
+	ownerUserId: string,
+	archived: boolean
+): Promise<InboxSession | null> {
+	await ensureSchema();
+	const db = getDb();
+	// Intentionally does not touch updated_at, so unarchiving restores the
+	// session's original sort position in the inbox.
+	const rows = await db<InboxSession[]>`
+		UPDATE inbox_sessions
+		SET archived_at = CASE WHEN ${archived} THEN NOW() ELSE NULL END
+		WHERE id = ${id} AND owner_user_id = ${ownerUserId}
+		RETURNING
+			id,
+			owner_user_id,
+			encryption_version,
+			encrypted_title,
+			encrypted_summary,
+			read_at,
+			archived_at,
+			created_at,
+			updated_at,
+			(read_at IS NOT NULL) AS is_read,
+			(archived_at IS NOT NULL) AS is_archived
 	`;
 	return rows[0] ?? null;
 }

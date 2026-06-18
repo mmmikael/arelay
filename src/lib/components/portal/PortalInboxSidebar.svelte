@@ -5,6 +5,7 @@
 	import { emailDraftStatusClass, emailDraftStatusLabel } from '$lib/email-draft-status';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import { resolveSidebarSessionIcon } from '$lib/portal/sidebar-icon';
+	import { countActiveSessions, filterSidebarSessions } from '$lib/portal/sidebar-filter';
 	import {
 		EMAIL_DRAFT_SIDEBAR_DESCRIPTION,
 		SIDEBAR_ARCHIVE_FILTER_ENABLED,
@@ -18,8 +19,10 @@
 		warmSessionById
 	} from '$lib/session-prefetch';
 	import Archive from '@lucide/svelte/icons/archive';
+	import ArchiveRestore from '@lucide/svelte/icons/archive-restore';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import Check from '@lucide/svelte/icons/check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import FileText from '@lucide/svelte/icons/file-text';
@@ -105,6 +108,9 @@
 	let deleteTargetIds = $state<string[]>([]);
 	let deleting = $state(false);
 	let removedSessionIds = $state<Set<string>>(new Set());
+	// Optimistic archived state, keyed by session id, applied until the next
+	// server load reflects the change (then reconciled away in an $effect).
+	let archiveOverrides = $state<Map<string, boolean>>(new Map());
 	let selectionMode = $state(false);
 	let selectedIds = $state<Set<string>>(new Set());
 	let markingReadSessionId = $state<string | null>(null);
@@ -115,38 +121,59 @@
 	let isResizing = $state(false);
 	let isDesktop = $state(false);
 	let activeFilter = $state<SidebarFilter>('all');
+	let filterMenuOpen = $state(false);
+	let filterMenuEl = $state<HTMLDivElement | undefined>(undefined);
 	let sessionScrollEl = $state<HTMLDivElement | undefined>(undefined);
 
 	const effectiveSidebarCollapsed = $derived(isDesktop && sidebarCollapsed);
 
 	// Sessions the server still reports but that the user has already deleted in
 	// this session are hidden immediately (optimistic removal); the actual DELETE
-	// runs in the background. Everything visible derives from this list.
+	// runs in the background. Archive overrides are layered on the same way so a
+	// just-archived row leaves the active view before the server load catches up.
 	const availableSessions = $derived(
-		sessions.filter((session) => !removedSessionIds.has(session.id))
+		sessions
+			.filter((session) => !removedSessionIds.has(session.id))
+			.map((session) => {
+				const override = archiveOverrides.get(session.id);
+				return override === undefined ? session : { ...session, is_archived: override };
+			})
 	);
 
-	const activeSessionCount = $derived(
-		availableSessions.filter((session) => !session.is_archived).length
+	const activeSessionCount = $derived(countActiveSessions(availableSessions));
+
+	const filteredSessions = $derived(
+		filterSidebarSessions(availableSessions, activeFilter, (id) =>
+			Boolean(emailDraftSummaries[id])
+		)
 	);
 
-	const filteredSessions = $derived.by(() => {
-		switch (activeFilter) {
-			case 'unread':
-				return availableSessions.filter((session) => !session.is_read && !session.is_archived);
-			case 'email':
-				return availableSessions.filter(
-					(session) => Boolean(emailDraftSummaries[session.id]) && !session.is_archived
-				);
-			case 'files':
-				return availableSessions.filter(
-					(session) => (session.artifact_count ?? 0) > 0 && !session.is_archived
-				);
-			case 'archived':
-				return availableSessions.filter((session) => session.is_archived);
-			default:
-				return availableSessions.filter((session) => !session.is_archived);
-		}
+	const activeFilterLabel = $derived(
+		FILTER_OPTIONS.find((filter) => filter.id === activeFilter)?.label ?? 'All'
+	);
+
+	function selectFilter(id: SidebarFilter) {
+		activeFilter = id;
+		filterMenuOpen = false;
+	}
+
+	// Close the filter dropdown on outside click or Escape while it is open.
+	$effect(() => {
+		if (!filterMenuOpen) return;
+		const onPointerDown = (event: PointerEvent) => {
+			if (filterMenuEl && !filterMenuEl.contains(event.target as Node)) {
+				filterMenuOpen = false;
+			}
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') filterMenuOpen = false;
+		};
+		document.addEventListener('pointerdown', onPointerDown, true);
+		document.addEventListener('keydown', onKeyDown);
+		return () => {
+			document.removeEventListener('pointerdown', onPointerDown, true);
+			document.removeEventListener('keydown', onKeyDown);
+		};
 	});
 
 	const allFilteredSelected = $derived(
@@ -172,6 +199,29 @@
 		if (selectedChanged) {
 			selectedIds = new Set([...selectedIds].filter((id) => present.has(id)));
 		}
+	});
+
+	// Drop an optimistic archive override once the server load agrees with it (or
+	// the session is gone), so a later server-driven change isn't masked by a
+	// stale local value.
+	$effect(() => {
+		let changed = false;
+		const next = new Map(archiveOverrides);
+		const present = new Set(sessions.map((session) => session.id));
+		for (const session of sessions) {
+			const override = next.get(session.id);
+			if (override !== undefined && session.is_archived === override) {
+				next.delete(session.id);
+				changed = true;
+			}
+		}
+		for (const id of [...next.keys()]) {
+			if (!present.has(id)) {
+				next.delete(id);
+				changed = true;
+			}
+		}
+		if (changed) archiveOverrides = next;
 	});
 
 	function sessionMeta(session: SessionRow): SidebarDecryptedMeta {
@@ -279,7 +329,7 @@
 			case 'archived':
 				return {
 					title: 'No archived sessions',
-					description: 'Archived sessions will appear here once archiving is available.'
+					description: 'Sessions you archive will appear here. Archiving never deletes anything.'
 				};
 			default:
 				return {
@@ -514,6 +564,59 @@
 		await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
 	}
 
+	async function doArchiveSessions(ids: string[], archived: boolean) {
+		if (ids.length === 0) return;
+
+		// Optimistically flip the rows so they move between the active and archived
+		// views instantly; the PATCH runs in the background. No confirmation dialog
+		// — archiving is reversible, unlike delete.
+		const next = new Map(archiveOverrides);
+		for (const id of ids) next.set(id, archived);
+		archiveOverrides = next;
+		exitSelectionMode();
+
+		const results = await Promise.allSettled(
+			ids.map((id) =>
+				fetch(`/api/sessions/${id}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ is_archived: archived })
+				})
+			)
+		);
+
+		// Roll back any whose PATCH failed so they snap back to their prior view.
+		const failedIds = ids.filter((_, index) => {
+			const result = results[index];
+			return result.status === 'rejected' || !result.value.ok;
+		});
+		if (failedIds.length > 0) {
+			const rolledBack = new Map(archiveOverrides);
+			for (const id of failedIds) rolledBack.delete(id);
+			archiveOverrides = rolledBack;
+			const verb = archived ? 'archive' : 'unarchive';
+			alert(
+				failedIds.length === ids.length
+					? `Failed to ${verb} ${failedIds.length === 1 ? 'session' : 'sessions'}`
+					: `Failed to ${verb} ${failedIds.length} of ${ids.length} sessions`
+			);
+		}
+
+		await Promise.all([invalidate('inbox:sessions'), invalidate('account:storage')]);
+	}
+
+	function archiveSessionRow(id: string, archived: boolean, event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		void doArchiveSessions([id], archived);
+	}
+
+	function archiveSelected() {
+		if (selectedIds.size === 0) return;
+		// In the archived view the bulk action unarchives; everywhere else it archives.
+		void doArchiveSessions([...selectedIds], activeFilter !== 'archived');
+	}
+
 	function toggleSidebar() {
 		sidebarCollapsed = !sidebarCollapsed;
 		try {
@@ -703,26 +806,51 @@
 		</p>
 
 		<div class="mt-3.5 flex items-center gap-2">
-			<div
-				class="flex min-w-0 flex-1 flex-nowrap gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-			>
-				{#each FILTER_OPTIONS as filter (filter.id)}
-					<button
-						type="button"
-						onclick={() => {
-							activeFilter = filter.id;
-						}}
-						class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors {activeFilter ===
-						filter.id
-							? 'border-[#2563eb] bg-blue-50 text-[#2563eb] dark:border-blue-400 dark:bg-blue-950/50 dark:text-blue-300'
-							: 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600'}"
+			<div class="relative min-w-0 flex-1" bind:this={filterMenuEl}>
+				<button
+					type="button"
+					onclick={() => (filterMenuOpen = !filterMenuOpen)}
+					aria-haspopup="listbox"
+					aria-expanded={filterMenuOpen}
+					class="inline-flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+				>
+					<span class="truncate">{activeFilterLabel}</span>
+					<ChevronDown
+						class="h-4 w-4 shrink-0 text-slate-400 transition-transform dark:text-slate-500 {filterMenuOpen
+							? 'rotate-180'
+							: ''}"
+					/>
+				</button>
+				{#if filterMenuOpen}
+					<div
+						role="listbox"
+						aria-label="Filter sessions"
+						class="absolute left-0 right-0 top-[calc(100%+4px)] z-30 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
 					>
-						{#if filter.icon === 'mail'}
-							<Mail class="h-3 w-3 shrink-0" aria-hidden="true" />
-						{/if}
-						{filter.label}
-					</button>
-				{/each}
+						{#each FILTER_OPTIONS as filter (filter.id)}
+							<button
+								type="button"
+								role="option"
+								aria-selected={activeFilter === filter.id}
+								onclick={() => selectFilter(filter.id)}
+								class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[13px] transition-colors {activeFilter ===
+								filter.id
+									? 'bg-blue-50 font-medium text-[#2563eb] dark:bg-blue-950/50 dark:text-blue-300'
+									: 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}"
+							>
+								<span class="flex min-w-0 items-center gap-2">
+									{#if filter.icon === 'mail'}
+										<Mail class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+									{/if}
+									<span class="truncate">{filter.label}</span>
+								</span>
+								{#if activeFilter === filter.id}
+									<Check class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
 			{#if availableSessions.length > 0 && !selectionMode}
 				<button
@@ -750,6 +878,20 @@
 						</button>
 					</div>
 					<div class="flex shrink-0 items-center gap-1.5">
+						<button
+							type="button"
+							onclick={archiveSelected}
+							disabled={selectedIds.size === 0}
+							class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+						>
+							{#if activeFilter === 'archived'}
+								<ArchiveRestore class="h-3.5 w-3.5" />
+								Unarchive
+							{:else}
+								<Archive class="h-3.5 w-3.5" />
+								Archive
+							{/if}
+						</button>
 						<button
 							type="button"
 							onclick={confirmDeleteSelected}
@@ -873,7 +1015,7 @@
 										>
 									{/if}
 									<span
-										class="mt-1.5 inline-flex min-w-0 flex-wrap items-center text-[12px] text-slate-500 dark:text-slate-400"
+										class="mt-1.5 inline-flex min-w-0 flex-wrap items-center pr-14 text-[12px] text-slate-500 dark:text-slate-400"
 									>
 										{#each sessionMetadataParts(session, emailDraft) as part, index (index)}
 											{#if index > 0}
@@ -936,6 +1078,19 @@
 											<Mail class="h-3.5 w-3.5" />
 										{:else}
 											<MailOpen class="h-3.5 w-3.5" />
+										{/if}
+									</button>
+									<button
+										type="button"
+										class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+										title={session.is_archived ? 'Unarchive session' : 'Archive session'}
+										aria-label={session.is_archived ? 'Unarchive session' : 'Archive session'}
+										onclick={(event) => archiveSessionRow(session.id, !session.is_archived, event)}
+									>
+										{#if session.is_archived}
+											<ArchiveRestore class="h-3.5 w-3.5" />
+										{:else}
+											<Archive class="h-3.5 w-3.5" />
 										{/if}
 									</button>
 									<button

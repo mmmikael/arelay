@@ -10,6 +10,7 @@ export type SessionView = {
 	created_at: Date;
 	updated_at: Date;
 	is_read: boolean;
+	is_archived: boolean;
 	artifact_count?: number;
 };
 
@@ -23,7 +24,8 @@ export function toSessionView(session: InboxSession): SessionView {
 		read_at: session.read_at,
 		created_at: session.created_at,
 		updated_at: session.updated_at,
-		is_read: session.is_read
+		is_read: session.is_read,
+		is_archived: session.is_archived
 	};
 	if (session.artifact_count !== undefined) {
 		view.artifact_count = session.artifact_count;

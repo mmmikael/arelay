@@ -17,6 +17,7 @@ export type InboxVersionInput = {
 	storageUsedBytes: number;
 	emailDraftCount: number;
 	latestEmailDraftUpdatedAt: string | Date | null;
+	archivedCount: number;
 };
 
 export function computeInboxVersionToken(input: InboxVersionInput): string {
@@ -26,13 +27,18 @@ export function computeInboxVersionToken(input: InboxVersionInput): string {
 		timestampPart(input.latestSessionUpdatedAt),
 		input.storageUsedBytes,
 		input.emailDraftCount,
-		timestampPart(input.latestEmailDraftUpdatedAt)
+		timestampPart(input.latestEmailDraftUpdatedAt),
+		// Archive/unarchive does not change any of the counts above (we do not
+		// bump updated_at), so the archived count is what lets the poll detect
+		// it across tabs and devices.
+		input.archivedCount
 	].join(':');
 }
 
 export type InboxSessionStats = {
 	sessionCount: number;
 	readCount: number;
+	archivedCount: number;
 	latestUpdatedAt: Date | null;
 };
 
@@ -53,6 +59,7 @@ export function inboxVersionFromStats(
 		latestSessionUpdatedAt: sessionStats.latestUpdatedAt,
 		storageUsedBytes,
 		emailDraftCount: draftStats.draftCount,
-		latestEmailDraftUpdatedAt: draftStats.latestUpdatedAt
+		latestEmailDraftUpdatedAt: draftStats.latestUpdatedAt,
+		archivedCount: sessionStats.archivedCount
 	});
 }
