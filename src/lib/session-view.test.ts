@@ -12,9 +12,11 @@ function makeSession(): InboxSession {
 		encrypted_title: envelope,
 		encrypted_summary: null,
 		read_at: null,
+		archived_at: null,
 		created_at: new Date('2026-06-06T12:00:00Z'),
 		updated_at: new Date('2026-06-06T12:00:00Z'),
 		is_read: false,
+		is_archived: false,
 		artifact_count: 2
 	};
 }
@@ -32,9 +34,12 @@ describe('toSessionView', () => {
 			created_at: new Date('2026-06-06T12:00:00Z'),
 			updated_at: new Date('2026-06-06T12:00:00Z'),
 			is_read: false,
+			is_archived: false,
 			artifact_count: 2
 		});
 		expect('title' in view).toBe(false);
 		expect('summary' in view).toBe(false);
+		// The view exposes the derived is_archived flag, not the raw timestamp.
+		expect('archived_at' in view).toBe(false);
 	});
 });

@@ -63,9 +63,11 @@ export async function getEmailDraftByIdempotencyKey(
 				encrypted_title: JsonObject | null;
 				encrypted_summary: JsonObject | null;
 				read_at: Date | null;
+				archived_at: Date | null;
 				session_created_at: Date;
 				session_updated_at: Date;
 				is_read: boolean;
+				is_archived: boolean;
 			}
 		>
 	>`
@@ -77,9 +79,11 @@ export async function getEmailDraftByIdempotencyKey(
 			s.encrypted_title,
 			s.encrypted_summary,
 			s.read_at,
+			s.archived_at,
 			s.created_at AS session_created_at,
 			s.updated_at AS session_updated_at,
-			(s.read_at IS NOT NULL) AS is_read
+			(s.read_at IS NOT NULL) AS is_read,
+			(s.archived_at IS NOT NULL) AS is_archived
 		FROM email_drafts d
 		INNER JOIN inbox_sessions s ON s.id = d.session_id
 		WHERE d.owner_user_id = ${ownerUserId}
@@ -98,9 +102,11 @@ export async function getEmailDraftByIdempotencyKey(
 		encrypted_title: row.encrypted_title,
 		encrypted_summary: row.encrypted_summary,
 		read_at: row.read_at,
+		archived_at: row.archived_at,
 		created_at: row.session_created_at,
 		updated_at: row.session_updated_at,
-		is_read: row.is_read
+		is_read: row.is_read,
+		is_archived: row.is_archived
 	};
 
 	return { session, draft };
@@ -141,9 +147,11 @@ async function createEncryptedEmailDraft(input: {
 				encrypted_title,
 				encrypted_summary,
 				read_at,
+				archived_at,
 				created_at,
 				updated_at,
-				(read_at IS NOT NULL) AS is_read
+				(read_at IS NOT NULL) AS is_read,
+				(archived_at IS NOT NULL) AS is_archived
 		`;
 
 		const draftRows = await tx<EmailDraftRecord[]>`
