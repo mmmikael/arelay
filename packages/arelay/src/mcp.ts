@@ -35,6 +35,48 @@ async function resolveFile(input: z.infer<typeof fileInput>): Promise<DeliverFil
 	throw new Error('Each file needs either a path, or a filename plus inline content.');
 }
 
+const inlineImageInput = z
+	.object({
+		cid: z
+			.string()
+			.describe('Identifier referenced in html as <img src="cid:CID">; replaced with the image.'),
+		path: z.string().describe('Path to an image file on disk to inline (png, jpg, gif, or webp).')
+	})
+	.describe('An on-disk image to inline into the html body.');
+
+const INLINE_IMAGE_MIME: Record<string, string> = {
+	png: 'image/png',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	gif: 'image/gif',
+	webp: 'image/webp'
+};
+
+/**
+ * Inline on-disk images into the html by replacing each `cid:<cid>` reference with
+ * a base64 data URI read from disk. The Email Review Relay send pipeline converts
+ * those data URIs back into proper CID inline attachments (see
+ * extractInlineDataImages), so the caller passes a file path instead of embedding
+ * hundreds of kilobytes of base64 in the tool call.
+ */
+export async function applyInlineImages(
+	html: string,
+	images: Array<z.infer<typeof inlineImageInput>> | undefined
+): Promise<string> {
+	if (!images?.length) return html;
+	let result = html;
+	for (const image of images) {
+		const extension = image.path.split('.').pop()?.toLowerCase() ?? '';
+		const mime = INLINE_IMAGE_MIME[extension];
+		if (!mime) {
+			throw new Error(`Unsupported inline image type ".${extension}" for cid "${image.cid}".`);
+		}
+		const base64 = Buffer.from(await readFile(image.path)).toString('base64');
+		result = result.split(`cid:${image.cid}`).join(`data:${mime};base64,${base64}`);
+	}
+	return result;
+}
+
 function textResult(value: unknown) {
 	return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] };
 }
@@ -132,17 +174,26 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 				idempotency_key: z
 					.string()
 					.optional()
-					.describe('Stable key so retries return the existing draft instead of creating duplicates.')
+					.describe('Stable key so retries return the existing draft instead of creating duplicates.'),
+				inline_images: z
+					.array(inlineImageInput)
+					.optional()
+					.describe(
+						'On-disk images to inline into the html body. Each replaces a <img src="cid:CID"> ' +
+							'reference with its base64 data URI (delivered as a CID inline attachment), so you ' +
+							'pass a file path instead of embedding base64 in this call.'
+					)
 			}
 		},
 		async (args) => {
 			try {
+				const html = await applyInlineImages(args.html, args.inline_images);
 				const result = await getClient().createEmailDraft({
 					to: args.to,
 					fromEmail: args.from_email,
 					fromName: args.from_name,
 					subject: args.subject,
-					html: args.html,
+					html,
 					text: args.text,
 					sessionSummary: `To: ${args.to}`,
 					idempotencyKey: args.idempotency_key
