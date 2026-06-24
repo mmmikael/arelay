@@ -42,6 +42,8 @@ export type DeliverResult = {
 
 export type EmailDraftInput = {
 	to: string;
+	cc?: string;
+	bcc?: string;
 	fromEmail: string;
 	fromName?: string;
 	subject: string;
@@ -287,8 +289,10 @@ export class ArelayClient {
 		draft: { id: string; status: string };
 	}> {
 		const publicKey = await this.#publicKey();
-		const [to, fromEmail, fromName, subject, html, text, sessionSummary] = await Promise.all([
+		const [to, cc, bcc, fromEmail, fromName, subject, html, text, sessionSummary] = await Promise.all([
 			encryptString(input.to, publicKey),
+			input.cc ? encryptString(input.cc, publicKey) : Promise.resolve(null),
+			input.bcc ? encryptString(input.bcc, publicKey) : Promise.resolve(null),
 			encryptString(input.fromEmail, publicKey),
 			input.fromName ? encryptString(input.fromName, publicKey) : Promise.resolve(null),
 			encryptString(input.subject, publicKey),
@@ -306,6 +310,8 @@ export class ArelayClient {
 			encrypted_subject: subject,
 			encrypted_html: html
 		};
+		if (cc) body.encrypted_cc = cc;
+		if (bcc) body.encrypted_bcc = bcc;
 		if (fromName) body.encrypted_from_name = fromName;
 		if (text) body.encrypted_text = text;
 		if (sessionSummary) body.encrypted_session_summary = sessionSummary;

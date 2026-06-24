@@ -201,6 +201,40 @@ describe('ArelayClient', () => {
 		expect(draftBody.idempotency_key).toBe('weekly-1');
 		expect(draftBody).not.toHaveProperty('encrypted_from_name');
 		expect(draftBody).not.toHaveProperty('encrypted_text');
+		expect(draftBody).not.toHaveProperty('encrypted_cc');
+		expect(draftBody).not.toHaveProperty('encrypted_bcc');
+	});
+
+	it('encrypts cc and bcc when provided', async () => {
+		const jwk = await publicKeyJwk();
+		const recorded: RecordedRequest[] = [];
+		const client = new ArelayClient({
+			token: 'ar_test',
+			baseUrl: 'https://relay.example',
+			fetch: mockFetch(
+				{
+					'GET /api/agent/e2ee/config': () => ({ body: { configured: true, publicKeyJwk: jwk } }),
+					'POST /api/agent/email-drafts': () => ({
+						status: 201,
+						body: { session: SESSION, draft: { id: 'draft-1', status: 'pending_review' } }
+					})
+				},
+				recorded
+			)
+		});
+
+		await client.createEmailDraft({
+			to: 'human@example.com',
+			bcc: 'me@example.com',
+			fromEmail: 'agent@example.com',
+			subject: 'Weekly summary',
+			html: '<p>Done.</p>'
+		});
+
+		const draftBody = recorded.find((req) => req.url.endsWith('/email-drafts'))
+			?.body as Record<string, unknown>;
+		expect(draftBody.encrypted_bcc).toMatchObject({ v: 1 });
+		expect(draftBody).not.toHaveProperty('encrypted_cc');
 	});
 });
 

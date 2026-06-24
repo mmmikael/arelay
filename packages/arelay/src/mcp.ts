@@ -166,6 +166,8 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 				'(requires the Email Review Relay plugin, enabled on arelay.app). Nothing is sent until the human approves.',
 			inputSchema: {
 				to: z.string().describe('Recipient email address.'),
+				cc: z.string().optional().describe('CC email address.'),
+				bcc: z.string().optional().describe('BCC email address (e.g. to keep a copy for the sender).'),
 				from_email: z.string().describe('Sender email address (must be one the account can send from).'),
 				from_name: z.string().optional().describe('Sender display name.'),
 				subject: z.string().describe('Email subject.'),
@@ -190,6 +192,8 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 				const html = await applyInlineImages(args.html, args.inline_images);
 				const result = await getClient().createEmailDraft({
 					to: args.to,
+					cc: args.cc,
+					bcc: args.bcc,
 					fromEmail: args.from_email,
 					fromName: args.from_name,
 					subject: args.subject,
