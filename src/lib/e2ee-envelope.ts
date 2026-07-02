@@ -6,7 +6,11 @@ function isJsonObject(value: unknown): value is JsonObject {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isEncryptedEnvelopeCore(record: Record<string, unknown>, requireCiphertext: boolean): boolean {
+function isEncryptedEnvelopeCore(
+	record: Record<string, unknown>,
+	requireCiphertext: boolean,
+	maxCiphertextLength: number
+): boolean {
 	if (
 		record.v !== 1 ||
 		record.alg !== 'P-256-ECDH-A256GCM' ||
@@ -24,17 +28,20 @@ function isEncryptedEnvelopeCore(record: Record<string, unknown>, requireCiphert
 	return (
 		typeof record.ciphertext === 'string' &&
 		record.ciphertext.length > 0 &&
-		record.ciphertext.length <= MAX_ENCRYPTED_FIELD_LENGTH
+		record.ciphertext.length <= maxCiphertextLength
 	);
 }
 
-export function isEncryptedEnvelope(value: unknown): value is JsonObject {
+export function isEncryptedEnvelope(
+	value: unknown,
+	maxCiphertextLength: number = MAX_ENCRYPTED_FIELD_LENGTH
+): value is JsonObject {
 	if (!isJsonObject(value)) return false;
-	return isEncryptedEnvelopeCore(value as Record<string, unknown>, true);
+	return isEncryptedEnvelopeCore(value as Record<string, unknown>, true, maxCiphertextLength);
 }
 
 /** File envelope metadata without inline ciphertext (bytes sent separately as ciphertext_base64). */
 export function isEncryptedArtifactPayload(value: unknown): value is JsonObject {
 	if (!isJsonObject(value)) return false;
-	return isEncryptedEnvelopeCore(value as Record<string, unknown>, false);
+	return isEncryptedEnvelopeCore(value as Record<string, unknown>, false, MAX_ENCRYPTED_FIELD_LENGTH);
 }

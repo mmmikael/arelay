@@ -80,6 +80,44 @@ describe('parseEmailDraftBody', () => {
 		});
 		expect(result.ok).toBe(false);
 	});
+
+	it('accepts an encrypted_html ciphertext above the default field cap (inline images)', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: envelope,
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: { ...envelope, ciphertext: 'c'.repeat(1024 * 1024) }
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it('rejects an oversized encrypted_html with a payload-too-large error', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: envelope,
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: { ...envelope, ciphertext: 'c'.repeat(20 * 1024 * 1024 + 1) }
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toContain('encrypted_html payload too large');
+		expect(result.error).toContain('inline image');
+	});
+
+	it('rejects an oversized small field with a payload-too-large error, not "envelope required"', () => {
+		const result = parseEmailDraftBody({
+			encrypted: true,
+			encrypted_to: { ...envelope, ciphertext: 'c'.repeat(512 * 1024 + 1) },
+			encrypted_from_email: envelope,
+			encrypted_subject: envelope,
+			encrypted_html: envelope
+		});
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toContain('encrypted_to payload too large');
+	});
 });
 
 describe('parseEmailDraftSendFields', () => {
@@ -174,5 +212,10 @@ describe('parseEmailDraftReviewBody', () => {
 
 	it('requires encrypted true', () => {
 		expect(parseEmailDraftReviewBody({ encrypted_review: envelope }).ok).toBe(false);
+	});
+
+	it('accepts review bundles above the default field cap (html with inline images)', () => {
+		const large = { ...envelope, ciphertext: 'c'.repeat(1024 * 1024) };
+		expect(parseEmailDraftReviewBody({ encrypted: true, encrypted_review: large }).ok).toBe(true);
 	});
 });

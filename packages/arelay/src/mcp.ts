@@ -52,6 +52,15 @@ const INLINE_IMAGE_MIME: Record<string, string> = {
 	webp: 'image/webp'
 };
 
+// Mirrors the relay's inline-attachment limits (email-review-relay validate.ts) so
+// oversized images fail here with an actionable message instead of a server 400.
+const MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_INLINE_IMAGES_TOTAL_BYTES = 10 * 1024 * 1024;
+
+function formatMb(bytes: number): string {
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /**
  * Inline on-disk images into the html by replacing each `cid:<cid>` reference with
  * a base64 data URI read from disk. The Email Review Relay send pipeline converts
@@ -65,13 +74,28 @@ export async function applyInlineImages(
 ): Promise<string> {
 	if (!images?.length) return html;
 	let result = html;
+	let totalBytes = 0;
 	for (const image of images) {
 		const extension = image.path.split('.').pop()?.toLowerCase() ?? '';
 		const mime = INLINE_IMAGE_MIME[extension];
 		if (!mime) {
 			throw new Error(`Unsupported inline image type ".${extension}" for cid "${image.cid}".`);
 		}
-		const base64 = Buffer.from(await readFile(image.path)).toString('base64');
+		const bytes = await readFile(image.path);
+		if (bytes.length > MAX_INLINE_IMAGE_BYTES) {
+			throw new Error(
+				`Inline image "${image.path}" is ${formatMb(bytes.length)}; the relay accepts at most ` +
+					`${formatMb(MAX_INLINE_IMAGE_BYTES)} per image. Compress or resize it and retry.`
+			);
+		}
+		totalBytes += bytes.length;
+		if (totalBytes > MAX_INLINE_IMAGES_TOTAL_BYTES) {
+			throw new Error(
+				`Inline images total more than ${formatMb(MAX_INLINE_IMAGES_TOTAL_BYTES)} combined ` +
+					`(${formatMb(totalBytes)} so far at "${image.path}"). Reduce image size or count and retry.`
+			);
+		}
+		const base64 = Buffer.from(bytes).toString('base64');
 		result = result.split(`cid:${image.cid}`).join(`data:${mime};base64,${base64}`);
 	}
 	return result;

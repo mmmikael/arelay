@@ -55,4 +55,21 @@ describe('applyInlineImages', () => {
 			applyInlineImages('<img src="cid:x">', [{ cid: 'x', path: badPath }])
 		).rejects.toThrow(/Unsupported inline image type/);
 	});
+
+	it('throws when a single image exceeds the 5 MB relay limit', async () => {
+		const bigPath = join(dir, 'big.png');
+		writeFileSync(bigPath, Buffer.alloc(5 * 1024 * 1024 + 1));
+		await expect(
+			applyInlineImages('<img src="cid:big">', [{ cid: 'big', path: bigPath }])
+		).rejects.toThrow(/at most 5\.0 MB per image/);
+	});
+
+	it('throws when images exceed the 10 MB combined relay limit', async () => {
+		const halfPath = join(dir, 'half.png');
+		writeFileSync(halfPath, Buffer.alloc(4 * 1024 * 1024));
+		const images = ['a', 'b', 'c'].map((cid) => ({ cid, path: halfPath }));
+		await expect(
+			applyInlineImages('<img src="cid:a"><img src="cid:b"><img src="cid:c">', images)
+		).rejects.toThrow(/10\.0 MB combined/);
+	});
 });

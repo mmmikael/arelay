@@ -1,4 +1,4 @@
-import { isEncryptedEnvelope } from '$lib/e2ee-envelope';
+import { isEncryptedEnvelope, MAX_ENCRYPTED_FIELD_LENGTH } from '$lib/e2ee-envelope';
 import { normalizeEmail } from '$lib/server/email-verification';
 import type { JsonObject } from '$lib/server/db';
 import type { EmailDraftApproveFields, EmailDraftSendFields, EncryptedEmailDraftPayload } from './types';
@@ -11,6 +11,11 @@ const MAX_RECIPIENTS = 50;
 const MAX_INLINE_ATTACHMENTS = 20;
 const MAX_INLINE_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_INLINE_ATTACHMENTS_TOTAL_BYTES = 10 * 1024 * 1024;
+// Inline images travel inside the html as base64 data URIs until approve time, so the
+// encrypted html (and the review/sent bundles that carry the same html) can legitimately
+// reach ~18 MB of base64url ciphertext: 10 MB of decoded images × 4/3 (data URI) × 4/3
+// (ciphertext encoding), plus the 256 KB html budget. Other fields keep the default cap.
+const MAX_ENCRYPTED_BODY_LENGTH = 20 * 1024 * 1024;
 const ALLOWED_INLINE_IMAGE_TYPES = new Set([
 	'image/png',
 	'image/jpeg',
@@ -43,12 +48,23 @@ function parseIdempotencyKey(record: Record<string, unknown>):
 	};
 }
 
+function envelopeTooLargeError(field: string, maxLength: number): string {
+	return (
+		`${field} payload too large: the encrypted ciphertext exceeds ` +
+		`${Math.floor(maxLength / (1024 * 1024))} MB. Reduce inline image size or count.`
+	);
+}
+
 function requireEncryptedField(
 	record: Record<string, unknown>,
-	field: string
+	field: string,
+	maxLength: number = MAX_ENCRYPTED_FIELD_LENGTH
 ): { ok: true; value: JsonObject } | { ok: false; error: string } {
 	const value = record[field];
-	if (!isEncryptedEnvelope(value)) {
+	if (!isEncryptedEnvelope(value, maxLength)) {
+		if (isEncryptedEnvelope(value, Number.POSITIVE_INFINITY)) {
+			return { ok: false, error: envelopeTooLargeError(field, maxLength) };
+		}
 		return { ok: false, error: `${field} envelope required` };
 	}
 	return { ok: true, value };
@@ -56,13 +72,17 @@ function requireEncryptedField(
 
 function optionalEncryptedField(
 	record: Record<string, unknown>,
-	field: string
+	field: string,
+	maxLength: number = MAX_ENCRYPTED_FIELD_LENGTH
 ): { ok: true; value?: JsonObject } | { ok: false; error: string } {
 	const value = record[field];
 	if (value === undefined) {
 		return { ok: true };
 	}
-	if (!isEncryptedEnvelope(value)) {
+	if (!isEncryptedEnvelope(value, maxLength)) {
+		if (isEncryptedEnvelope(value, Number.POSITIVE_INFINITY)) {
+			return { ok: false, error: envelopeTooLargeError(field, maxLength) };
+		}
 		return { ok: false, error: `${field} must be a valid envelope when provided` };
 	}
 	return { ok: true, value };
@@ -246,7 +266,7 @@ export function parseEncryptedEmailDraftPayload(body: unknown):
 	if (!encryptedFromEmail.ok) return encryptedFromEmail;
 	const encryptedSubject = requireEncryptedField(record, 'encrypted_subject');
 	if (!encryptedSubject.ok) return encryptedSubject;
-	const encryptedHtml = requireEncryptedField(record, 'encrypted_html');
+	const encryptedHtml = requireEncryptedField(record, 'encrypted_html', MAX_ENCRYPTED_BODY_LENGTH);
 	if (!encryptedHtml.ok) return encryptedHtml;
 
 	const encryptedCc = optionalEncryptedField(record, 'encrypted_cc');
@@ -304,7 +324,7 @@ export function parseEmailDraftApproveFields(body: unknown):
 	const parsed = parsePlaintextEmailFields(record);
 	if (!parsed.ok) return parsed;
 
-	const encryptedSent = optionalEncryptedField(record, 'encrypted_sent');
+	const encryptedSent = optionalEncryptedField(record, 'encrypted_sent', MAX_ENCRYPTED_BODY_LENGTH);
 	if (!encryptedSent.ok) return encryptedSent;
 
 	return {
@@ -332,7 +352,7 @@ export function parseEmailDraftReviewBody(body: unknown):
 		return { ok: true, value: { encrypted_review: null } };
 	}
 
-	const encryptedReview = requireEncryptedField(record, 'encrypted_review');
+	const encryptedReview = requireEncryptedField(record, 'encrypted_review', MAX_ENCRYPTED_BODY_LENGTH);
 	if (!encryptedReview.ok) return encryptedReview;
 
 	return {
