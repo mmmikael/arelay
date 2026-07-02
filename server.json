@@ -6,12 +6,12 @@
 		"url": "https://github.com/mmmikael/arelay",
 		"source": "github"
 	},
-	"version": "0.1.1",
+	"version": "0.1.5",
 	"packages": [
 		{
 			"registryType": "npm",
 			"identifier": "@arelay/cli",
-			"version": "0.1.1",
+			"version": "0.1.5",
 			"transport": {
 				"type": "stdio"
 			},
