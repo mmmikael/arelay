@@ -55,6 +55,21 @@ export type EmailDraftInput = {
 	idempotencyKey?: string;
 };
 
+export type SpendRequestInput = {
+	/** Who is being paid / what is being purchased. */
+	payee: string;
+	/** Amount in the smallest currency unit (e.g. cents). $49.00 = 4900. */
+	amountMinor: number;
+	/** Three-letter ISO currency code, e.g. "usd". */
+	currency: string;
+	/** Why the spend is needed — shown to the human reviewer. */
+	description: string;
+	/** Plaintext summary shown in the inbox sidebar (encrypted before upload). */
+	sessionSummary?: string;
+	/** Resubmitting with the same key returns the existing request instead of duplicating. */
+	idempotencyKey?: string;
+};
+
 export class ArelayApiError extends Error {
 	readonly status: number;
 	readonly body: unknown;
@@ -326,6 +341,45 @@ export class ArelayClient {
 			sessionId: result.session.id,
 			portalUrl: this.portalUrl(result.session.id),
 			draft: result.draft
+		};
+	}
+
+	/** Submit a spend request for human approval (Spend Review Relay plugin). */
+	async createSpendRequest(input: SpendRequestInput): Promise<{
+		sessionId: string;
+		portalUrl: string;
+		request: { id: string; status: string };
+	}> {
+		const publicKey = await this.#publicKey();
+		const [payee, amount, currency, description, sessionSummary] = await Promise.all([
+			encryptString(input.payee, publicKey),
+			encryptString(String(input.amountMinor), publicKey),
+			encryptString(input.currency, publicKey),
+			encryptString(input.description, publicKey),
+			input.sessionSummary
+				? encryptString(input.sessionSummary, publicKey)
+				: Promise.resolve(null)
+		]);
+
+		const body: Record<string, unknown> = {
+			encrypted: true,
+			encrypted_payee: payee,
+			encrypted_amount: amount,
+			encrypted_currency: currency,
+			encrypted_description: description
+		};
+		if (sessionSummary) body.encrypted_session_summary = sessionSummary;
+		if (input.idempotencyKey) body.idempotency_key = input.idempotencyKey;
+
+		const result = await this.#request<{
+			session: SessionView;
+			request: { id: string; status: string };
+		}>('/api/agent/spend-requests', { method: 'POST', body: JSON.stringify(body) });
+
+		return {
+			sessionId: result.session.id,
+			portalUrl: this.portalUrl(result.session.id),
+			request: result.request
 		};
 	}
 }

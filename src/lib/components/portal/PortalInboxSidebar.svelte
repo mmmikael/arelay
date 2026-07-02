@@ -3,6 +3,7 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import { emailDraftStatusClass, emailDraftStatusLabel } from '$lib/email-draft-status';
+	import { spendRequestStatusClass, spendRequestStatusLabel } from '$lib/spend-request-status';
 	import { ENSURE_E2EE_UNLOCK_KEY, type EnsureE2eeUnlock } from '$lib/portal-context';
 	import { resolveSidebarSessionIcon } from '$lib/portal/sidebar-icon';
 	import { countActiveSessions, filterSidebarSessions } from '$lib/portal/sidebar-filter';
@@ -25,6 +26,7 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
@@ -62,6 +64,11 @@
 		updated_at?: string | Date;
 	};
 
+	type SpendRequestSummary = {
+		status: string;
+		updated_at?: string | Date;
+	};
+
 	type SessionPointer = {
 		id: string;
 		x: number;
@@ -85,6 +92,7 @@
 	let {
 		sessions,
 		emailDraftSummaries,
+		spendRequestSummaries = {},
 		decryptedSessions,
 		activeSessionId,
 		navigatingToSessionId,
@@ -94,6 +102,7 @@
 	}: {
 		sessions: SessionRow[];
 		emailDraftSummaries: Record<string, EmailDraftSummary | undefined>;
+		spendRequestSummaries?: Record<string, SpendRequestSummary | undefined>;
 		decryptedSessions: Record<string, SidebarDecryptedMeta>;
 		activeSessionId: string | null;
 		navigatingToSessionId: string | null;
@@ -235,9 +244,11 @@
 
 	function sessionIconKind(
 		session: SessionRow,
-		emailDraft: EmailDraftSummary | undefined
+		emailDraft: EmailDraftSummary | undefined,
+		spendRequest: SpendRequestSummary | undefined
 	): SidebarSessionIcon {
 		if (emailDraft) return 'email';
+		if (spendRequest) return 'payment';
 		const meta = sessionMeta(session);
 		return resolveSidebarSessionIcon(meta.icon, meta.title);
 	}
@@ -262,6 +273,8 @@
 				return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400';
 			case 'email':
 				return 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400';
+			case 'payment':
+				return 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300';
 			default:
 				return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
 		}
@@ -287,11 +300,13 @@
 
 	type MetadataPart =
 		| { kind: 'text'; text: string; unread?: boolean }
-		| { kind: 'email-draft'; status: string };
+		| { kind: 'email-draft'; status: string }
+		| { kind: 'spend-request'; status: string };
 
 	function sessionMetadataParts(
 		session: SessionRow,
-		emailDraft: EmailDraftSummary | undefined
+		emailDraft: EmailDraftSummary | undefined,
+		spendRequest: SpendRequestSummary | undefined
 	): MetadataPart[] {
 		const parts: MetadataPart[] = [
 			{ kind: 'text', text: formatRelativeSessionDate(session.updated_at) }
@@ -302,6 +317,9 @@
 		}
 		if (emailDraft) {
 			parts.push({ kind: 'email-draft', status: emailDraft.status });
+		}
+		if (spendRequest) {
+			parts.push({ kind: 'spend-request', status: spendRequest.status });
 		}
 		if (!session.is_read) {
 			parts.push({ kind: 'text', text: 'Unread', unread: true });
@@ -934,9 +952,10 @@
 					{@const meta = sessionMeta(session)}
 					{@const title = meta.title}
 					{@const emailDraft = emailDraftSummaries[session.id]}
+					{@const spendRequest = spendRequestSummaries[session.id]}
 					{@const summary = displaySessionCardSummary(session, emailDraft)}
-					{@const agentName = emailDraft ? null : meta.agentName}
-					{@const iconKind = sessionIconKind(session, emailDraft)}
+					{@const agentName = emailDraft || spendRequest ? null : meta.agentName}
+					{@const iconKind = sessionIconKind(session, emailDraft, spendRequest)}
 					{@const isSelected = selectedIds.has(session.id)}
 					<li data-session-id={session.id}>
 						<div
@@ -990,6 +1009,8 @@
 											<BarChart3 class="h-4 w-4" />
 										{:else if iconKind === 'email'}
 											<Mail class="h-4 w-4" />
+										{:else if iconKind === 'payment'}
+											<CreditCard class="h-4 w-4" />
 										{:else}
 											<Inbox class="h-4 w-4" />
 										{/if}
@@ -1017,7 +1038,7 @@
 									<span
 										class="mt-1.5 inline-flex min-w-0 flex-wrap items-center pr-14 text-[12px] text-slate-500 dark:text-slate-400"
 									>
-										{#each sessionMetadataParts(session, emailDraft) as part, index (index)}
+										{#each sessionMetadataParts(session, emailDraft, spendRequest) as part, index (index)}
 											{#if index > 0}
 												<span
 													class="shrink-0 px-1 text-[10px] leading-none text-slate-300 dark:text-slate-600"
@@ -1033,6 +1054,17 @@
 													>
 													<span class={emailDraftStatusClass(part.status)}
 														>{emailDraftStatusLabel(part.status)}</span
+													>
+												</span>
+											{:else if part.kind === 'spend-request'}
+												<span class="inline-flex shrink-0 items-center">
+													<span>Payment</span>
+													<span
+														class="px-1 text-[10px] leading-none text-slate-300 dark:text-slate-600"
+														aria-hidden="true">·</span
+													>
+													<span class={spendRequestStatusClass(part.status)}
+														>{spendRequestStatusLabel(part.status)}</span
 													>
 												</span>
 											{:else}

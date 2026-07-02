@@ -5,7 +5,11 @@ if (!process.env.DATABASE_URL) {
 }
 
 export default defineConfig({
-	schema: ['./src/lib/server/db-schema.ts', './src/plugins/email-review-relay/schema.ts'],
+	schema: [
+		'./src/lib/server/db-schema.ts',
+		'./src/plugins/email-review-relay/schema.ts',
+		'./src/plugins/spend-review-relay/schema.ts'
+	],
 	out: './drizzle',
 	dialect: 'postgresql',
 	dbCredentials: {

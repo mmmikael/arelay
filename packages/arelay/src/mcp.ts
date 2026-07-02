@@ -215,5 +215,57 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 		}
 	);
 
+	server.registerTool(
+		'submit_spend_request',
+		{
+			title: 'Submit a spend request for human approval',
+			description:
+				'Propose a payment or purchase to the human\'s Agent Relay inbox for approval before any money moves ' +
+				'(requires the Spend Review Relay plugin). Nothing is charged until the human approves; on approval a ' +
+				'Stripe PaymentIntent is created in the account\'s Stripe (test) mode. Use this whenever an autonomous ' +
+				'action would spend money.',
+			inputSchema: {
+				payee: z
+					.string()
+					.describe('Who is being paid or what is being purchased, e.g. "OpenAI API credits".'),
+				amount_minor: z
+					.number()
+					.int()
+					.positive()
+					.describe('Amount in the smallest currency unit (cents for USD). $49.00 = 4900.'),
+				currency: z.string().describe('Three-letter ISO currency code, e.g. "usd".'),
+				description: z
+					.string()
+					.describe('Why this spend is needed — shown to the human reviewer.'),
+				idempotency_key: z
+					.string()
+					.optional()
+					.describe('Stable key so retries return the existing request instead of duplicating.')
+			}
+		},
+		async (args) => {
+			try {
+				const formatted = `${args.currency.toUpperCase()} ${(args.amount_minor / 100).toFixed(2)}`;
+				const result = await getClient().createSpendRequest({
+					payee: args.payee,
+					amountMinor: args.amount_minor,
+					currency: args.currency,
+					description: args.description,
+					sessionSummary: `${args.payee} — ${formatted}`,
+					idempotencyKey: args.idempotency_key
+				});
+				return textResult({
+					session_id: result.sessionId,
+					portal_url: result.portalUrl,
+					request_id: result.request.id,
+					status: result.request.status,
+					note: 'NOT charged yet — the human must approve it in the portal before any money moves.'
+				});
+			} catch (err) {
+				return errorResult(err);
+			}
+		}
+	);
+
 	await server.connect(new StdioServerTransport());
 }

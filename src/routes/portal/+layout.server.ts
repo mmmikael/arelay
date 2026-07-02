@@ -1,5 +1,12 @@
 import type { LayoutServerLoad } from './$types';
-import { isEmailReviewRelayEnabled } from '$lib/plugins';
+import { isEmailReviewRelayEnabled, isSpendReviewRelayEnabled } from '$lib/plugins';
+import {
+	decryptStripeSecretKey,
+	getUserStripeCredentials,
+	isStripeTestKey,
+	isUserStripeConfigured,
+	listSpendRequestSummariesForUser
+} from '$plugins/spend-review-relay/server';
 import {
 	getAccountStorageUsedBytes,
 	getE2eeConfig,
@@ -35,8 +42,12 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 	if (isEmailReviewRelayEnabled()) {
 		depends('account:cloudflare-email');
 	}
+	if (isSpendReviewRelayEnabled()) {
+		depends('account:stripe-credentials');
+	}
 	const userId = locals.user!.id;
 	const emailReviewRelayEnabled = isEmailReviewRelayEnabled();
+	const spendReviewRelayEnabled = isSpendReviewRelayEnabled();
 	const needsE2eeFetch = locals.e2eeConfigured === undefined;
 	const [
 		sessions,
@@ -62,6 +73,17 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 		needsE2eeFetch ? getE2eeConfig(userId) : Promise.resolve(null)
 	]);
 
+	const spendRequestSummaries = spendReviewRelayEnabled
+		? await listSpendRequestSummariesForUser(userId)
+		: {};
+	const stripeCredentials = spendReviewRelayEnabled
+		? await getUserStripeCredentials(userId)
+		: null;
+	const stripeSecretKey =
+		stripeCredentials && isUserStripeConfigured(stripeCredentials)
+			? decryptStripeSecretKey(stripeCredentials)
+			: null;
+
 	// The E2EE setup redirect lives in hooks.server.ts: reading url.pathname
 	// here would make this load depend on the URL, refetching the entire
 	// layout payload on every session switch.
@@ -72,13 +94,19 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 		// Baseline for the client poll against /api/inbox/version.
 		inboxVersion: inboxVersionFromStats(sessionStats, usedBytes, draftStats),
 		emailDraftSummaries,
+		spendRequestSummaries,
 		e2eeConfigured,
 		plugins: {
-			emailReviewRelay: emailReviewRelayEnabled
+			emailReviewRelay: emailReviewRelayEnabled,
+			spendReviewRelay: spendReviewRelayEnabled
 		},
 		cloudflareEmail: {
 			configured: isUserCloudflareEmailConfigured(cloudflareEmail),
 			accountId: cloudflareEmail ? decryptCloudflareAccountId(cloudflareEmail) : null
+		},
+		stripeCredentials: {
+			configured: Boolean(stripeSecretKey),
+			testMode: stripeSecretKey ? isStripeTestKey(stripeSecretKey) : false
 		},
 		storage: {
 			usedBytes,

@@ -29,6 +29,13 @@
       "when": 1782000000000,
       "tag": "0003_archive_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782500000000,
+      "tag": "0004_spend_review_relay",
+      "breakpoints": true
     }
   ]
 }
