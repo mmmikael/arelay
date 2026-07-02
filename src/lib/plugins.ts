@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID } from '../plugins/email-review-relay';
+import { SPEND_REVIEW_RELAY_PLUGIN_ID } from '../plugins/spend-review-relay';
 import {
 	getEnabledPluginsFromEnv,
 	isTruthyEnv,
@@ -9,7 +10,7 @@ import {
 } from './plugin-registry';
 
 export type { Plugin };
-export { EMAIL_REVIEW_RELAY_PLUGIN_ID, isTruthyEnv };
+export { EMAIL_REVIEW_RELAY_PLUGIN_ID, SPEND_REVIEW_RELAY_PLUGIN_ID, isTruthyEnv };
 
 function runtimeEnv(): Record<string, string | undefined> {
 	return env as Record<string, string | undefined>;
@@ -21,6 +22,10 @@ export function isPluginEnabled(id: string): boolean {
 
 export function isEmailReviewRelayEnabled(): boolean {
 	return isPluginEnabled(EMAIL_REVIEW_RELAY_PLUGIN_ID);
+}
+
+export function isSpendReviewRelayEnabled(): boolean {
+	return isPluginEnabled(SPEND_REVIEW_RELAY_PLUGIN_ID);
 }
 
 export function requirePlugin(id: string): void {

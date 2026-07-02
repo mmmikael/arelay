@@ -273,6 +273,7 @@
 			<PortalInboxSidebar
 				sessions={data.sessions}
 				emailDraftSummaries={data.emailDraftSummaries}
+				spendRequestSummaries={data.spendRequestSummaries}
 				{decryptedSessions}
 				{activeSessionId}
 				{navigatingToSessionId}

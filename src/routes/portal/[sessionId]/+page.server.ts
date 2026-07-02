@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { isEmailReviewRelayEnabled } from '$lib/plugins';
+import { isEmailReviewRelayEnabled, isSpendReviewRelayEnabled } from '$lib/plugins';
 import { getSession, listArtifacts } from '$lib/server/db';
 import {
 	getEmailDraftBySessionId,
@@ -8,6 +8,11 @@ import {
 	getUserCloudflareEmail,
 	isUserCloudflareEmailConfigured
 } from '$plugins/email-review-relay/server';
+import {
+	getSpendRequestBySessionId,
+	getUserStripeCredentials,
+	isUserStripeConfigured
+} from '$plugins/spend-review-relay/server';
 
 export const load: PageServerLoad = async ({ locals, params, depends }) => {
 	depends('inbox:session');
@@ -27,25 +32,44 @@ export const load: PageServerLoad = async ({ locals, params, depends }) => {
 		previewKind: 'none' as const
 	}));
 
+	const emailReviewRelayEnabled = isEmailReviewRelayEnabled();
+	const spendReviewRelayEnabled = isSpendReviewRelayEnabled();
+
 	let emailDraft = null;
 	let cloudflareEmailConfigured = false;
-	if (isEmailReviewRelayEnabled()) {
+	let spendRequest = null;
+	let stripeConfigured = false;
+
+	if (emailReviewRelayEnabled || spendReviewRelayEnabled) {
 		const deliveryType = await getSessionDeliveryType(params.sessionId, locals.user!.id);
-		if (deliveryType === 'email_draft') {
-			emailDraft = await getEmailDraftBySessionId(params.sessionId, locals.user!.id);
+
+		if (emailReviewRelayEnabled) {
+			if (deliveryType === 'email_draft') {
+				emailDraft = await getEmailDraftBySessionId(params.sessionId, locals.user!.id);
+			}
+			cloudflareEmailConfigured = isUserCloudflareEmailConfigured(
+				await getUserCloudflareEmail(locals.user!.id)
+			);
 		}
-		cloudflareEmailConfigured = isUserCloudflareEmailConfigured(
-			await getUserCloudflareEmail(locals.user!.id)
-		);
+
+		if (spendReviewRelayEnabled) {
+			if (deliveryType === 'spend_request') {
+				spendRequest = await getSpendRequestBySessionId(params.sessionId, locals.user!.id);
+			}
+			stripeConfigured = isUserStripeConfigured(await getUserStripeCredentials(locals.user!.id));
+		}
 	}
 
 	return {
 		session,
 		artifacts: mappedArtifacts,
 		plugins: {
-			emailReviewRelay: isEmailReviewRelayEnabled()
+			emailReviewRelay: emailReviewRelayEnabled,
+			spendReviewRelay: spendReviewRelayEnabled
 		},
 		emailDraft,
-		cloudflareEmailConfigured
+		cloudflareEmailConfigured,
+		spendRequest,
+		stripeConfigured
 	};
 };

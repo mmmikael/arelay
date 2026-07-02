@@ -18,6 +18,7 @@
 	} from '$lib/portal/session-detail-view-state';
 	import { buildSessionActivityLines } from '$lib/session-activity';
 	import EmailDraftReviewPanel from '$lib/components/portal/EmailDraftReviewPanel.svelte';
+	import SpendRequestReviewPanel from '$lib/components/portal/SpendRequestReviewPanel.svelte';
 	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
 	import HtmlPreviewOpenInTabButton from '$lib/components/portal/HtmlPreviewOpenInTabButton.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
@@ -609,6 +610,15 @@
 			cloudflareEmailConfigured={data.cloudflareEmailConfigured}
 			sessionId={data.session.id}
 			{darkMode}
+			e2eeConfigured={$e2eeConfig.configured}
+			onUnlock={ensureE2eeUnlocked}
+		/>
+	{:else if data.spendRequest}
+		<SpendRequestReviewPanel
+			spendRequest={data.spendRequest}
+			stripeConfigured={data.stripeConfigured}
+			stripeTestMode={data.stripeCredentials?.testMode ?? false}
+			sessionId={data.session.id}
 			e2eeConfigured={$e2eeConfig.configured}
 			onUnlock={ensureE2eeUnlocked}
 		/>

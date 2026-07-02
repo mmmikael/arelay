@@ -6,6 +6,7 @@ export type SidebarSessionIcon =
 	| 'document'
 	| 'chart'
 	| 'email'
+	| 'payment'
 	| 'default';
 
 export const EMAIL_DRAFT_SIDEBAR_DESCRIPTION = 'Outbound email draft for your review';

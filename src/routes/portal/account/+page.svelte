@@ -9,6 +9,7 @@
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import Bot from '@lucide/svelte/icons/bot';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import HardDrive from '@lucide/svelte/icons/hard-drive';
 	import KeyRound from '@lucide/svelte/icons/key-round';
@@ -34,6 +35,7 @@
 	let tokenActionId = $state<string | null>(null);
 	let cloudflareAccountIdInput = $state('');
 	let cloudflareApiTokenInput = $state('');
+	let stripeSecretKeyInput = $state('');
 
 	$effect(() => {
 		cloudflareAccountIdInput = data.cloudflareEmail.accountId ?? '';
@@ -160,6 +162,54 @@
 			await invalidate('account:cloudflare-email');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Could not remove Cloudflare credentials';
+		} finally {
+			busy = false;
+		}
+	}
+
+	const canSaveStripe = $derived(
+		Boolean(data.plugins.spendReviewRelay && stripeSecretKeyInput.trim())
+	);
+
+	async function saveStripeCredentials() {
+		if (busy || !canSaveStripe) return;
+		busy = true;
+		error = '';
+		notice = '';
+		try {
+			const res = await fetch('/api/account/stripe-credentials', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ secretKey: stripeSecretKeyInput.trim() })
+			});
+			const result = await res.json();
+			if (!res.ok) throw new Error(result.error || 'Could not save Stripe key');
+			stripeSecretKeyInput = '';
+			notice = result.testMode
+				? 'Stripe test-mode key saved.'
+				: 'Stripe key saved.';
+			await invalidate('account:stripe-credentials');
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not save Stripe key';
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function removeStripeCredentials() {
+		if (busy || !data.plugins.spendReviewRelay) return;
+		busy = true;
+		error = '';
+		notice = '';
+		try {
+			const res = await fetch('/api/account/stripe-credentials', { method: 'DELETE' });
+			const result = await res.json();
+			if (!res.ok) throw new Error(result.error || 'Could not remove Stripe key');
+			stripeSecretKeyInput = '';
+			notice = 'Stripe key removed.';
+			await invalidate('account:stripe-credentials');
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not remove Stripe key';
 		} finally {
 			busy = false;
 		}
@@ -674,6 +724,88 @@
 							</Button>
 							{#if data.cloudflareEmail.configured}
 								<Button variant="outline" disabled={busy} onclick={removeCloudflareEmail}>
+									Remove
+								</Button>
+							{/if}
+						</div>
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		{#if data.plugins.spendReviewRelay}
+			<section
+				class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5"
+			>
+				<div class="flex items-start gap-3">
+					<span
+						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+					>
+						<CreditCard class="h-4 w-4" />
+					</span>
+					<div class="min-w-0 flex-1">
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+								Spend approval (Stripe)
+							</h2>
+							{#if data.stripeCredentials.configured}
+								<span
+									class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+								>
+									<CircleCheck class="h-3.5 w-3.5" />
+									{data.stripeCredentials.testMode ? 'Test mode' : 'Configured'}
+								</span>
+							{:else}
+								<span
+									class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+								>
+									Not configured
+								</span>
+							{/if}
+						</div>
+
+						<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+							Optional. Add a Stripe secret key (use a <strong>test-mode</strong> key,
+							<code>sk_test_…</code>). Used only when you approve a spend request, to create a Stripe
+							PaymentIntent. Stored encrypted; never shown again after saving.
+							<a
+								href="https://dashboard.stripe.com/test/apikeys"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+							>
+								Stripe API keys
+								<ExternalLink class="h-3 w-3" />
+							</a>
+						</p>
+
+						<div class="mt-4 space-y-3">
+							<div>
+								<label
+									for="stripe-secret-key"
+									class="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300"
+								>
+									Secret key
+								</label>
+								<input
+									id="stripe-secret-key"
+									type="password"
+									class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+									bind:value={stripeSecretKeyInput}
+									placeholder={data.stripeCredentials.configured
+										? 'Paste a new key to update'
+										: 'sk_test_…'}
+									autocomplete="off"
+								/>
+							</div>
+						</div>
+
+						<div class="mt-4 flex flex-wrap gap-2">
+							<Button disabled={busy || !canSaveStripe} onclick={saveStripeCredentials}>
+								{busy ? 'Saving…' : 'Save'}
+							</Button>
+							{#if data.stripeCredentials.configured}
+								<Button variant="outline" disabled={busy} onclick={removeStripeCredentials}>
 									Remove
 								</Button>
 							{/if}
