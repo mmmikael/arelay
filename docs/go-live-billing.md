@@ -27,10 +27,12 @@ Toggle the Dashboard out of test mode before creating it, so you get `rk_live_â€
 
 ## 2. Create the live catalog
 
-From the repo root. `read -s` keeps the key out of your shell history:
+From the repo root. Reading the key into a variable rather than typing it as an
+argument keeps it out of your shell history. This form works in both zsh and bash
+(zsh's `read -p` means "read from a coprocess", so `-p` for a prompt is bash-only):
 
 ```bash
-read -s -p "rk_live key: " STRIPE_SECRET_KEY && export STRIPE_SECRET_KEY && echo
+printf 'rk_live key: '; read -rs STRIPE_SECRET_KEY; echo; export STRIPE_SECRET_KEY
 ```
 
 ```bash
