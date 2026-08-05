@@ -66,8 +66,9 @@ pasted somewhere it should not be, roll it: Dashboard → Developers → Webhook
 the endpoint → **Roll secret**, then update the variable.
 
 Also check the amounts in Dashboard → Product catalogue before announcing anything:
-$9.00/month, $79.00/year, $79.00 one-time. Stripe prices are immutable, so a wrong
-amount is fixed by creating a new price and repointing the variable, not by editing.
+$9.00/month, $79.00/year, $149.00 one-time. Stripe prices are immutable, so a wrong
+amount is fixed by creating a new price and repointing the variable, not by editing —
+re-running the script with a changed `*_CENTS` does exactly that.
 
 Then drop the key from your shell:
 

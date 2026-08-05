@@ -3,6 +3,7 @@
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import Github from '@lucide/svelte/icons/github';
+	import { FALLBACK_PRICE_DISPLAY } from '$lib/billing/plans';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -172,7 +173,10 @@
 				Room for everything your agents deliver.
 			</p>
 			<p class="mt-4 text-4xl font-semibold text-slate-950 dark:text-white">
-				{proPrice ?? (interval === 'monthly' ? '$9' : '$79')}
+				{proPrice ??
+					(interval === 'monthly'
+						? FALLBACK_PRICE_DISPLAY.proMonthly
+						: FALLBACK_PRICE_DISPLAY.proYearly)}
 			</p>
 			<p class="text-sm text-slate-500 dark:text-slate-400">
 				per {interval === 'monthly' ? 'month' : 'year'}
@@ -222,7 +226,7 @@
 				Pro for life, one payment. Early-believer price.
 			</p>
 			<p class="mt-4 text-4xl font-semibold text-slate-950 dark:text-white">
-				{foundingPrice ?? '$79'}
+				{foundingPrice ?? FALLBACK_PRICE_DISPLAY.founding}
 			</p>
 			<p class="text-sm text-slate-500 dark:text-slate-400">once, forever</p>
 			<ul class="mt-6 flex-1 space-y-2.5 text-sm text-slate-600 dark:text-slate-300">

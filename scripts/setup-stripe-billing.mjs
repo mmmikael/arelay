@@ -60,7 +60,7 @@ const liveMode = /_live_/.test(secretKey);
 const amounts = {
 	proMonthly: Number(process.env.PRO_MONTHLY_CENTS ?? 900),
 	proYearly: Number(process.env.PRO_YEARLY_CENTS ?? 7900),
-	founding: Number(process.env.FOUNDING_CENTS ?? 7900)
+	founding: Number(process.env.FOUNDING_CENTS ?? 14900)
 };
 
 async function stripe(method, path, params) {
