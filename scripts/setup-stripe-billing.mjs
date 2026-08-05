@@ -34,6 +34,20 @@ if (!secretKey) {
 	console.error('STRIPE_SECRET_KEY is required (rk_test_/sk_test_ first, then live).');
 	process.exit(1);
 }
+// Fail before the first API call rather than forwarding a bad value to Stripe and
+// surfacing it as a confusing 401. Catches the common shell mistake where an
+// interactive `read` swallows the following pasted line instead of the key.
+if (!/^(sk|rk)_(test|live)_/.test(secretKey)) {
+	// Only the first 7 characters are shown; that is at most the key-type prefix.
+	console.error(
+		'STRIPE_SECRET_KEY does not look like a Stripe secret key.\n' +
+			`  expected: sk_test_… / rk_test_… / sk_live_… / rk_live_…\n` +
+			`  got:      ${JSON.stringify(secretKey.slice(0, 7))}… (${secretKey.length} chars)\n` +
+			'If that looks like part of a shell command, the prompt consumed the wrong\n' +
+			'line — re-run the read command on its own, then paste the key at the prompt.'
+	);
+	process.exit(1);
+}
 const liveMode = /_live_/.test(secretKey);
 
 const amounts = {

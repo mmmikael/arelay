@@ -35,6 +35,21 @@ argument keeps it out of your shell history. This form works in both zsh and bas
 printf 'rk_live key: '; read -rs STRIPE_SECRET_KEY; echo; export STRIPE_SECRET_KEY
 ```
 
+**Run that line by itself and wait for the prompt before pasting anything else.**
+`read` takes the next line it receives as its input, so pasting this command
+together with the one below makes the *command* become the key.
+
+Check it took the key and not something else. This prints only the first 8
+characters, which is just the key type:
+
+```bash
+echo "$STRIPE_SECRET_KEY" | cut -c1-8
+```
+
+Expect `rk_live_`. Anything else means the variable holds the wrong thing — re-run
+the read command on its own. (The setup script also refuses to start on a value
+that isn't shaped like a Stripe key.)
+
 ```bash
 BILLING_WEBHOOK_URL=https://arelay.app/webhooks/stripe SITE_URL=https://arelay.app node scripts/setup-stripe-billing.mjs
 ```
