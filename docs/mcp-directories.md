@@ -9,20 +9,21 @@ main discovery channel for an MCP server, so this is worth keeping current.
 | --- | --- | --- |
 | Official MCP registry | Listed (`io.github.mmmikael/arelay`) | Automated — see below |
 | GitHub topics | Done (`mcp`, `mcp-server`, `model-context-protocol`) | — |
-| Glama | **Not listed — blocking** | Needs a Glama account |
-| awesome-mcp-servers | PR [#7965](https://github.com/punkpeye/awesome-mcp-servers/pull/7965) open, **blocked on Glama** | Needs the Glama badge |
+| Glama | Listed — <https://glama.ai/mcp/servers/mmmikael/arelay> | — |
+| awesome-mcp-servers | PR [#7965](https://github.com/punkpeye/awesome-mcp-servers/pull/7965) open, badge added, awaiting maintainer | — |
 | PulseMCP | Not submitted | Web form |
 | mcp.so | Not submitted | Web form |
 | Smithery | Not submitted | Needs a Smithery account |
 
-## The critical path is Glama
+## Glama (done)
 
-`awesome-mcp-servers` has ~92k stars and is the highest-traffic list. PR #7965 is
-correctly formatted, conflict-free and carries the `🤖🤖🤖` agent fast-track marker, but
-it is blocked: the maintainers require every entry to carry a Glama score badge, and a
-bot asked for it on submission with a follow-up nudge from `punkpeye` on 2026-07-25.
+`awesome-mcp-servers` has ~92k stars and is the highest-traffic list. PR #7965 sat
+blocked from June to August because the maintainers require every entry to carry a Glama
+score badge — a bot asked on submission, with a follow-up nudge from `punkpeye` on
+2026-07-25. Glama listing and badge are now done, so the PR is unblocked and waiting on
+the maintainers.
 
-So Glama unblocks the largest listing. Two steps:
+For reference, the steps were:
 
 1. Submit the server at <https://glama.ai/mcp/servers>. Their check only requires the
    server to start and answer introspection — `npx -y @arelay/cli mcp` responds to
