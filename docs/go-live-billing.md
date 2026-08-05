@@ -66,8 +66,9 @@ pasted somewhere it should not be, roll it: Dashboard → Developers → Webhook
 the endpoint → **Roll secret**, then update the variable.
 
 Also check the amounts in Dashboard → Product catalogue before announcing anything:
-$9.00/month, $79.00/year, $79.00 one-time. Stripe prices are immutable, so a wrong
-amount is fixed by creating a new price and repointing the variable, not by editing.
+$9.00/month, $79.00/year, $149.00 one-time. Stripe prices are immutable, so a wrong
+amount is fixed by creating a new price and repointing the variable, not by editing —
+re-running the script with a changed `*_CENTS` does exactly that.
 
 Then drop the key from your shell:
 
@@ -107,17 +108,26 @@ Migrations need no action: `railway.toml` runs `npm run db:migrate` as its
 
 After the deploy finishes:
 
-1. Open `https://arelay.app/pricing` — prices should render from Stripe (they are
-   fetched live and cached for ten minutes) and the founding counter should read
-   `100/100 left`.
+1. Open `https://arelay.app/pricing`. The founding counter should read
+   `100/100 left` — that alone proves billing is enabled and the
+   `billing_accounts` migration ran, since the count comes from that table.
 2. Sign in and open Account. The **Plan** section should show `Free` with a
    "See plans & upgrade" button.
-3. Click upgrade and let Stripe Checkout load, then **abandon it**. A created-but-
-   unpaid session grants nothing, so this costs nothing and proves the live key,
-   price ids, and customer creation all work.
+3. Click upgrade, let Stripe Checkout load, then **abandon it**. A created-but-
+   unpaid session grants nothing, so this costs nothing.
 
-If `/pricing` shows fallback prices (`$9` / `$79` with no live values), the key or
-price ids are wrong — check the Railway variables before going further.
+**Step 3 is the only real check of the key and price ids.** The rendered prices
+cannot tell you: when a price lookup fails the page falls back to hard-coded
+amounts that are identical to the live ones, so a wrong price id looks perfectly
+normal. A bad id surfaces as a 502 from `/api/billing/checkout` and a
+`stripe price lookup failed` warning in the deployment logs.
+
+Confirm the webhook route is live and reachable too — this should return `400`
+(invalid signature), not `404` (billing disabled):
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{}' https://arelay.app/webhooks/stripe
+```
 
 ## 5. One real end-to-end purchase
 

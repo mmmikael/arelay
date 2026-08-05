@@ -32,6 +32,20 @@ export const PLAN_LABELS: Record<PlanId, string> = {
 	founding: 'Founding'
 };
 
+/**
+ * Shown on /pricing only when the live Stripe price lookup fails, so a transient
+ * Stripe outage does not blank out the pricing page.
+ *
+ * These MUST match the amounts configured in Stripe. They are display-only — checkout
+ * always charges the Stripe price — but a stale value here quotes a price you do not
+ * charge. Update them in the same change as any reprice.
+ */
+export const FALLBACK_PRICE_DISPLAY = {
+	proMonthly: '$9',
+	proYearly: '$79',
+	founding: '$149'
+} as const;
+
 export function isPlanId(value: unknown): value is PlanId {
 	return value === 'free' || value === 'pro' || value === 'founding';
 }

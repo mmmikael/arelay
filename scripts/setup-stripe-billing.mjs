@@ -12,8 +12,11 @@
  * SITE_URL overrides the origin used for portal links when it differs from the
  * webhook URL's origin.
  *
- * Amounts (USD cents) can be overridden before first creation:
- *   PRO_MONTHLY_CENTS=900 PRO_YEARLY_CENTS=7900 FOUNDING_CENTS=7900
+ * Amounts (USD cents) are set with:
+ *   PRO_MONTHLY_CENTS=900 PRO_YEARLY_CENTS=7900 FOUNDING_CENTS=14900
+ * Changing one and re-running creates a new price and moves the lookup key to it,
+ * because Stripe prices are immutable. Existing subscribers stay on the old price.
+ * The printed price ids change, so update the deployment's env vars afterwards.
  *
  * Run against a sandbox/test key first. Use a restricted key (rk_) with write
  * access to Products, Prices, Customer portal, and Webhook Endpoints.
@@ -57,7 +60,7 @@ const liveMode = /_live_/.test(secretKey);
 const amounts = {
 	proMonthly: Number(process.env.PRO_MONTHLY_CENTS ?? 900),
 	proYearly: Number(process.env.PRO_YEARLY_CENTS ?? 7900),
-	founding: Number(process.env.FOUNDING_CENTS ?? 7900)
+	founding: Number(process.env.FOUNDING_CENTS ?? 14900)
 };
 
 async function stripe(method, path, params) {
@@ -107,9 +110,18 @@ async function findPriceByLookupKey(lookupKey) {
 
 async function ensurePrice({ lookupKey, productId, unitAmount, interval }) {
 	const existing = await findPriceByLookupKey(lookupKey);
-	if (existing) {
+	if (existing && existing.unit_amount === unitAmount) {
 		console.log(`✓ price ${lookupKey} exists (${existing.id})`);
 		return existing;
+	}
+	if (existing) {
+		// Stripe prices are immutable, so repricing means creating a new price and
+		// moving the lookup key to it. The old price stays active but unkeyed, which
+		// grandfathers anyone already subscribed on it.
+		console.log(
+			`~ repricing ${lookupKey}: ${existing.unit_amount} → ${unitAmount} ` +
+				`(new price created; ${existing.id} keeps its existing subscribers)`
+		);
 	}
 	const params = new URLSearchParams();
 	params.set('product', productId);

@@ -14,7 +14,7 @@ For switching a deployment from test mode to live, follow
 | --- | --- | --- | --- |
 | Free | $0 | 500 MB | 25 MB |
 | Pro | $9/mo or $79/yr | 10 GB | 100 MB |
-| Founding | $79 once (first 100) | 10 GB | 100 MB |
+| Founding | $149 once (first 100) | 10 GB | 100 MB |
 
 Founding is a lifetime license: Pro entitlements with `plan_source = 'lifetime'`,
 never downgraded by subscription lifecycle events.

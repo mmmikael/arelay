@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { checkArtifactStorageLimits } from '$lib/storage-limits';
-import { PLAN_LIMITS, isPaidPlan, isPlanId, planLimits } from './plans';
+import {
+	FALLBACK_PRICE_DISPLAY,
+	PLAN_LIMITS,
+	isPaidPlan,
+	isPlanId,
+	planLimits
+} from './plans';
 
 describe('planLimits', () => {
 	it('keeps the free plan identical to the historical hard-coded limits', () => {
@@ -35,6 +41,25 @@ describe('isPlanId / isPaidPlan', () => {
 		expect(isPaidPlan('founding')).toBe(true);
 		expect(isPaidPlan('free')).toBe(false);
 		expect(isPaidPlan(null)).toBe(false);
+	});
+});
+
+describe('FALLBACK_PRICE_DISPLAY', () => {
+	// These are quoted to customers when the live Stripe lookup fails, so they must
+	// stay in step with the amounts the setup script creates.
+	it('matches the amounts scripts/setup-stripe-billing.mjs defaults to', () => {
+		expect(FALLBACK_PRICE_DISPLAY).toEqual({
+			proMonthly: '$9',
+			proYearly: '$79',
+			founding: '$149'
+		});
+	});
+
+	it('keeps the founding license priced above the annual plan', () => {
+		const cents = (display: string) => Number(display.replace('$', '')) * 100;
+		expect(cents(FALLBACK_PRICE_DISPLAY.founding)).toBeGreaterThan(
+			cents(FALLBACK_PRICE_DISPLAY.proYearly)
+		);
 	});
 });
 
