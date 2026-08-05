@@ -36,6 +36,13 @@
       "when": 1782500000000,
       "tag": "0004_spend_review_relay",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785857757486,
+      "tag": "0005_billing_accounts",
+      "breakpoints": true
     }
   ]
 }

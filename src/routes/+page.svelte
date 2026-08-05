@@ -306,6 +306,7 @@
 		</a>
 		<div class="header-actions">
 			<a href="/getting-started" class="header-link">Getting started</a>
+			<a href="/pricing" class="header-link">Pricing</a>
 			<ThemeToggle />
 			<a
 				href="https://github.com/mmmikael/arelay"
@@ -604,6 +605,7 @@
 		</a>
 		<nav aria-label="Site">
 			<a href="/getting-started">Getting started</a>
+			<a href="/pricing">Pricing</a>
 			<a href="/terms">Terms</a>
 			<a href="/privacy">Privacy</a>
 		</nav>
