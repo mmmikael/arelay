@@ -59,6 +59,16 @@ signing secret is shown only at creation time. The script is idempotent, so a
 re-run is safe, but a re-run will not re-reveal that secret (read it from
 Dashboard → Developers → Webhooks if you lose it).
 
+Treat that `whsec_…` as a credential. It is not a payment key — it cannot move money
+or read Stripe data — but anyone holding it can forge webhook events that this app
+accepts as genuine, which means granting themselves a paid plan. If it is ever
+pasted somewhere it should not be, roll it: Dashboard → Developers → Webhooks →
+the endpoint → **Roll secret**, then update the variable.
+
+Also check the amounts in Dashboard → Product catalogue before announcing anything:
+$9.00/month, $79.00/year, $79.00 one-time. Stripe prices are immutable, so a wrong
+amount is fixed by creating a new price and repointing the variable, not by editing.
+
 Then drop the key from your shell:
 
 ```bash
@@ -80,6 +90,12 @@ Railway → your service → **Variables**. Add:
 | `BILLING_FOUNDING_CAP` | `100` (optional; this is the default) |
 
 Leave `STRIPE_AUTOMATIC_TAX` unset — see step 6.
+
+**Check `BODY_SIZE_LIMIT` while you are in there.** `scripts/start.mjs` only defaults
+it to `140M` when it is unset, so an existing service variable wins. A deployment
+still pinned to the old `40M` rejects the 100 MB artifacts the Pro plan advertises,
+with a 413 that looks like a bug in the upload path. Either raise it to `140M` or
+delete the variable and let the default apply.
 
 Billing stays off until all of `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
 the three price ids are present, so a partial paste cannot half-enable it.
