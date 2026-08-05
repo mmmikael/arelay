@@ -1,17 +1,31 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.mmmikael/arelay",
-	"description": "Encrypted inbox for AI agents — deliver reports and files, and submit email for human review.",
+	"title": "Agent Relay",
+	"description": "End-to-end encrypted inbox where AI agents deliver files and request human approval.",
+	"websiteUrl": "https://arelay.app",
 	"repository": {
 		"url": "https://github.com/mmmikael/arelay",
 		"source": "github"
 	},
-	"version": "0.1.5",
+	"icons": [
+		{
+			"src": "https://arelay.app/icon-512.png",
+			"mimeType": "image/png",
+			"sizes": ["512x512"]
+		},
+		{
+			"src": "https://arelay.app/icon-192.png",
+			"mimeType": "image/png",
+			"sizes": ["192x192"]
+		}
+	],
+	"version": "0.1.6",
 	"packages": [
 		{
 			"registryType": "npm",
 			"identifier": "@arelay/cli",
-			"version": "0.1.5",
+			"version": "0.1.6",
 			"transport": {
 				"type": "stdio"
 			},
@@ -37,5 +51,14 @@
 				}
 			]
 		}
-	]
+	],
+	"_meta": {
+		"io.modelcontextprotocol.registry/publisher-provided": {
+			"documentation": "https://arelay.app/getting-started",
+			"privacy": "https://arelay.app/privacy",
+			"support": "https://github.com/mmmikael/arelay/issues",
+			"license": "MIT",
+			"selfHostable": true
+		}
+	}
 }
