@@ -38,19 +38,17 @@ if (!secretKey) {
 // surfacing it as a confusing 401. Catches the common shell mistake where an
 // interactive `read` swallows the following pasted line instead of the key.
 if (!/^(sk|rk)_(test|live)_/.test(secretKey)) {
-	// Never echo any part of the value. Reaching here means it is not a Stripe key,
-	// so it may be some other secret pasted by mistake. Describe its shape instead:
-	// whitespace or quotes mean shell text rather than a key.
+	// Log nothing derived from the value — not even its length. Reaching here means it
+	// is not a Stripe key, so it may be some other secret pasted by mistake. The
+	// value only picks which fixed message to print.
 	const looksLikeShellText = /[\s'";|]/.test(secretKey);
 	console.error(
-		'STRIPE_SECRET_KEY does not look like a Stripe secret key.\n' +
-			'  expected a value starting with sk_test_, rk_test_, sk_live_ or rk_live_\n' +
-			`  received ${secretKey.length} characters with a different prefix\n` +
-			(looksLikeShellText
-				? '  it contains whitespace or quotes, so it looks like shell text: the\n' +
-					'  prompt consumed the wrong line. Re-run the read command on its own,\n' +
-					'  then paste the key at the prompt.'
-				: '  check that the whole key was copied.')
+		looksLikeShellText
+			? 'STRIPE_SECRET_KEY contains whitespace or quotes, so it holds shell text\n' +
+					'rather than a key — the prompt consumed the wrong line. Re-run the read\n' +
+					'command on its own, wait for the prompt, then paste the key.'
+			: 'STRIPE_SECRET_KEY does not start with sk_test_, rk_test_, sk_live_ or\n' +
+					'rk_live_. Check that the whole key was copied.'
 	);
 	process.exit(1);
 }
