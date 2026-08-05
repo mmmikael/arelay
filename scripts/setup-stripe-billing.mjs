@@ -38,13 +38,19 @@ if (!secretKey) {
 // surfacing it as a confusing 401. Catches the common shell mistake where an
 // interactive `read` swallows the following pasted line instead of the key.
 if (!/^(sk|rk)_(test|live)_/.test(secretKey)) {
-	// Only the first 7 characters are shown; that is at most the key-type prefix.
+	// Never echo any part of the value. Reaching here means it is not a Stripe key,
+	// so it may be some other secret pasted by mistake. Describe its shape instead:
+	// whitespace or quotes mean shell text rather than a key.
+	const looksLikeShellText = /[\s'";|]/.test(secretKey);
 	console.error(
 		'STRIPE_SECRET_KEY does not look like a Stripe secret key.\n' +
-			`  expected: sk_test_… / rk_test_… / sk_live_… / rk_live_…\n` +
-			`  got:      ${JSON.stringify(secretKey.slice(0, 7))}… (${secretKey.length} chars)\n` +
-			'If that looks like part of a shell command, the prompt consumed the wrong\n' +
-			'line — re-run the read command on its own, then paste the key at the prompt.'
+			'  expected a value starting with sk_test_, rk_test_, sk_live_ or rk_live_\n' +
+			`  received ${secretKey.length} characters with a different prefix\n` +
+			(looksLikeShellText
+				? '  it contains whitespace or quotes, so it looks like shell text: the\n' +
+					'  prompt consumed the wrong line. Re-run the read command on its own,\n' +
+					'  then paste the key at the prompt.'
+				: '  check that the whole key was copied.')
 	);
 	process.exit(1);
 }
@@ -269,3 +275,14 @@ if (webhookSecret) {
 }
 console.log('\nOptional: STRIPE_AUTOMATIC_TAX=true (only after adding a tax registration in Stripe),');
 console.log('BILLING_FOUNDING_CAP=100 (default).');
+
+if (webhookSecret) {
+	// Shown once by Stripe, so it has to be printed — flag it where it appears,
+	// which is the moment it is most likely to be pasted somewhere it should not be.
+	console.log(
+		'\nThe signing secret above is a credential. It cannot move money, but anyone\n' +
+			'holding it can forge webhook events this app trusts — including ones that\n' +
+			'grant a paid plan. Put it in your deployment config and nowhere else. If it\n' +
+			'leaks: Dashboard → Developers → Webhooks → the endpoint → Roll secret.'
+	);
+}
