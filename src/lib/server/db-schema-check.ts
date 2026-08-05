@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import * as pluginRegistry from '$lib/plugin-registry';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID } from '$plugins/email-review-relay';
 import { SPEND_REVIEW_RELAY_PLUGIN_ID } from '$plugins/spend-review-relay';
+import { isBillingEnabled } from './billing/config';
 import { getDb } from './db-connection';
 
 let schemaReady = false;
@@ -41,13 +42,15 @@ export async function ensureSchema(): Promise<void> {
 			email_drafts_table: string | null;
 			spend_requests_table: string | null;
 			rate_limit_buckets_table: string | null;
+			billing_accounts_table: string | null;
 		}>
 	>`
 		SELECT
 			to_regclass('public.users')::text AS users_table,
 			to_regclass('public.email_drafts')::text AS email_drafts_table,
 			to_regclass('public.spend_requests')::text AS spend_requests_table,
-			to_regclass('public.rate_limit_buckets')::text AS rate_limit_buckets_table
+			to_regclass('public.rate_limit_buckets')::text AS rate_limit_buckets_table,
+			to_regclass('public.billing_accounts')::text AS billing_accounts_table
 	`;
 	if (!row?.users_table) {
 		throw new Error('Database migrations have not been applied. Run npm run db:migrate.');
@@ -56,6 +59,12 @@ export async function ensureSchema(): Promise<void> {
 	if (!row.rate_limit_buckets_table) {
 		throw new Error(
 			'Database schema is outdated (missing public.rate_limit_buckets). Run npm run db:migrate.'
+		);
+	}
+
+	if (isBillingEnabled() && !row.billing_accounts_table) {
+		throw new Error(
+			'Billing is enabled but billing_accounts is missing. Run npm run db:migrate.'
 		);
 	}
 

@@ -13,8 +13,8 @@ import {
 	rejectPlaintextPayload,
 	requireOwnerE2eeForAgent
 } from '$lib/server/e2ee-policy';
-import { artifactUploadBodyTooLarge } from '$lib/storage-limits';
-import { validateArtifactStorageUpload } from '$lib/server/storage-quota';
+import { artifactUploadBodyLimitBytes, artifactUploadBodyTooLarge } from '$lib/storage-limits';
+import { resolveStorageLimits, validateArtifactStorageUpload } from '$lib/server/storage-quota';
 import { buildStorageKey, deleteObject, isS3Configured, putObject } from '$lib/server/s3';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
@@ -45,7 +45,13 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 		);
 	}
 
-	if (artifactUploadBodyTooLarge(request.headers.get('content-length'))) {
+	const storageLimits = await resolveStorageLimits(locals.agentUser!.id);
+	if (
+		artifactUploadBodyTooLarge(
+			request.headers.get('content-length'),
+			artifactUploadBodyLimitBytes(storageLimits.maxArtifactBytes)
+		)
+	) {
 		return json({ error: 'Request body too large for artifact upload.' }, { status: 413 });
 	}
 
@@ -84,7 +90,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 		return routeRateLimitResponse(locals, artifactLimit.retryAfterSeconds, AGENT_ARTIFACT_LIMIT_ERROR);
 	}
 
-	const quota = await validateArtifactStorageUpload(locals.agentUser!.id, sizeBytes);
+	const quota = await validateArtifactStorageUpload(locals.agentUser!.id, sizeBytes, storageLimits);
 	if (!quota.ok) {
 		return json({ error: quota.error }, { status: quota.status });
 	}

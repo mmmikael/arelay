@@ -7,9 +7,16 @@ export const OG_IMAGE_PATH = '/og-image.jpg';
 export const OG_IMAGE_WIDTH = 1024;
 export const OG_IMAGE_HEIGHT = 537;
 
-export const PUBLIC_INDEXABLE_PATHS = ['/', '/terms', '/privacy'] as const;
+export const PUBLIC_INDEXABLE_PATHS = ['/', '/pricing', '/terms', '/privacy'] as const;
 
-export const ROBOTS_DISALLOW_PATHS = ['/portal/', '/api/', '/dev/', '/legal/', '/health/'] as const;
+export const ROBOTS_DISALLOW_PATHS = [
+	'/portal/',
+	'/api/',
+	'/dev/',
+	'/legal/',
+	'/health/',
+	'/webhooks/'
+] as const;
 
 export function siteOriginFromRequest(origin: string, configuredOrigin?: string): string {
 	const value = configuredOrigin?.trim() || origin;

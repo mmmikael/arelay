@@ -24,7 +24,9 @@ import {
 	type EmailDraftStatus
 } from '$plugins/email-review-relay/server';
 import { inboxVersionFromStats } from '$lib/inbox-version';
-import { MAX_ACCOUNT_STORAGE_BYTES, MAX_ARTIFACT_BYTES } from '$lib/storage-limits';
+import { isPlanId, planLimits } from '$lib/billing/plans';
+import { isBillingEnabled } from '$lib/server/billing/config';
+import { getBillingAccount } from '$lib/server/billing/db';
 
 type EmailDraftSummaryMap = Record<
 	string,
@@ -45,9 +47,13 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 	if (isSpendReviewRelayEnabled()) {
 		depends('account:stripe-credentials');
 	}
+	if (isBillingEnabled()) {
+		depends('account:billing');
+	}
 	const userId = locals.user!.id;
 	const emailReviewRelayEnabled = isEmailReviewRelayEnabled();
 	const spendReviewRelayEnabled = isSpendReviewRelayEnabled();
+	const billingEnabled = isBillingEnabled();
 	const needsE2eeFetch = locals.e2eeConfigured === undefined;
 	const [
 		sessions,
@@ -58,7 +64,8 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 		emailDraftSummaries,
 		draftStats,
 		cloudflareEmail,
-		e2ee
+		e2ee,
+		billingAccount
 	] = await Promise.all([
 		listSessions(userId),
 		listPasskeysForUser(userId),
@@ -70,8 +77,14 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 			: Promise.resolve(EMPTY_EMAIL_DRAFT_SUMMARIES),
 		emailReviewRelayEnabled ? getEmailDraftStats(userId) : Promise.resolve(EMPTY_DRAFT_STATS),
 		emailReviewRelayEnabled ? getUserCloudflareEmail(userId) : Promise.resolve(null),
-		needsE2eeFetch ? getE2eeConfig(userId) : Promise.resolve(null)
+		needsE2eeFetch ? getE2eeConfig(userId) : Promise.resolve(null),
+		billingEnabled ? getBillingAccount(userId) : Promise.resolve(null)
 	]);
+	const plan =
+		billingEnabled && billingAccount && isPlanId(billingAccount.plan)
+			? billingAccount.plan
+			: 'free';
+	const storageLimits = planLimits(plan);
 
 	const spendRequestSummaries = spendReviewRelayEnabled
 		? await listSpendRequestSummariesForUser(userId)
@@ -110,8 +123,14 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 		},
 		storage: {
 			usedBytes,
-			limitBytes: MAX_ACCOUNT_STORAGE_BYTES,
-			artifactLimitBytes: MAX_ARTIFACT_BYTES
+			limitBytes: storageLimits.maxAccountStorageBytes,
+			artifactLimitBytes: storageLimits.maxArtifactBytes
+		},
+		billing: {
+			enabled: billingEnabled,
+			plan,
+			subscriptionStatus: billingAccount?.subscription_status ?? null,
+			hasStripeCustomer: Boolean(billingAccount?.stripe_customer_id)
 		},
 		currentUser: locals.user
 			? {

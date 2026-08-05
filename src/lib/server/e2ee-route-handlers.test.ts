@@ -23,9 +23,13 @@ vi.mock('$lib/server/s3', () => ({
 	getObjectBytes: vi.fn()
 }));
 
-vi.mock('$lib/server/storage-quota', () => ({
-	validateArtifactStorageUpload: vi.fn(async () => ({ ok: true }))
-}));
+vi.mock('$lib/server/storage-quota', async () => {
+	const { PLAN_LIMITS } = await import('$lib/billing/plans');
+	return {
+		resolveStorageLimits: vi.fn(async () => PLAN_LIMITS.free),
+		validateArtifactStorageUpload: vi.fn(async () => ({ ok: true }))
+	};
+});
 
 vi.mock('$lib/server/agent-rate-limit', () => ({
 	AGENT_ARTIFACT_LIMIT_ERROR: 'Too many artifact uploads.',

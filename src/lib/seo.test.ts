@@ -22,6 +22,7 @@ describe('siteOriginFromRequest', () => {
 describe('isPublicIndexablePath', () => {
 	it('allows only public marketing and legal pages', () => {
 		expect(isPublicIndexablePath('/')).toBe(true);
+		expect(isPublicIndexablePath('/pricing')).toBe(true);
 		expect(isPublicIndexablePath('/terms')).toBe(true);
 		expect(isPublicIndexablePath('/privacy')).toBe(true);
 		expect(isPublicIndexablePath('/portal')).toBe(false);
@@ -42,6 +43,7 @@ describe('buildRobotsTxt', () => {
 		const body = buildRobotsTxt('https://arelay.app');
 		expect(body).toContain('Disallow: /portal/');
 		expect(body).toContain('Disallow: /api/');
+		expect(body).toContain('Disallow: /webhooks/');
 		expect(body).toContain('Sitemap: https://arelay.app/sitemap.xml');
 	});
 });
@@ -50,6 +52,7 @@ describe('buildSitemapXml', () => {
 	it('lists only public indexable pages', () => {
 		const body = buildSitemapXml('https://arelay.app');
 		expect(body).toContain('<loc>https://arelay.app</loc>');
+		expect(body).toContain('<loc>https://arelay.app/pricing</loc>');
 		expect(body).toContain('<loc>https://arelay.app/terms</loc>');
 		expect(body).toContain('<loc>https://arelay.app/privacy</loc>');
 		expect(body).not.toContain('/portal');

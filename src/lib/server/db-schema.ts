@@ -144,6 +144,28 @@ export const e2eeConfig = pgTable(
 	(table) => [uniqueIndex('idx_e2ee_config_user_id').on(table.userId)]
 );
 
+export const billingAccounts = pgTable(
+	'billing_accounts',
+	{
+		userId: uuid('user_id')
+			.primaryKey()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		stripeCustomerId: text('stripe_customer_id'),
+		plan: text('plan').default('free').notNull(),
+		planSource: text('plan_source'),
+		stripeSubscriptionId: text('stripe_subscription_id'),
+		subscriptionStatus: text('subscription_status'),
+		currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_billing_accounts_stripe_customer_id')
+			.on(table.stripeCustomerId)
+			.where(sql`${table.stripeCustomerId} IS NOT NULL`)
+	]
+);
+
 export const rateLimitBuckets = pgTable(
 	'rate_limit_buckets',
 	{
