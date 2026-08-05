@@ -1,7 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { routeJsonError, routeLogAndJsonError } from '$lib/server/api-error';
-import { isBillingEnabled, stripeSecretKey } from '$lib/server/billing/config';
+import {
+	isBillingEnabled,
+	stripePortalConfiguration,
+	stripeSecretKey
+} from '$lib/server/billing/config';
 import { getBillingAccount } from '$lib/server/billing/db';
 import { createBillingPortalSession } from '$lib/server/billing/stripe-api';
 
@@ -19,7 +23,8 @@ export const POST: RequestHandler = async ({ locals, url }) => {
 		const session = await createBillingPortalSession({
 			secretKey: stripeSecretKey()!,
 			customerId: account.stripe_customer_id,
-			returnUrl: `${url.origin}/portal/account`
+			returnUrl: `${url.origin}/portal/account`,
+			configurationId: stripePortalConfiguration()
 		});
 		return json({ url: session.url });
 	} catch (err) {

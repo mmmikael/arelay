@@ -9,11 +9,14 @@
  *   STRIPE_SECRET_KEY=rk_live_... BILLING_WEBHOOK_URL=https://arelay.app/webhooks/stripe \
  *     node scripts/setup-stripe-billing.mjs
  *
+ * SITE_URL overrides the origin used for portal links when it differs from the
+ * webhook URL's origin.
+ *
  * Amounts (USD cents) can be overridden before first creation:
  *   PRO_MONTHLY_CENTS=900 PRO_YEARLY_CENTS=7900 FOUNDING_CENTS=7900
  *
  * Run against a sandbox/test key first. Use a restricted key (rk_) with write
- * access to Products, Prices, and Webhook Endpoints.
+ * access to Products, Prices, Customer portal, and Webhook Endpoints.
  */
 
 const STRIPE_API_BASE = 'https://api.stripe.com';
@@ -105,6 +108,67 @@ async function ensurePrice({ lookupKey, productId, unitAmount, interval }) {
 	return created;
 }
 
+/**
+ * Create (or reuse) a Customer Portal configuration and return its id.
+ *
+ * Portal sessions fall back to the account's *default* configuration when none is
+ * passed, and that default only exists once it has been saved in the Dashboard.
+ * Creating one here and passing it explicitly at runtime removes that manual
+ * step — which otherwise fails only in live mode.
+ */
+async function ensurePortalConfiguration(siteOrigin) {
+	const existing = await stripe('GET', '/v1/billing_portal/configurations?limit=100');
+	const match = existing?.data?.find(
+		(configuration) => configuration.metadata?.arelay_managed === 'true' && configuration.active
+	);
+	if (match) {
+		console.log(`✓ portal configuration exists (${match.id})`);
+		return match.id;
+	}
+
+	const params = new URLSearchParams();
+	params.set('metadata[arelay_managed]', 'true');
+	params.set('name', 'Agent Relay billing');
+	params.set('features[invoice_history][enabled]', 'true');
+	params.set('features[payment_method_update][enabled]', 'true');
+	// Let customers keep their own details current, including a tax id for
+	// business invoices, and an address (needed once Stripe Tax is enabled).
+	params.set('features[customer_update][enabled]', 'true');
+	params.set('features[customer_update][allowed_updates][0]', 'email');
+	params.set('features[customer_update][allowed_updates][1]', 'address');
+	params.set('features[customer_update][allowed_updates][2]', 'tax_id');
+	// Cancel at period end: the customer keeps Pro for what they already paid for,
+	// and the downgrade lands when Stripe sends subscription.deleted.
+	params.set('features[subscription_cancel][enabled]', 'true');
+	params.set('features[subscription_cancel][mode]', 'at_period_end');
+	params.set('features[subscription_cancel][cancellation_reason][enabled]', 'true');
+	for (const [index, reason] of [
+		'too_expensive',
+		'missing_features',
+		'switched_service',
+		'unused',
+		'other'
+	].entries()) {
+		params.set(
+			`features[subscription_cancel][cancellation_reason][options][${index}]`,
+			reason
+		);
+	}
+	// Deliberately not enabling features[subscription_update]: the API accepts
+	// features[subscription_update][products] but neither stores nor returns it,
+	// so price switching would appear enabled with no prices to switch to.
+	// Monthly ↔ yearly changes are handled by cancel + re-subscribe for now.
+	if (siteOrigin) {
+		params.set('business_profile[privacy_policy_url]', `${siteOrigin}/privacy`);
+		params.set('business_profile[terms_of_service_url]', `${siteOrigin}/terms`);
+		params.set('default_return_url', `${siteOrigin}/portal/account`);
+	}
+
+	const created = await stripe('POST', '/v1/billing_portal/configurations', params);
+	console.log(`+ created portal configuration (${created.id})`);
+	return created.id;
+}
+
 async function ensureWebhookEndpoint(url) {
 	const existing = await stripe('GET', '/v1/webhook_endpoints?limit=100');
 	const match = existing?.data?.find((endpoint) => endpoint.url === url);
@@ -156,8 +220,19 @@ const founding = await ensurePrice({
 	unitAmount: amounts.founding
 });
 
-let webhookSecret = null;
 const webhookUrl = process.env.BILLING_WEBHOOK_URL?.trim();
+// Links shown inside the portal, derived from the deployment URL when known.
+let siteOrigin = process.env.SITE_URL?.trim() || null;
+if (!siteOrigin && webhookUrl) {
+	try {
+		siteOrigin = new URL(webhookUrl).origin;
+	} catch {
+		siteOrigin = null;
+	}
+}
+const portalConfigurationId = await ensurePortalConfiguration(siteOrigin);
+
+let webhookSecret = null;
 if (webhookUrl) {
 	webhookSecret = await ensureWebhookEndpoint(webhookUrl);
 } else {
@@ -172,6 +247,7 @@ console.log(`STRIPE_SECRET_KEY=<your ${liveMode ? 'live' : 'test'} restricted ke
 console.log(`STRIPE_PRICE_PRO_MONTHLY=${proMonthly.id}`);
 console.log(`STRIPE_PRICE_PRO_YEARLY=${proYearly.id}`);
 console.log(`STRIPE_PRICE_FOUNDING=${founding.id}`);
+console.log(`STRIPE_PORTAL_CONFIGURATION=${portalConfigurationId}`);
 if (webhookSecret) {
 	console.log(`STRIPE_WEBHOOK_SECRET=${webhookSecret}`);
 } else {

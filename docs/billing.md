@@ -38,16 +38,38 @@ table, written only by the Stripe webhook handler.
 2. **Set the env vars** on the deployment: `STRIPE_SECRET_KEY`,
    `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`,
    `STRIPE_PRICE_FOUNDING`. Billing turns on only when all five are present.
+   Also set `STRIPE_PORTAL_CONFIGURATION` (see below).
 
-3. **Run migrations** (`npm run db:migrate`) — adds the `billing_accounts` table.
+3. **Run migrations** — adds the `billing_accounts` table. On Railway this happens
+   automatically via `preDeployCommand` in `railway.toml`; elsewhere run
+   `npm run db:migrate`.
 
-4. **Save the Customer Portal configuration** once in the Stripe Dashboard
-   (Settings → Billing → Customer portal), otherwise the "Manage billing" button
-   returns an error in live mode.
-
-5. **Taxes**: `STRIPE_AUTOMATIC_TAX=true` enables Stripe Tax on checkout, but only
+4. **Taxes**: `STRIPE_AUTOMATIC_TAX=true` enables Stripe Tax on checkout, but only
    enable it **after** adding a tax registration in Stripe — with no active
    registration Stripe calculates and collects nothing, silently.
+
+## Customer Portal configuration
+
+"Manage billing" opens a Stripe Customer Portal session. When no configuration is
+passed, Stripe falls back to the account's *default* configuration — which does not
+exist until it has been saved in the Dashboard. Test mode papers over this, so the
+failure shows up only against a live key.
+
+The setup script therefore creates a configuration over the API and prints
+`STRIPE_PORTAL_CONFIGURATION=bpc_...`, which the portal route passes explicitly. It
+enables invoice history, payment-method updates, email/address/tax-id updates, and
+cancellation at period end (so a cancelling customer keeps Pro until the period they
+paid for ends; the downgrade lands when Stripe sends `subscription.deleted`).
+
+Re-running the script reuses the existing configuration, matched on
+`metadata[arelay_managed]=true`. To change the portal's features, edit
+`ensurePortalConfiguration` in the script, deactivate the old configuration
+(`active=false`), and re-run.
+
+Known limitation: self-service monthly ↔ yearly switching is not enabled. The API
+accepts `features[subscription_update][products]` but neither stores nor returns it,
+which would leave price switching enabled with no prices to switch to. Customers
+change interval by cancelling and re-subscribing.
 
 ## How it flows
 

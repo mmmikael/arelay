@@ -139,14 +139,33 @@ export async function createCheckoutSession(input: {
 	return { id: session.id, url: session.url };
 }
 
+export function buildPortalSessionParams(input: {
+	customerId: string;
+	returnUrl: string;
+	configurationId: string | null;
+}): URLSearchParams {
+	const params = new URLSearchParams();
+	params.set('customer', input.customerId);
+	params.set('return_url', input.returnUrl);
+	// Omitted only when unconfigured, in which case Stripe falls back to the
+	// account's default portal configuration.
+	if (input.configurationId) {
+		params.set('configuration', input.configurationId);
+	}
+	return params;
+}
+
 export async function createBillingPortalSession(input: {
 	secretKey: string;
 	customerId: string;
 	returnUrl: string;
+	configurationId?: string | null;
 }): Promise<{ url: string }> {
-	const params = new URLSearchParams();
-	params.set('customer', input.customerId);
-	params.set('return_url', input.returnUrl);
+	const params = buildPortalSessionParams({
+		customerId: input.customerId,
+		returnUrl: input.returnUrl,
+		configurationId: input.configurationId ?? null
+	});
 	const session = await stripePost<{ url?: string | null }>({
 		secretKey: input.secretKey,
 		path: '/v1/billing_portal/sessions',

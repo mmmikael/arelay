@@ -25,6 +25,18 @@ export function stripeWebhookSecret(): string | null {
 	return secret ? secret : null;
 }
 
+/**
+ * Customer Portal configuration to use for portal sessions. Passing this
+ * explicitly avoids depending on the account's *default* configuration, which
+ * only exists once it has been saved in the Stripe Dashboard — a live-mode-only
+ * failure that test mode does not reproduce. Created by
+ * scripts/setup-stripe-billing.mjs.
+ */
+export function stripePortalConfiguration(): string | null {
+	const configuration = env.STRIPE_PORTAL_CONFIGURATION?.trim();
+	return configuration ? configuration : null;
+}
+
 export function billingPriceIds(): BillingPriceIds | null {
 	const proMonthly = env.STRIPE_PRICE_PRO_MONTHLY?.trim();
 	const proYearly = env.STRIPE_PRICE_PRO_YEARLY?.trim();
