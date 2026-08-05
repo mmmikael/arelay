@@ -28,6 +28,16 @@ So Glama unblocks the largest listing. Two steps:
    server to start and answer introspection — `npx -y @arelay/cli mcp` responds to
    `initialize` and `tools/list` with all four tools and **without** `ARELAY_TOKEN`
    set, so it passes as-is. A Dockerfile is added on Glama's side, not in this repo.
+   If Glama asks for a Dockerfile, this one is verified to pass the check — built and
+   probed locally, it answers `initialize` and `tools/list` with all four tools and no
+   credentials:
+
+   ```dockerfile
+   FROM node:22-alpine
+   RUN npm install -g @arelay/cli@latest
+   ENTRYPOINT ["arelay", "mcp"]
+   ```
+
 2. Once it has a score, add the badge to the PR #7965 entry, directly after the
    repository link:
 
