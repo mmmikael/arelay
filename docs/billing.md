@@ -5,6 +5,9 @@ default**. Without billing configuration, every account runs on the free plan an
 app makes no Stripe calls. Paid plans exist to fund development and run the hosted
 service at [arelay.app](https://arelay.app).
 
+For switching a deployment from test mode to live, follow
+[go-live-billing.md](go-live-billing.md).
+
 ## Plans
 
 | Plan | Price | Storage | Per artifact |
