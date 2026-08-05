@@ -247,3 +247,33 @@ describe('guessContentType', () => {
 		expect(guessContentType('blob.unknownext')).toBe('application/octet-stream');
 	});
 });
+
+describe('ArelayClient.fromEnv', () => {
+	it('builds from ARELAY_TOKEN and ARELAY_URL', () => {
+		const client = ArelayClient.fromEnv({
+			ARELAY_TOKEN: 'ar_token',
+			ARELAY_URL: 'https://relay.example'
+		} as NodeJS.ProcessEnv);
+		expect(client.portalUrl('s1')).toBe('https://relay.example/portal/s1');
+	});
+
+	it('no longer reads the legacy AGENT_API_TOKEN, and says so', () => {
+		expect(() =>
+			ArelayClient.fromEnv({ AGENT_API_TOKEN: 'ar_token' } as NodeJS.ProcessEnv)
+		).toThrow(/AGENT_API_TOKEN is no longer read/);
+	});
+
+	it('no longer reads the legacy AGENT_RELAY_URL, and says so', () => {
+		// Silently defaulting here would point a self-hosted deployment at arelay.app.
+		expect(() =>
+			ArelayClient.fromEnv({
+				ARELAY_TOKEN: 'ar_token',
+				AGENT_RELAY_URL: 'https://self-hosted.example'
+			} as NodeJS.ProcessEnv)
+		).toThrow(/AGENT_RELAY_URL is no longer read/);
+	});
+
+	it('still reports a plain missing token when no legacy name is set', () => {
+		expect(() => ArelayClient.fromEnv({} as NodeJS.ProcessEnv)).toThrow(/Set ARELAY_TOKEN/);
+	});
+});

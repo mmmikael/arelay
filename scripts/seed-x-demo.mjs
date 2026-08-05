@@ -1,10 +1,10 @@
 /**
  * Reset local sessions and seed an X-friendly Agent Relay demo inbox.
  *
- *   AGENT_API_TOKEN=ar_... node --env-file=.env scripts/seed-x-demo.mjs
+ *   ARELAY_TOKEN=ar_... node --env-file=.env scripts/seed-x-demo.mjs
  *
  * Optional:
- *   AGENT_RELAY_URL=http://127.0.0.1:5173
+ *   ARELAY_URL=http://127.0.0.1:5173
  *   SKIP_DB_RESET=1   # upload only, do not DELETE FROM inbox_sessions
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -16,11 +16,11 @@ import { webcrypto } from 'node:crypto';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const demoDir = join(rootDir, 'scripts', 'demo', 'x-showcase');
-const relayUrl = (process.env.AGENT_RELAY_URL ?? 'http://127.0.0.1:5173').replace(/\/$/, '');
-const apiToken = process.env.AGENT_API_TOKEN;
+const relayUrl = (process.env.ARELAY_URL ?? 'http://127.0.0.1:5173').replace(/\/$/, '');
+const apiToken = process.env.ARELAY_TOKEN;
 
 if (!apiToken) {
-	console.error('AGENT_API_TOKEN is required');
+	console.error('ARELAY_TOKEN is required');
 	process.exit(1);
 }
 
@@ -42,7 +42,7 @@ function runUpload(title, filename, assetName, summary) {
 				summary
 			],
 			{
-				env: { ...process.env, AGENT_RELAY_URL: relayUrl, AGENT_API_TOKEN: apiToken },
+				env: { ...process.env, ARELAY_URL: relayUrl, ARELAY_TOKEN: apiToken },
 				stdio: ['ignore', 'pipe', 'pipe']
 			}
 		);
@@ -231,8 +231,8 @@ async function submitEmailDraft({ to, subject, htmlAsset, text, summary }) {
 		const child = spawn(process.execPath, childArgs, {
 			env: {
 				...process.env,
-				AGENT_RELAY_URL: relayUrl,
-				AGENT_API_TOKEN: apiToken,
+				ARELAY_URL: relayUrl,
+				ARELAY_TOKEN: apiToken,
 				TEST_EMAIL_TO: to
 			},
 			stdio: ['ignore', 'pipe', 'pipe']

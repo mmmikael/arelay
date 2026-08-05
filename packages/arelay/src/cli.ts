@@ -43,13 +43,26 @@ function fail(message: string): never {
 }
 
 function clientFromFlags(values: { url?: string; token?: string }): ArelayClient {
-	const token = values.token ?? process.env.ARELAY_TOKEN ?? process.env.AGENT_API_TOKEN;
+	const token = values.token ?? process.env.ARELAY_TOKEN;
 	if (!token) {
+		// Name the removed variable instead of reporting a generic "no token", otherwise
+		// anyone still on AGENT_API_TOKEN sees a token error while a token is plainly set.
+		if (process.env.AGENT_API_TOKEN) {
+			fail('AGENT_API_TOKEN is no longer read. Rename it to ARELAY_TOKEN.');
+		}
 		fail('No agent API token. Set ARELAY_TOKEN (portal → Account → Agent API tokens) or pass --token.');
+	}
+	// A stale AGENT_RELAY_URL would otherwise fall through to the hosted default, so a
+	// self-hosted setup would quietly aim at arelay.app. Warn on stderr, which keeps the
+	// MCP stdio JSON-RPC stream on stdout clean.
+	if (!values.url && !process.env.ARELAY_URL && process.env.AGENT_RELAY_URL) {
+		console.error(
+			'Warning: AGENT_RELAY_URL is no longer read — rename it to ARELAY_URL. Using the default base URL.'
+		);
 	}
 	return new ArelayClient({
 		token,
-		baseUrl: values.url ?? process.env.ARELAY_URL ?? process.env.AGENT_RELAY_URL ?? undefined
+		baseUrl: values.url ?? process.env.ARELAY_URL ?? undefined
 	});
 }
 

@@ -18,7 +18,7 @@
 			<div class="mt-6 space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
 				<p class="font-medium text-slate-700 dark:text-slate-200">Agent API (E2EE required)</p>
 				<pre class="overflow-x-auto whitespace-pre-wrap break-all">GET /api/agent/e2ee/config
-Authorization: Bearer $AGENT_API_TOKEN
+Authorization: Bearer $ARELAY_TOKEN
 
 POST /api/agent/sessions
 &#123; "encrypted": true, "encrypted_title": &#123;...&#125; &#125;

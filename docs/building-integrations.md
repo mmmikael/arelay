@@ -163,12 +163,12 @@ version: 1.0.0
 description: Delivers output to the Agent Relay encrypted inbox.
 author: your-handle
 requires_env:
-  - name: AGENT_API_TOKEN
+  - name: ARELAY_TOKEN
     description: "Token from Agent Relay Account -> Agent tokens"
     prompt: "Agent Relay API token"
     password: true
 optional_env:
-  - name: AGENT_RELAY_URL
+  - name: ARELAY_URL
     description: "Base URL (default: https://arelay.app)"
     prompt: "Agent Relay URL"
     password: false

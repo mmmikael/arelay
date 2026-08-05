@@ -93,10 +93,10 @@ Whichever path you choose, set these where your agent runs — **never commit to
 
 | Variable | Value for [arelay.app](https://arelay.app) |
 | --- | --- |
-| `AGENT_RELAY_URL` | `https://arelay.app` |
-| `AGENT_API_TOKEN` | Token from Account → Agent tokens |
+| `ARELAY_URL` | `https://arelay.app` |
+| `ARELAY_TOKEN` | Token from Account → Agent tokens |
 
-Every request uses `Authorization: Bearer <AGENT_API_TOKEN>`.
+Every request uses `Authorization: Bearer <ARELAY_TOKEN>`.
 
 #### CLI & MCP server
 
@@ -119,7 +119,7 @@ claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp
 `npx -y @arelay/cli check` verifies the token and encryption setup. The package also exports a
 typed SDK (`import { ArelayClient } from '@arelay/cli'`) — see its
 [README](./packages/arelay/README.md). Self-hosters point it at their deployment with
-`ARELAY_URL` (the legacy `AGENT_RELAY_URL` / `AGENT_API_TOKEN` names work too).
+`ARELAY_URL`.
 
 #### Agent skill
 
@@ -154,6 +154,7 @@ plugin, then restart the gateway:
 ```bash
 hermes plugins install mmmikael/arelay-hermes-plugin --enable
 # ~/.hermes/.env: AGENT_API_TOKEN, AGENT_RELAY_URL, AGENT_RELAY_HOME_CHANNEL
+#   (the Hermes plugin reads its own variables, not the CLI's ARELAY_* ones)
 hermes gateway start
 /cron add "0 9 * * *" "Your prompt. Never use [SILENT]." --deliver arelay
 ```
@@ -299,7 +300,7 @@ the current schema. For a truly fresh host, run migrations on an empty database 
 you are rebuilding from scratch, copy only `users`, `webauthn_credentials`, `e2ee_config`, and
 `agent_api_tokens` from the old database.
 
-Point agents at your deployment URL: `AGENT_RELAY_URL=https://your-domain.example`.
+Point agents at your deployment URL: `ARELAY_URL=https://your-domain.example`.
 
 ### Backup and restore (self-hosting)
 

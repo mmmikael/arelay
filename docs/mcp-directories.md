@@ -89,6 +89,19 @@ implemented.
 
 **Categories:** communication, productivity, human-in-the-loop, security
 
+## Gotcha: the npm package a crawler infers
+
+Glama linked its listing to <https://www.npmjs.com/package/agent-relay> — an unrelated
+live package (`AgentWorkforce/relay`, different maintainers). It came from this repo's
+**root** `package.json` name, which was `agent-relay` despite being `private: true`; the
+published CLI is `@arelay/cli` under `packages/arelay`. The root package is now
+`@arelay/app` so no crawler can mistake it for a stranger's package.
+
+`server.json` has always declared the right package, so the official registry was
+unaffected — this only hits directories that LLM-inspect the repo. If a listing shows
+the wrong package, fix it in the directory's own admin UI as well; a repo change alone
+waits on a re-crawl.
+
 ## Remaining submissions
 
 - **PulseMCP** — <https://www.pulsemcp.com/submit>. Uses the copy above.
