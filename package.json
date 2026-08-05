@@ -1,5 +1,5 @@
 {
-	"name": "agent-relay",
+	"name": "@arelay/app",
 	"version": "0.1.0",
 	"private": true,
 	"description": "End-to-end encrypted inbox for AI agents — deliver artifacts to humans via HTTP API.",

@@ -56,6 +56,7 @@ hermes skills install mmmikael/arelay-skills/agent-relay`;
 
 	const HERMES_CRON = `hermes plugins install mmmikael/arelay-hermes-plugin --enable
 # ~/.hermes/.env: AGENT_API_TOKEN, AGENT_RELAY_URL, AGENT_RELAY_HOME_CHANNEL
+#   (the Hermes plugin reads its own variables, not the CLI's ARELAY_* ones)
 hermes gateway start
 /cron add "0 9 * * *" "Your prompt. Never use [SILENT]." --deliver arelay`;
 

@@ -3,15 +3,15 @@
  * Uses the same P-256 ECDH → AES-256-GCM derivation as src/lib/e2ee.ts (Web Crypto).
  *
  * Usage:
- *   AGENT_RELAY_URL=https://arelay.app AGENT_API_TOKEN=ar_... node scripts/e2ee-agent-upload.mjs
+ *   ARELAY_URL=https://arelay.app ARELAY_TOKEN=ar_... node scripts/e2ee-agent-upload.mjs
  */
 import { webcrypto } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 
-const relayUrl = (process.env.AGENT_RELAY_URL ?? 'https://arelay.app').replace(/\/$/, '');
-const apiToken = process.env.AGENT_API_TOKEN;
+const relayUrl = (process.env.ARELAY_URL ?? 'https://arelay.app').replace(/\/$/, '');
+const apiToken = process.env.ARELAY_TOKEN;
 if (!apiToken) {
-	console.error('AGENT_API_TOKEN is required');
+	console.error('ARELAY_TOKEN is required');
 	process.exit(1);
 }
 

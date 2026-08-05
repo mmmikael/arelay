@@ -2,16 +2,16 @@
  * Submit an E2EE email draft for human review (Email Review Relay plugin).
  *
  * Usage:
- *   AGENT_RELAY_URL=http://localhost:3000 AGENT_API_TOKEN=ar_... node scripts/e2ee-email-draft.mjs [to@example.com] [subject] [html] [plainText]
+ *   ARELAY_URL=http://localhost:3000 ARELAY_TOKEN=ar_... node scripts/e2ee-email-draft.mjs [to@example.com] [subject] [html] [plainText]
  *
  * After submit, open the portal session and Approve to send via your Cloudflare credentials.
  */
 import { webcrypto } from 'node:crypto';
 
-const relayUrl = (process.env.AGENT_RELAY_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-const apiToken = process.env.AGENT_API_TOKEN;
+const relayUrl = (process.env.ARELAY_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+const apiToken = process.env.ARELAY_TOKEN;
 if (!apiToken) {
-	console.error('AGENT_API_TOKEN is required');
+	console.error('ARELAY_TOKEN is required');
 	process.exit(1);
 }
 

@@ -122,15 +122,25 @@ export class ArelayClient {
 		this.#fetch = options.fetch ?? fetch;
 	}
 
-	/** Build a client from ARELAY_TOKEN / ARELAY_URL (legacy AGENT_API_TOKEN / AGENT_RELAY_URL also accepted). */
+	/** Build a client from ARELAY_TOKEN / ARELAY_URL. */
 	static fromEnv(env: NodeJS.ProcessEnv = process.env): ArelayClient {
-		const token = env.ARELAY_TOKEN ?? env.AGENT_API_TOKEN;
+		const token = env.ARELAY_TOKEN;
 		if (!token) {
+			// Point at the rename rather than reporting a missing token to someone who has
+			// one set under the name this used to accept.
+			if (env.AGENT_API_TOKEN) {
+				throw new Error('AGENT_API_TOKEN is no longer read. Rename it to ARELAY_TOKEN.');
+			}
 			throw new Error('Set ARELAY_TOKEN to an agent API token from the portal.');
+		}
+		// Failing beats silently defaulting to the hosted URL when a self-hosted
+		// deployment is configured under the old name.
+		if (!env.ARELAY_URL && env.AGENT_RELAY_URL) {
+			throw new Error('AGENT_RELAY_URL is no longer read. Rename it to ARELAY_URL.');
 		}
 		return new ArelayClient({
 			token,
-			baseUrl: env.ARELAY_URL ?? env.AGENT_RELAY_URL ?? DEFAULT_BASE_URL
+			baseUrl: env.ARELAY_URL ?? DEFAULT_BASE_URL
 		});
 	}
 
