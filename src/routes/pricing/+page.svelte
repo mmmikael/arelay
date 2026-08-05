@@ -214,7 +214,7 @@
 					<span
 						class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-amber-800 dark:bg-amber-300/15 dark:text-amber-200"
 					>
-						{foundingSoldOut ? 'Sold out' : `${data.foundingRemaining}/${data.foundingCap} left`}
+						{foundingSoldOut ? 'Sold out' : `${data.foundingRemaining} left`}
 					</span>
 				{/if}
 			</div>

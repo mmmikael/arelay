@@ -1,3 +1,4 @@
+import type { Logger } from 'pino';
 import type { PageServerLoad } from './$types';
 import {
 	billingPriceIds,
@@ -18,18 +19,38 @@ export type PricingPrices = {
 const PRICE_CACHE_MS = 10 * 60 * 1000;
 let cachedPrices: { at: number; value: PricingPrices } | null = null;
 
-async function fetchPriceDisplay(secretKey: string, priceId: string): Promise<PriceDisplay | null> {
+/**
+ * Look up one price for display. Failures are not fatal — the page falls back to
+ * hard-coded amounts — but they are logged loudly, because the fallback amounts are
+ * identical to the real ones, so a misconfigured price id is invisible on the page.
+ * The same bad id makes checkout fail for a real customer.
+ */
+async function fetchPriceDisplay(
+	secretKey: string,
+	priceId: string,
+	plan: string,
+	log: Logger
+): Promise<PriceDisplay | null> {
 	try {
 		const price = await getStripePrice(secretKey, priceId);
-		if (typeof price.unit_amount !== 'number') return null;
+		if (typeof price.unit_amount !== 'number') {
+			log.warn(
+				{ plan, priceId },
+				'stripe price has no unit_amount; /pricing will show fallback amounts'
+			);
+			return null;
+		}
 		return { amountCents: price.unit_amount, currency: price.currency };
-	} catch {
-		// Pricing display is best-effort; checkout works without it.
+	} catch (err) {
+		log.warn(
+			{ err, plan, priceId },
+			'stripe price lookup failed; /pricing will show fallback amounts and checkout for this plan will fail'
+		);
 		return null;
 	}
 }
 
-async function loadPrices(): Promise<PricingPrices> {
+async function loadPrices(log: Logger): Promise<PricingPrices> {
 	if (cachedPrices && Date.now() - cachedPrices.at < PRICE_CACHE_MS) {
 		return cachedPrices.value;
 	}
@@ -39,9 +60,9 @@ async function loadPrices(): Promise<PricingPrices> {
 		return { proMonthly: null, proYearly: null, founding: null };
 	}
 	const [proMonthly, proYearly, founding] = await Promise.all([
-		fetchPriceDisplay(secretKey, priceIds.proMonthly),
-		fetchPriceDisplay(secretKey, priceIds.proYearly),
-		fetchPriceDisplay(secretKey, priceIds.founding)
+		fetchPriceDisplay(secretKey, priceIds.proMonthly, 'pro_monthly', log),
+		fetchPriceDisplay(secretKey, priceIds.proYearly, 'pro_yearly', log),
+		fetchPriceDisplay(secretKey, priceIds.founding, 'founding', log)
 	]);
 	const value = { proMonthly, proYearly, founding };
 	if (proMonthly && proYearly && founding) {
@@ -62,7 +83,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		};
 	}
 	const cap = foundingCap();
-	const [prices, sold] = await Promise.all([loadPrices(), countFoundingAccounts()]);
+	const [prices, sold] = await Promise.all([loadPrices(locals.log), countFoundingAccounts()]);
 	return {
 		billingEnabled,
 		authenticated: locals.authenticated,
