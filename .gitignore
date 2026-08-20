@@ -38,3 +38,10 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local Claude Code overrides (launch.json is shared and committed)
+.claude/settings.local.json
+
+# Scratch design output: logo contact sheets, social-card candidates. Kept out of
+# static/ so nothing unreviewed is served or deployed.
+design-scratch/

@@ -19,6 +19,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # lint needs no build: prettier and eslint read source, not emitted dist.
+      - run: npm run lint
       # check / test / build each build the @arelay/* workspace packages first
       # (via the build:packages script), so the portal's package imports resolve.
       - run: npm run check
