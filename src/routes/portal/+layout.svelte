@@ -49,9 +49,7 @@
 		return sessionId || null;
 	});
 	const unreadCount = $derived(data.sessions.filter((session) => !session.is_read).length);
-	const prefetchSessions = $derived(
-		toPrefetchSessions(data.sessions, data.emailDraftSummaries)
-	);
+	const prefetchSessions = $derived(toPrefetchSessions(data.sessions, data.emailDraftSummaries));
 	// Navigation targets first, then whatever the sidebar reports as visible.
 	const prioritySessionIds = $derived.by(() => {
 		const ids = new Set<string>();
@@ -205,8 +203,7 @@
 			}
 		};
 
-		const pollDelay = () =>
-			Math.min(POLL_MS * 2 ** Math.min(pollFailures, 8), POLL_MAX_BACKOFF_MS);
+		const pollDelay = () => Math.min(POLL_MS * 2 ** Math.min(pollFailures, 8), POLL_MAX_BACKOFF_MS);
 
 		const schedule = () => {
 			if (stopped || timer) return;
@@ -258,7 +255,9 @@
 		handleShieldClick = handler;
 	}}
 >
-	<div class="flex h-[100dvh] min-h-screen flex-col overflow-hidden bg-white sm:bg-slate-50 dark:bg-slate-950">
+	<div
+		class="flex h-[100dvh] min-h-screen flex-col overflow-hidden bg-white sm:bg-slate-50 dark:bg-slate-950"
+	>
 		<PortalShellHeader
 			currentUserEmail={data.currentUser?.email}
 			{unreadCount}

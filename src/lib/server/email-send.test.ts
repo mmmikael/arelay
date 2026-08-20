@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseFromAddress, sendViaCloudflare, validateCloudflareEmailCredentials } from './email-send';
+import {
+	parseFromAddress,
+	sendViaCloudflare,
+	validateCloudflareEmailCredentials
+} from './email-send';
 
 describe('parseFromAddress', () => {
 	it('parses named addresses', () => {

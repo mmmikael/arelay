@@ -13,7 +13,8 @@ import {
 	uuid
 } from 'drizzle-orm/pg-core';
 
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+	string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -185,7 +186,10 @@ export const webauthnCredentials = pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		publicKey: bytea('public_key').notNull(),
 		counter: bigint('counter', { mode: 'number' }).default(0).notNull(),
-		transports: text('transports').array().default(sql`'{}'::text[]`).notNull(),
+		transports: text('transports')
+			.array()
+			.default(sql`'{}'::text[]`)
+			.notNull(),
 		deviceType: text('device_type'),
 		backedUp: boolean('backed_up').default(false).notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

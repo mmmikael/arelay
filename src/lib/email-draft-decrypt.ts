@@ -134,18 +134,10 @@ export function emailDraftDisplayFields(
 	fields: DecryptedEmailDraftFields,
 	status: string
 ): EmailDraftBundle {
-	return emailDraftDisplayBundle(
-		emailDraftAgentFields(fields),
-		fields.review,
-		fields.sent,
-		status
-	);
+	return emailDraftDisplayBundle(emailDraftAgentFields(fields), fields.review, fields.sent, status);
 }
 
 /** @deprecated Use emailDraftDisplayFields().html */
-export function emailDraftDisplayHtml(
-	fields: DecryptedEmailDraftFields,
-	status: string
-): string {
+export function emailDraftDisplayHtml(fields: DecryptedEmailDraftFields, status: string): string {
 	return emailDraftDisplayFields(fields, status).html;
 }

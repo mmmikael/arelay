@@ -36,7 +36,9 @@ if (exitCode !== 0) {
 
 const migratedSql = postgres(url, { max: 1, prepare: false, onnotice: () => undefined });
 try {
-	const [row] = await migratedSql<Array<{ users_table: string | null; drafts_table: string | null }>>`
+	const [row] = await migratedSql<
+		Array<{ users_table: string | null; drafts_table: string | null }>
+	>`
 		SELECT
 			to_regclass('public.users')::text AS users_table,
 			to_regclass('public.email_drafts')::text AS drafts_table

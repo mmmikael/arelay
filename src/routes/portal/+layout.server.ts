@@ -89,9 +89,7 @@ export const load: LayoutServerLoad = async ({ depends, locals }) => {
 	const spendRequestSummaries = spendReviewRelayEnabled
 		? await listSpendRequestSummariesForUser(userId)
 		: {};
-	const stripeCredentials = spendReviewRelayEnabled
-		? await getUserStripeCredentials(userId)
-		: null;
+	const stripeCredentials = spendReviewRelayEnabled ? await getUserStripeCredentials(userId) : null;
 	const stripeSecretKey =
 		stripeCredentials && isUserStripeConfigured(stripeCredentials)
 			? decryptStripeSecretKey(stripeCredentials)

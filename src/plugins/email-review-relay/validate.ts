@@ -1,7 +1,11 @@
 import { isEncryptedEnvelope, MAX_ENCRYPTED_FIELD_LENGTH } from '$lib/e2ee-envelope';
 import { normalizeEmail } from '$lib/server/email-verification';
 import type { JsonObject } from '$lib/server/db';
-import type { EmailDraftApproveFields, EmailDraftSendFields, EncryptedEmailDraftPayload } from './types';
+import type {
+	EmailDraftApproveFields,
+	EmailDraftSendFields,
+	EncryptedEmailDraftPayload
+} from './types';
 
 const MAX_SUBJECT_LENGTH = 500;
 const MAX_HTML_LENGTH = 256 * 1024;
@@ -16,12 +20,7 @@ const MAX_INLINE_ATTACHMENTS_TOTAL_BYTES = 10 * 1024 * 1024;
 // reach ~18 MB of base64url ciphertext: 10 MB of decoded images × 4/3 (data URI) × 4/3
 // (ciphertext encoding), plus the 256 KB html budget. Other fields keep the default cap.
 const MAX_ENCRYPTED_BODY_LENGTH = 20 * 1024 * 1024;
-const ALLOWED_INLINE_IMAGE_TYPES = new Set([
-	'image/png',
-	'image/jpeg',
-	'image/gif',
-	'image/webp'
-]);
+const ALLOWED_INLINE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 const BASE64_PATTERN = /^[a-z0-9+/]*={0,2}$/i;
 const CONTENT_ID_PATTERN = /^[a-z0-9._-]{1,200}$/i;
 
@@ -29,9 +28,9 @@ export type ParsedEncryptedEmailDraftPayload = EncryptedEmailDraftPayload;
 
 export { isEncryptedEnvelope };
 
-function parseIdempotencyKey(record: Record<string, unknown>):
-	| { ok: true; value?: string }
-	| { ok: false; error: string } {
+function parseIdempotencyKey(
+	record: Record<string, unknown>
+): { ok: true; value?: string } | { ok: false; error: string } {
 	if (record.idempotency_key === undefined) {
 		return { ok: true };
 	}
@@ -84,9 +83,9 @@ function optionalEncryptedField(
 	return { ok: true, value };
 }
 
-function parsePlaintextEmailFields(record: Record<string, unknown>):
-	| { ok: true; value: EmailDraftSendFields }
-	| { ok: false; error: string } {
+function parsePlaintextEmailFields(
+	record: Record<string, unknown>
+): { ok: true; value: EmailDraftSendFields } | { ok: false; error: string } {
 	const to = normalizeEmail(record.to);
 	if (!to) {
 		return { ok: false, error: 'Valid to address required' };
@@ -244,9 +243,9 @@ function parseOptionalRecipients(
 	return { ok: true, value: recipients };
 }
 
-export function parseEncryptedEmailDraftPayload(body: unknown):
-	| { ok: true; value: ParsedEncryptedEmailDraftPayload }
-	| { ok: false; error: string } {
+export function parseEncryptedEmailDraftPayload(
+	body: unknown
+): { ok: true; value: ParsedEncryptedEmailDraftPayload } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
@@ -299,9 +298,9 @@ export function parseEncryptedEmailDraftPayload(body: unknown):
 	};
 }
 
-export function parseEmailDraftSendFields(body: unknown):
-	| { ok: true; value: EmailDraftSendFields }
-	| { ok: false; error: string } {
+export function parseEmailDraftSendFields(
+	body: unknown
+): { ok: true; value: EmailDraftSendFields } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
@@ -309,9 +308,9 @@ export function parseEmailDraftSendFields(body: unknown):
 	return parsePlaintextEmailFields(body as Record<string, unknown>);
 }
 
-export function parseEmailDraftApproveFields(body: unknown):
-	| { ok: true; value: EmailDraftApproveFields }
-	| { ok: false; error: string } {
+export function parseEmailDraftApproveFields(
+	body: unknown
+): { ok: true; value: EmailDraftApproveFields } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
@@ -332,9 +331,9 @@ export function parseEmailDraftApproveFields(body: unknown):
 	};
 }
 
-export function parseEmailDraftReviewBody(body: unknown):
-	| { ok: true; value: { encrypted_review: JsonObject | null } }
-	| { ok: false; error: string } {
+export function parseEmailDraftReviewBody(
+	body: unknown
+): { ok: true; value: { encrypted_review: JsonObject | null } } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
@@ -348,7 +347,11 @@ export function parseEmailDraftReviewBody(body: unknown):
 		return { ok: true, value: { encrypted_review: null } };
 	}
 
-	const encryptedReview = requireEncryptedField(record, 'encrypted_review', MAX_ENCRYPTED_BODY_LENGTH);
+	const encryptedReview = requireEncryptedField(
+		record,
+		'encrypted_review',
+		MAX_ENCRYPTED_BODY_LENGTH
+	);
 	if (!encryptedReview.ok) return encryptedReview;
 
 	return {
@@ -357,9 +360,9 @@ export function parseEmailDraftReviewBody(body: unknown):
 	};
 }
 
-export function parseEmailDraftBody(body: unknown):
-	| { ok: true; value: ParsedEncryptedEmailDraftPayload }
-	| { ok: false; error: string } {
+export function parseEmailDraftBody(
+	body: unknown
+): { ok: true; value: ParsedEncryptedEmailDraftPayload } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}

@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decryptString, encryptString } from '@arelay/core';
-import {
-	createE2eeKeyring,
-	generateRecoveryKey,
-	unlockPrivateKey
-} from './keyring.js';
+import { createE2eeKeyring, generateRecoveryKey, unlockPrivateKey } from './keyring.js';
 
 describe('recovery-key keyring', () => {
 	it('generates a grouped recovery key', () => {

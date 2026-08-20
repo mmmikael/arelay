@@ -62,7 +62,11 @@ describe('email draft review state guards', () => {
 	});
 
 	it('models approve failure path after optimistic lock', () => {
-		const approved = { ...makeDraft('pending'), status: 'approved' as const, reviewed_at: new Date() };
+		const approved = {
+			...makeDraft('pending'),
+			status: 'approved' as const,
+			reviewed_at: new Date()
+		};
 		const failed = {
 			...approved,
 			status: 'failed' as const,

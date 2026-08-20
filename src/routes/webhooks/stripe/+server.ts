@@ -1,10 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isBillingEnabled, stripeWebhookSecret } from '$lib/server/billing/config';
-import {
-	applyPlanUpdate,
-	getBillingAccountByStripeCustomerId
-} from '$lib/server/billing/db';
+import { applyPlanUpdate, getBillingAccountByStripeCustomerId } from '$lib/server/billing/db';
 import {
 	parseStripeEvent,
 	planUpdateFromEvent,

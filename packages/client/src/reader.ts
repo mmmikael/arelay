@@ -183,7 +183,11 @@ export class ArelayReader {
 		}
 	}
 
-	#toDecryptedSession(session: WireSession, title: string | null, summary: string | null): DecryptedSession {
+	#toDecryptedSession(
+		session: WireSession,
+		title: string | null,
+		summary: string | null
+	): DecryptedSession {
 		return {
 			id: session.id,
 			title,
@@ -259,7 +263,10 @@ export class ArelayReader {
 			{ credentials: 'include' }
 		);
 		if (!res.ok) {
-			throw new ArelayReaderError(`Could not fetch artifact ciphertext (${res.status})`, res.status);
+			throw new ArelayReaderError(
+				`Could not fetch artifact ciphertext (${res.status})`,
+				res.status
+			);
 		}
 		const ciphertextBytes = new Uint8Array(await res.arrayBuffer());
 		return decryptPayloadBytes(artifact.encryptedPayload, ciphertextBytes, privateKey);

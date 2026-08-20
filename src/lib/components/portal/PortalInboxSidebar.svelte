@@ -152,9 +152,7 @@
 	const activeSessionCount = $derived(countActiveSessions(availableSessions));
 
 	const filteredSessions = $derived(
-		filterSidebarSessions(availableSessions, activeFilter, (id) =>
-			Boolean(emailDraftSummaries[id])
-		)
+		filterSidebarSessions(availableSessions, activeFilter, (id) => Boolean(emailDraftSummaries[id]))
 	);
 
 	const activeFilterLabel = $derived(
@@ -498,10 +496,7 @@
 
 		const session = sessions.find((entry) => entry.id === id);
 		const needsUnlock =
-			session &&
-			isEncryptedSession(session) &&
-			!$e2eePrivateKey &&
-			$e2eeConfig.configured;
+			session && isEncryptedSession(session) && !$e2eePrivateKey && $e2eeConfig.configured;
 
 		if (needsUnlock) {
 			event.preventDefault();
@@ -789,7 +784,9 @@
 <div
 	class="relative flex shrink-0 flex-col min-h-0 overflow-hidden border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950
 		{showMobileDetail ? 'hidden sm:flex' : 'flex w-full'}
-		{effectiveSidebarCollapsed ? 'sm:w-0 sm:border-0' : 'w-full sm:w-[var(--sidebar-width)] sm:border-r'}
+		{effectiveSidebarCollapsed
+		? 'sm:w-0 sm:border-0'
+		: 'w-full sm:w-[var(--sidebar-width)] sm:border-r'}
 		{!isResizing && !effectiveSidebarCollapsed
 		? 'transition-[width,border-color] duration-300 ease-in-out'
 		: ''}"
@@ -883,58 +880,55 @@
 
 		{#if availableSessions.length > 0 && selectionMode}
 			<div class="mt-3 flex min-h-[28px] items-center justify-between gap-2">
-					<div class="flex min-w-0 items-center gap-2 text-[13px]">
-						<span class="shrink-0 whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">
-							{selectedIds.size} selected
-						</span>
-						<button
-							type="button"
-							onclick={toggleSelectAll}
-							class="shrink-0 whitespace-nowrap text-[#2563eb] transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
-						>
-							{allFilteredSelected ? 'Clear' : 'Select all'}
-						</button>
-					</div>
-					<div class="flex shrink-0 items-center gap-1.5">
-						<button
-							type="button"
-							onclick={archiveSelected}
-							disabled={selectedIds.size === 0}
-							class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
-						>
-							{#if activeFilter === 'archived'}
-								<ArchiveRestore class="h-3.5 w-3.5" />
-								Unarchive
-							{:else}
-								<Archive class="h-3.5 w-3.5" />
-								Archive
-							{/if}
-						</button>
-						<button
-							type="button"
-							onclick={confirmDeleteSelected}
-							disabled={selectedIds.size === 0}
-							class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-950/40"
-						>
-							<Trash2 class="h-3.5 w-3.5" />
-							Delete
-						</button>
-						<button
-							type="button"
-							onclick={exitSelectionMode}
-							class="shrink-0 rounded-md px-2 py-1 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-						>
-							Cancel
-						</button>
-					</div>
+				<div class="flex min-w-0 items-center gap-2 text-[13px]">
+					<span class="shrink-0 whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">
+						{selectedIds.size} selected
+					</span>
+					<button
+						type="button"
+						onclick={toggleSelectAll}
+						class="shrink-0 whitespace-nowrap text-[#2563eb] transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+					>
+						{allFilteredSelected ? 'Clear' : 'Select all'}
+					</button>
+				</div>
+				<div class="flex shrink-0 items-center gap-1.5">
+					<button
+						type="button"
+						onclick={archiveSelected}
+						disabled={selectedIds.size === 0}
+						class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+					>
+						{#if activeFilter === 'archived'}
+							<ArchiveRestore class="h-3.5 w-3.5" />
+							Unarchive
+						{:else}
+							<Archive class="h-3.5 w-3.5" />
+							Archive
+						{/if}
+					</button>
+					<button
+						type="button"
+						onclick={confirmDeleteSelected}
+						disabled={selectedIds.size === 0}
+						class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-950/40"
+					>
+						<Trash2 class="h-3.5 w-3.5" />
+						Delete
+					</button>
+					<button
+						type="button"
+						onclick={exitSelectionMode}
+						class="shrink-0 rounded-md px-2 py-1 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+					>
+						Cancel
+					</button>
+				</div>
 			</div>
 		{/if}
 	</div>
 
-	<div
-		bind:this={sessionScrollEl}
-		class="min-w-0 flex-1 overflow-y-auto px-3 py-2.5 sm:px-3"
-	>
+	<div bind:this={sessionScrollEl} class="min-w-0 flex-1 overflow-y-auto px-3 py-2.5 sm:px-3">
 		{#if filteredSessions.length === 0}
 			<div class="px-1 py-6">
 				<p class="text-sm font-medium text-slate-700 dark:text-slate-200">{emptyState.title}</p>
@@ -959,7 +953,8 @@
 					{@const isSelected = selectedIds.has(session.id)}
 					<li data-session-id={session.id}>
 						<div
-							class="group relative rounded-[10px] border transition-colors {selectionMode && isSelected
+							class="group relative rounded-[10px] border transition-colors {selectionMode &&
+							isSelected
 								? 'border-[#2563eb]/60 bg-[#eff6ff] dark:border-blue-400/50 dark:bg-blue-950/40'
 								: isCurrent || isPending
 									? 'border-[#2563eb]/35 bg-[#eff6ff] dark:border-blue-400/40 dark:bg-blue-950/40'
@@ -1020,12 +1015,13 @@
 								<span class="min-w-0 flex-1">
 									<span
 										class="block truncate text-[14px] font-semibold leading-5 text-slate-900 dark:text-slate-100"
-										title={title}
+										{title}
 									>
 										{title}
 									</span>
 									{#if agentName}
-										<span class="mt-0.5 block truncate text-[12px] text-slate-500 dark:text-slate-400"
+										<span
+											class="mt-0.5 block truncate text-[12px] text-slate-500 dark:text-slate-400"
 											>{agentName}</span
 										>
 									{/if}
@@ -1087,55 +1083,56 @@
 							{/if}
 
 							{#if !selectionMode}
-							<div
-								class="absolute bottom-2 right-2 flex shrink-0 items-center gap-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-							>
-								{#if isPending}
-									<span
-										class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-[#2563eb] shadow-sm dark:bg-slate-900/90 dark:text-blue-300"
-										aria-label="Loading session"
-									>
-										<LoaderCircle class="h-3.5 w-3.5 animate-spin" />
-									</span>
-								{:else}
-									<button
-										type="button"
-										class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-[#2563eb] disabled:opacity-50 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
-										title={session.is_read ? 'Mark as unread' : 'Mark as read'}
-										aria-label={session.is_read ? 'Mark as unread' : 'Mark as read'}
-										disabled={markingReadSessionId === session.id}
-										onclick={(event) => setSessionReadState(session.id, !session.is_read, event)}
-									>
-										{#if session.is_read}
-											<Mail class="h-3.5 w-3.5" />
-										{:else}
-											<MailOpen class="h-3.5 w-3.5" />
-										{/if}
-									</button>
-									<button
-										type="button"
-										class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-										title={session.is_archived ? 'Unarchive session' : 'Archive session'}
-										aria-label={session.is_archived ? 'Unarchive session' : 'Archive session'}
-										onclick={(event) => archiveSessionRow(session.id, !session.is_archived, event)}
-									>
-										{#if session.is_archived}
-											<ArchiveRestore class="h-3.5 w-3.5" />
-										{:else}
-											<Archive class="h-3.5 w-3.5" />
-										{/if}
-									</button>
-									<button
-										type="button"
-										class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
-										title="Delete session"
-										aria-label="Delete session"
-										onclick={(event) => confirmDeleteSession(session.id, event)}
-									>
-										<Trash2 class="h-3.5 w-3.5" />
-									</button>
-								{/if}
-							</div>
+								<div
+									class="absolute bottom-2 right-2 flex shrink-0 items-center gap-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+								>
+									{#if isPending}
+										<span
+											class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-[#2563eb] shadow-sm dark:bg-slate-900/90 dark:text-blue-300"
+											aria-label="Loading session"
+										>
+											<LoaderCircle class="h-3.5 w-3.5 animate-spin" />
+										</span>
+									{:else}
+										<button
+											type="button"
+											class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-[#2563eb] disabled:opacity-50 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
+											title={session.is_read ? 'Mark as unread' : 'Mark as read'}
+											aria-label={session.is_read ? 'Mark as unread' : 'Mark as read'}
+											disabled={markingReadSessionId === session.id}
+											onclick={(event) => setSessionReadState(session.id, !session.is_read, event)}
+										>
+											{#if session.is_read}
+												<Mail class="h-3.5 w-3.5" />
+											{:else}
+												<MailOpen class="h-3.5 w-3.5" />
+											{/if}
+										</button>
+										<button
+											type="button"
+											class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+											title={session.is_archived ? 'Unarchive session' : 'Archive session'}
+											aria-label={session.is_archived ? 'Unarchive session' : 'Archive session'}
+											onclick={(event) =>
+												archiveSessionRow(session.id, !session.is_archived, event)}
+										>
+											{#if session.is_archived}
+												<ArchiveRestore class="h-3.5 w-3.5" />
+											{:else}
+												<Archive class="h-3.5 w-3.5" />
+											{/if}
+										</button>
+										<button
+											type="button"
+											class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+											title="Delete session"
+											aria-label="Delete session"
+											onclick={(event) => confirmDeleteSession(session.id, event)}
+										>
+											<Trash2 class="h-3.5 w-3.5" />
+										</button>
+									{/if}
+								</div>
 							{/if}
 						</div>
 					</li>

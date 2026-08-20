@@ -34,6 +34,8 @@ for (const sample of samples) {
 		...sample,
 		sessionSummary: `${sample.payee} — ${fmt}`
 	});
-	console.log(`✓ ${sample.payee.padEnd(12)} ${fmt.padEnd(10)} → ${result.request.status}  ${result.portalUrl}`);
+	console.log(
+		`✓ ${sample.payee.padEnd(12)} ${fmt.padEnd(10)} → ${result.request.status}  ${result.portalUrl}`
+	);
 }
 console.log('\nDone — 3 spend requests submitted (all PENDING until approved).');

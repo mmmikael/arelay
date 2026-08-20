@@ -58,8 +58,7 @@ export async function peekRateLimit(
 	`;
 
 	const row = rows[0];
-	const count =
-		row && row.window_start.getTime() >= windowStartMs ? row.count : 0;
+	const count = row && row.window_start.getTime() >= windowStartMs ? row.count : 0;
 	if (!isRateLimitExceeded(count, config.limit)) {
 		return { ok: true };
 	}

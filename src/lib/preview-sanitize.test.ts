@@ -44,7 +44,8 @@ describe('sanitizePreviewHtml', () => {
 	});
 
 	it('removes meta refresh redirects', () => {
-		const input = '<meta http-equiv="refresh" content="0;url=https://evil.com"><meta charset="utf-8">';
+		const input =
+			'<meta http-equiv="refresh" content="0;url=https://evil.com"><meta charset="utf-8">';
 		const output = sanitizePreviewHtml(input);
 		expect(output).not.toContain('refresh');
 		expect(output).toContain('charset');
@@ -77,15 +78,15 @@ describe('sanitizeArtifactPreviewHtml', () => {
 	});
 
 	it('allows external images but blocks javascript URLs', () => {
-		const input =
-			'<img src="https://cdn.example.com/x.png"><a href="javascript:alert(1)">bad</a>';
+		const input = '<img src="https://cdn.example.com/x.png"><a href="javascript:alert(1)">bad</a>';
 		const output = sanitizeArtifactPreviewHtml(input);
 		expect(output).toContain('cdn.example.com');
 		expect(output).not.toContain('javascript:');
 	});
 
 	it('drops non-stylesheet link tags', () => {
-		const input = '<link rel="preload" href="https://evil.com/app.js"><link rel="stylesheet" href="https://cdn.example.com/a.css">';
+		const input =
+			'<link rel="preload" href="https://evil.com/app.js"><link rel="stylesheet" href="https://cdn.example.com/a.css">';
 		const output = sanitizeArtifactPreviewHtml(input);
 		expect(output).not.toContain('preload');
 		expect(output).toContain('stylesheet');
@@ -118,8 +119,7 @@ describe('isDangerousUrl', () => {
 
 describe('sanitizeEmailPreviewHtml', () => {
 	it('preserves supported raster data images', () => {
-		const input =
-			'<p><img src="data:image/jpeg;base64,aGVsbG8=" alt="Preview"></p>';
+		const input = '<p><img src="data:image/jpeg;base64,aGVsbG8=" alt="Preview"></p>';
 
 		expect(sanitizeEmailPreviewHtml(input)).toBe(input);
 		expect(emailHtmlHasBlockedInteractivity(input)).toBe(false);
@@ -153,7 +153,9 @@ describe('artifactHtmlHasBlockedInteractivity', () => {
 		expect(artifactHtmlHasBlockedInteractivity('<p onclick="alert(1)">Hi</p>')).toBe(true);
 		expect(artifactHtmlHasBlockedInteractivity('<a href="javascript:alert(1)">x</a>')).toBe(true);
 		expect(
-			artifactHtmlHasBlockedInteractivity('<meta http-equiv="refresh" content="0;url=https://x.com">')
+			artifactHtmlHasBlockedInteractivity(
+				'<meta http-equiv="refresh" content="0;url=https://x.com">'
+			)
 		).toBe(true);
 		expect(artifactHtmlHasBlockedInteractivity('<form action="/x"></form>')).toBe(true);
 		expect(artifactHtmlHasBlockedInteractivity('<iframe src="https://x.com"></iframe>')).toBe(true);

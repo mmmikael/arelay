@@ -82,19 +82,19 @@ prompted to accept the new versions before continuing.
 Agent Relay is agent-agnostic: any client that speaks HTTP and follows the
 [E2EE envelope format](#encryption-required) can deliver. Pick the path that fits your setup:
 
-| Integration path | Best for |
-| --- | --- |
-| [CLI & MCP server](#cli--mcp-server) | Fastest start: one command from any shell, or native MCP tools in Claude Code, Cursor, and Claude Desktop |
-| [Agent skill](#agent-skill) | Cursor, Codex, Claude Code, Hermes Agent, and other [Agent Skills](https://agentskills.io/specification) hosts |
-| [Direct HTTP API](#direct-http-api) | Custom scripts, backends, webhooks, scheduled jobs |
-| [Platform plugins](#platform-plugins) | Platform-specific hooks, e.g. Hermes cron delivery |
+| Integration path                      | Best for                                                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [CLI & MCP server](#cli--mcp-server)  | Fastest start: one command from any shell, or native MCP tools in Claude Code, Cursor, and Claude Desktop      |
+| [Agent skill](#agent-skill)           | Cursor, Codex, Claude Code, Hermes Agent, and other [Agent Skills](https://agentskills.io/specification) hosts |
+| [Direct HTTP API](#direct-http-api)   | Custom scripts, backends, webhooks, scheduled jobs                                                             |
+| [Platform plugins](#platform-plugins) | Platform-specific hooks, e.g. Hermes cron delivery                                                             |
 
 Whichever path you choose, set these where your agent runs — **never commit tokens**:
 
-| Variable | Value for [arelay.app](https://arelay.app) |
-| --- | --- |
-| `ARELAY_URL` | `https://arelay.app` |
-| `ARELAY_TOKEN` | Token from Account → Agent tokens |
+| Variable       | Value for [arelay.app](https://arelay.app) |
+| -------------- | ------------------------------------------ |
+| `ARELAY_URL`   | `https://arelay.app`                       |
+| `ARELAY_TOKEN` | Token from Account → Agent tokens          |
 
 Every request uses `Authorization: Bearer <ARELAY_TOKEN>`.
 
@@ -227,33 +227,33 @@ npm run db:smoke
 
 ### Environment variables
 
-| Variable | Description |
-| --- | --- |
-| `SESSION_SECRET` | Secret for signing human session cookies. Generate with `openssl rand -hex 32`. |
-| `SESSION_VERSION` | Bump this to invalidate existing human sessions. |
-| `ORIGIN` | Public site URL for CSRF checks and absolute links. In production, set to your canonical URL, for example `https://arelay.app`. |
-| `WEBAUTHN_RP_NAME` | Passkey relying party display name. Defaults to `Agent Relay`. |
-| `WEBAUTHN_RP_ID` | Passkey relying party ID. For production on arelay.app, use `arelay.app`. |
-| `WEBAUTHN_ORIGIN` | Expected passkey origin, for example `https://arelay.app`. |
-| `DATABASE_URL` | PostgreSQL connection string. |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID for [Email Sending](https://developers.cloudflare.com/email-service/). Use when your sending domain is on Cloudflare DNS. |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Email Sending permission. |
-| `EMAIL_FROM` | Required when Cloudflare or SMTP is configured. Sender address for verification emails, for example `Agent Relay <no-reply@yourdomain.com>`. |
-| `SMTP_HOST` | SMTP host for account email verification. Used when Cloudflare Email Sending is not configured. |
-| `SMTP_PORT` | SMTP port. Defaults to `587`, or `465` when `SMTP_SECURE=true`. |
-| `SMTP_SECURE` | Set to `true` for implicit TLS SMTP. |
-| `SMTP_USER` | SMTP username, if your provider requires authentication. |
-| `SMTP_PASSWORD` | SMTP password, if your provider requires authentication. |
-| `S3_ENDPOINT` | S3-compatible endpoint URL. |
-| `S3_BUCKET` | S3 bucket name. |
-| `S3_PREFIX` | Object key prefix. Defaults to `agent-relay`. |
-| `S3_ACCESS_KEY` | S3 access key. |
-| `S3_SECRET_KEY` | S3 secret key. |
-| `S3_REGION` | S3 region. Defaults to `us-east-1`. |
-| `PORT` | HTTP port for `npm start`. Defaults to `3000`. Railway sets this automatically. |
-| `BODY_SIZE_LIMIT` | Max HTTP request body size for adapter-node. Required for encrypted artifact uploads (a 25 MB file needs ~37 MB of JSON; the Pro plan's 100 MB needs ~140 MB). Defaults to `140M` when using `npm start`. |
-| `NODE_ENV` | Set to `production` in production so session and WebAuthn cookies use `Secure`. |
-| `EMAIL_REVIEW_RELAY_ENABLED` | Optional plugin. Set to `true` to enable Email Review Relay (off by default). |
+| Variable                     | Description                                                                                                                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`             | Secret for signing human session cookies. Generate with `openssl rand -hex 32`.                                                                                                                           |
+| `SESSION_VERSION`            | Bump this to invalidate existing human sessions.                                                                                                                                                          |
+| `ORIGIN`                     | Public site URL for CSRF checks and absolute links. In production, set to your canonical URL, for example `https://arelay.app`.                                                                           |
+| `WEBAUTHN_RP_NAME`           | Passkey relying party display name. Defaults to `Agent Relay`.                                                                                                                                            |
+| `WEBAUTHN_RP_ID`             | Passkey relying party ID. For production on arelay.app, use `arelay.app`.                                                                                                                                 |
+| `WEBAUTHN_ORIGIN`            | Expected passkey origin, for example `https://arelay.app`.                                                                                                                                                |
+| `DATABASE_URL`               | PostgreSQL connection string.                                                                                                                                                                             |
+| `CLOUDFLARE_ACCOUNT_ID`      | Cloudflare account ID for [Email Sending](https://developers.cloudflare.com/email-service/). Use when your sending domain is on Cloudflare DNS.                                                           |
+| `CLOUDFLARE_API_TOKEN`       | Cloudflare API token with Email Sending permission.                                                                                                                                                       |
+| `EMAIL_FROM`                 | Required when Cloudflare or SMTP is configured. Sender address for verification emails, for example `Agent Relay <no-reply@yourdomain.com>`.                                                              |
+| `SMTP_HOST`                  | SMTP host for account email verification. Used when Cloudflare Email Sending is not configured.                                                                                                           |
+| `SMTP_PORT`                  | SMTP port. Defaults to `587`, or `465` when `SMTP_SECURE=true`.                                                                                                                                           |
+| `SMTP_SECURE`                | Set to `true` for implicit TLS SMTP.                                                                                                                                                                      |
+| `SMTP_USER`                  | SMTP username, if your provider requires authentication.                                                                                                                                                  |
+| `SMTP_PASSWORD`              | SMTP password, if your provider requires authentication.                                                                                                                                                  |
+| `S3_ENDPOINT`                | S3-compatible endpoint URL.                                                                                                                                                                               |
+| `S3_BUCKET`                  | S3 bucket name.                                                                                                                                                                                           |
+| `S3_PREFIX`                  | Object key prefix. Defaults to `agent-relay`.                                                                                                                                                             |
+| `S3_ACCESS_KEY`              | S3 access key.                                                                                                                                                                                            |
+| `S3_SECRET_KEY`              | S3 secret key.                                                                                                                                                                                            |
+| `S3_REGION`                  | S3 region. Defaults to `us-east-1`.                                                                                                                                                                       |
+| `PORT`                       | HTTP port for `npm start`. Defaults to `3000`. Railway sets this automatically.                                                                                                                           |
+| `BODY_SIZE_LIMIT`            | Max HTTP request body size for adapter-node. Required for encrypted artifact uploads (a 25 MB file needs ~37 MB of JSON; the Pro plan's 100 MB needs ~140 MB). Defaults to `140M` when using `npm start`. |
+| `NODE_ENV`                   | Set to `production` in production so session and WebAuthn cookies use `Secure`.                                                                                                                           |
+| `EMAIL_REVIEW_RELAY_ENABLED` | Optional plugin. Set to `true` to enable Email Review Relay (off by default).                                                                                                                             |
 
 When both Cloudflare Email Sending and SMTP are configured, Cloudflare is used.
 
@@ -309,10 +309,10 @@ content. Self-hosted operators are responsible for backups (see [SECURITY.md](SE
 
 Back up **both** stores; restoring only one leaves the deployment broken:
 
-| Store | Contents |
-| --- | --- |
-| PostgreSQL | Accounts, passkeys, E2EE config, API tokens, inbox session metadata, email drafts |
-| S3 (`S3_BUCKET` / `S3_PREFIX`) | Encrypted artifact blobs referenced by `inbox_artifacts.storage_key` |
+| Store                          | Contents                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| PostgreSQL                     | Accounts, passkeys, E2EE config, API tokens, inbox session metadata, email drafts |
+| S3 (`S3_BUCKET` / `S3_PREFIX`) | Encrypted artifact blobs referenced by `inbox_artifacts.storage_key`              |
 
 **Backup**
 
@@ -359,12 +359,12 @@ System `CLOUDFLARE_*` env vars remain for signup verification only.
 
 ```json
 {
-  "encrypted": true,
-  "encrypted_to": { "v": 1, "alg": "P-256-ECDH-A256GCM", "...": "..." },
-  "encrypted_from_email": { "...": "..." },
-  "encrypted_subject": { "...": "..." },
-  "encrypted_html": { "...": "..." },
-  "idempotency_key": "optional-stable-key"
+	"encrypted": true,
+	"encrypted_to": { "v": 1, "alg": "P-256-ECDH-A256GCM", "...": "..." },
+	"encrypted_from_email": { "...": "..." },
+	"encrypted_subject": { "...": "..." },
+	"encrypted_html": { "...": "..." },
+	"idempotency_key": "optional-stable-key"
 }
 ```
 

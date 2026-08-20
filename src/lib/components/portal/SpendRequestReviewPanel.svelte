@@ -2,10 +2,7 @@
 	import { invalidate } from '$app/navigation';
 	import { decryptString, encryptString, type EncryptedEnvelope } from '$lib/e2ee';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
-	import {
-		formatSpendAmount,
-		spendRequestStatusLabel
-	} from '$lib/spend-request-status';
+	import { formatSpendAmount, spendRequestStatusLabel } from '$lib/spend-request-status';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -21,8 +18,14 @@
 		onUnlock?: () => Promise<boolean>;
 	};
 
-	let { spendRequest, stripeConfigured, stripeTestMode, sessionId, e2eeConfigured, onUnlock }: Props =
-		$props();
+	let {
+		spendRequest,
+		stripeConfigured,
+		stripeTestMode,
+		sessionId,
+		e2eeConfigured,
+		onUnlock
+	}: Props = $props();
 
 	type DecryptedSpend = {
 		payee: string;
@@ -192,7 +195,9 @@
 >
 	<div class="space-y-4 px-4 py-4 sm:px-6">
 		<div class="flex flex-wrap items-center justify-between gap-2">
-			<h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+			<h2
+				class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400"
+			>
 				Spend request
 			</h2>
 			<span
@@ -212,7 +217,10 @@
 						<Input id="spend-payee" bind:value={editablePayee} disabled={actionBusy} class="h-9" />
 					</div>
 					<div class="grid gap-1.5">
-						<label for="spend-amount" class="text-xs font-medium text-slate-700 dark:text-slate-300">
+						<label
+							for="spend-amount"
+							class="text-xs font-medium text-slate-700 dark:text-slate-300"
+						>
 							Amount ({decrypted.currency.toUpperCase()})
 						</label>
 						<Input
@@ -312,10 +320,14 @@
 							: 'Approve & pay'}
 				</Button>
 				{#if spendRequest.status === 'pending'}
-					<Button variant="outline" disabled={actionBusy} onclick={rejectSpendRequest}>Reject</Button>
+					<Button variant="outline" disabled={actionBusy} onclick={rejectSpendRequest}
+						>Reject</Button
+					>
 				{/if}
 				{#if stripeConfigured && stripeTestMode}
-					<span class="text-xs font-medium text-slate-500 dark:text-slate-400">Stripe test mode</span>
+					<span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+						>Stripe test mode</span
+					>
 				{/if}
 			</div>
 			{#if !stripeConfigured}
@@ -343,7 +355,9 @@
 		<AlertDialog.Header>
 			<AlertDialog.Title>Approve and charge?</AlertDialog.Title>
 			<AlertDialog.Description>
-				This will charge {decrypted ? formatSpendAmount(parseAmountMinor() ?? decrypted.amountMinor, decrypted.currency) : 'the amount'}
+				This will charge {decrypted
+					? formatSpendAmount(parseAmountMinor() ?? decrypted.amountMinor, decrypted.currency)
+					: 'the amount'}
 				to {editablePayee.trim() || 'the payee'} using your Stripe credentials{stripeTestMode
 					? ' (test mode)'
 					: ''}.

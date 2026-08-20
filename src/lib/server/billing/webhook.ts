@@ -34,9 +34,7 @@ export function verifyStripeWebhookSignature(
 	const now = options?.nowSeconds ?? Math.floor(Date.now() / 1000);
 	if (Math.abs(now - timestampSeconds) > tolerance) return false;
 
-	const expected = createHmac('sha256', secret)
-		.update(`${timestamp}.${payload}`)
-		.digest('hex');
+	const expected = createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex');
 	const expectedBuffer = Buffer.from(expected, 'utf8');
 
 	return signatures.some((signature) => {
@@ -90,8 +88,7 @@ function subscriptionPeriodEnd(object: Record<string, unknown>): Date | null {
 		items && typeof items === 'object'
 			? (
 					(items as { data?: Array<Record<string, unknown>> }).data?.[0] as
-						| Record<string, unknown>
-						| undefined
+						Record<string, unknown> | undefined
 				)?.current_period_end
 			: undefined;
 	raw = raw ?? object.current_period_end;

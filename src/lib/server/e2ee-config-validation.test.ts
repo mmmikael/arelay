@@ -33,7 +33,10 @@ describe('e2ee-config-validation', () => {
 
 	it('rejects encrypted private keys with low PBKDF2 iterations', () => {
 		expect(
-			validateEncryptedPrivateKey({ ...testEncryptedPrivateKey, iterations: MIN_PBKDF2_ITERATIONS - 1 })
+			validateEncryptedPrivateKey({
+				...testEncryptedPrivateKey,
+				iterations: MIN_PBKDF2_ITERATIONS - 1
+			})
 		).toBe(false);
 	});
 
@@ -43,9 +46,12 @@ describe('e2ee-config-validation', () => {
 
 	it('detects public key changes for overwrite confirmation', () => {
 		expect(publicKeyJwkChanged(testPublicKeyJwk, testPublicKeyJwk)).toBe(false);
-		expect(publicKeyJwkChanged(testPublicKeyJwk, { ...testPublicKeyJwk, x: TEST_P256_COORD.slice(0, -1) + 'B' })).toBe(
-			true
-		);
+		expect(
+			publicKeyJwkChanged(testPublicKeyJwk, {
+				...testPublicKeyJwk,
+				x: TEST_P256_COORD.slice(0, -1) + 'B'
+			})
+		).toBe(true);
 	});
 
 	it('requires overwrite when encrypted private key changes but public key stays the same', () => {

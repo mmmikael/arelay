@@ -56,7 +56,11 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
 
 	const selection = resolvePrice(body);
 	if (!selection) {
-		return routeJsonError(locals, 400, 'plan must be "pro" (interval monthly|yearly) or "founding".');
+		return routeJsonError(
+			locals,
+			400,
+			'plan must be "pro" (interval monthly|yearly) or "founding".'
+		);
 	}
 
 	const userId = locals.user!.id;
@@ -64,7 +68,11 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
 
 	const account = await getBillingAccount(userId);
 	if (account && account.plan !== 'free') {
-		return routeJsonError(locals, 409, 'This account already has an active plan. Use Manage billing.');
+		return routeJsonError(
+			locals,
+			409,
+			'This account already has an active plan. Use Manage billing.'
+		);
 	}
 
 	if (selection.plan === 'founding') {

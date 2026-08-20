@@ -162,7 +162,9 @@ async function agentFetch(path, init = {}) {
 		body = text;
 	}
 	if (!res.ok) {
-		throw new Error(`${init.method ?? 'GET'} ${path} failed (${res.status}): ${JSON.stringify(body)}`);
+		throw new Error(
+			`${init.method ?? 'GET'} ${path} failed (${res.status}): ${JSON.stringify(body)}`
+		);
 	}
 	return body;
 }
@@ -220,13 +222,7 @@ async function createMultiArtifactSession({ title, summary, files }) {
 
 async function submitEmailDraft({ to, subject, htmlAsset, text }) {
 	const html = readDemo(htmlAsset);
-	const childArgs = [
-		join(rootDir, 'scripts', 'e2ee-email-draft.mjs'),
-		to,
-		subject,
-		html,
-		text
-	];
+	const childArgs = [join(rootDir, 'scripts', 'e2ee-email-draft.mjs'), to, subject, html, text];
 	return new Promise((resolve, reject) => {
 		const child = spawn(process.execPath, childArgs, {
 			env: {

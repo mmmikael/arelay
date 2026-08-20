@@ -1,6 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getE2eeConfig, listCredentialsForUser, upsertE2eeConfig, type JsonObject } from '$lib/server/db';
+import {
+	getE2eeConfig,
+	listCredentialsForUser,
+	upsertE2eeConfig,
+	type JsonObject
+} from '$lib/server/db';
 import { routeJsonError } from '$lib/server/api-error';
 import { parsePasskeyEncryptedPrivateKey } from '$lib/server/e2ee-passkey-config';
 import {
@@ -108,8 +113,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		encryptedPrivateKey: body.encryptedPrivateKey,
 		passkeyCredentialId,
 		passkeyEncryptedPrivateKey: body.passkeyEncryptedPrivateKey ?? null,
-		recoveryHint:
-			typeof body.recoveryHint === 'string' ? body.recoveryHint.trim() || null : null
+		recoveryHint: typeof body.recoveryHint === 'string' ? body.recoveryHint.trim() || null : null
 	});
 
 	return json({

@@ -1,10 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-	createAgentApiToken,
-	listAgentApiTokensForUser,
-	type AgentApiToken
-} from '$lib/server/db';
+import { createAgentApiToken, listAgentApiTokensForUser, type AgentApiToken } from '$lib/server/db';
 import { routeJsonError } from '$lib/server/api-error';
 import {
 	isE2eePolicyResponse,

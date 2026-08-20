@@ -2,10 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { SPEND_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { toSessionView } from '$lib/session-view';
-import {
-	AGENT_SESSION_LIMIT_ERROR,
-	reserveAgentSessionCreate
-} from '$lib/server/agent-rate-limit';
+import { AGENT_SESSION_LIMIT_ERROR, reserveAgentSessionCreate } from '$lib/server/agent-rate-limit';
 import { routeRateLimitResponse } from '$lib/server/api-error';
 import { isE2eePolicyResponse, requireOwnerE2eeForAgent } from '$lib/server/e2ee-policy';
 import {
@@ -58,7 +55,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
 	const sessionLimit = await reserveAgentSessionCreate(ownerUserId);
 	if (!sessionLimit.ok) {
-		return routeRateLimitResponse(locals, sessionLimit.retryAfterSeconds, AGENT_SESSION_LIMIT_ERROR);
+		return routeRateLimitResponse(
+			locals,
+			sessionLimit.retryAfterSeconds,
+			AGENT_SESSION_LIMIT_ERROR
+		);
 	}
 
 	const sessionId = crypto.randomUUID();

@@ -1,8 +1,5 @@
 import { decryptPayloadBytes, type EncryptedPayload } from '$lib/e2ee';
-import {
-	getCachedArtifactPlaintext,
-	setCachedArtifactPlaintext
-} from '$lib/session-detail-cache';
+import { getCachedArtifactPlaintext, setCachedArtifactPlaintext } from '$lib/session-detail-cache';
 
 export type ArtifactBytesSource = {
 	id: string;

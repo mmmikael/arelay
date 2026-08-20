@@ -12,8 +12,8 @@ feature," with working examples.
 
 ## The mental model
 
-Agent Relay is, at its core, *"deliver files and email drafts to a human's end-to-end
-encrypted inbox over HTTP."* Everything you build is a client of that API:
+Agent Relay is, at its core, _"deliver files and email drafts to a human's end-to-end
+encrypted inbox over HTTP."_ Everything you build is a client of that API:
 
 ```
 your integration  →  @arelay/cli SDK (encrypts)  →  Agent Relay HTTP API  →  inbox
@@ -25,12 +25,12 @@ You authenticate with an **agent token** (`ar_...`, created in the portal under
 
 ## Pick your level
 
-| Level | What it is | Touches core? | Good for |
-| --- | --- | --- | --- |
-| **1. Delivery integration** | Anything that calls the SDK to deliver | No | The fastest start — Slack/Discord notifier, GitHub Action, Raycast extension, a backend hook |
-| **2. Agent skill** | A skill for Agent Skills hosts (Claude Code, Cursor, Codex, Hermes) | No | Teaching agents to deliver via natural language |
-| **3. Platform plugin** | Native integration with a specific agent platform | No (separate repo) | Deep hooks into a host, e.g. cron delivery |
-| **4. Core feature plugin** | Optional server-side feature, env-gated | Yes (this repo) | New capabilities like Email Review Relay |
+| Level                       | What it is                                                          | Touches core?      | Good for                                                                                     |
+| --------------------------- | ------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| **1. Delivery integration** | Anything that calls the SDK to deliver                              | No                 | The fastest start — Slack/Discord notifier, GitHub Action, Raycast extension, a backend hook |
+| **2. Agent skill**          | A skill for Agent Skills hosts (Claude Code, Cursor, Codex, Hermes) | No                 | Teaching agents to deliver via natural language                                              |
+| **3. Platform plugin**      | Native integration with a specific agent platform                   | No (separate repo) | Deep hooks into a host, e.g. cron delivery                                                   |
+| **4. Core feature plugin**  | Optional server-side feature, env-gated                             | Yes (this repo)    | New capabilities like Email Review Relay                                                     |
 
 Start at level 1 unless you have a specific reason to go deeper.
 
@@ -49,18 +49,18 @@ npm install @arelay/cli
 import { ArelayClient } from '@arelay/cli';
 
 const client = new ArelayClient({
-  token: process.env.ARELAY_TOKEN!,
-  // baseUrl defaults to https://arelay.app; set for self-hosted deployments
-  // baseUrl: 'https://relay.example.com',
+	token: process.env.ARELAY_TOKEN!
+	// baseUrl defaults to https://arelay.app; set for self-hosted deployments
+	// baseUrl: 'https://relay.example.com',
 });
 
 const result = await client.deliver({
-  title: 'Nightly build report',
-  summary: 'All green — 209 tests passed.',
-  files: [
-    { filename: 'report.md', content: '# Build report\n\nAll green.' },
-    { filename: 'metrics.csv', content: csvBytes }, // string or Uint8Array
-  ],
+	title: 'Nightly build report',
+	summary: 'All green — 209 tests passed.',
+	files: [
+		{ filename: 'report.md', content: '# Build report\n\nAll green.' },
+		{ filename: 'metrics.csv', content: csvBytes } // string or Uint8Array
+	]
 });
 
 console.log(result.portalUrl); // share with the human; they unlock with a passkey
@@ -93,8 +93,8 @@ receiver that forwards payloads into the inbox.
 ## Level 2 — An agent skill
 
 A skill teaches an [Agent Skills](https://agentskills.io/specification) host (Claude Code,
-Cursor, Codex, Hermes, …) to deliver in plain language — *"send this report to my Agent
-Relay inbox."* The reference is the [`agent-relay`](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay)
+Cursor, Codex, Hermes, …) to deliver in plain language — _"send this report to my Agent
+Relay inbox."_ The reference is the [`agent-relay`](https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay)
 skill.
 
 A skill is a folder with a `SKILL.md` manifest plus optional reference docs and scripts:
@@ -121,9 +121,8 @@ description: Deliver end-to-end encrypted files, reports, and email drafts to a 
 license: MIT
 metadata:
   author: your-handle
-  version: "1.0.0"
+  version: '1.0.0'
 ---
-
 # Agent Relay delivery
 
 Instructions the agent follows — how to read ARELAY_TOKEN, call the API or the bundled
@@ -164,13 +163,13 @@ description: Delivers output to the Agent Relay encrypted inbox.
 author: your-handle
 requires_env:
   - name: ARELAY_TOKEN
-    description: "Token from Agent Relay Account -> Agent tokens"
-    prompt: "Agent Relay API token"
+    description: 'Token from Agent Relay Account -> Agent tokens'
+    prompt: 'Agent Relay API token'
     password: true
 optional_env:
   - name: ARELAY_URL
-    description: "Base URL (default: https://arelay.app)"
-    prompt: "Agent Relay URL"
+    description: 'Base URL (default: https://arelay.app)'
+    prompt: 'Agent Relay URL'
     password: false
 ```
 
@@ -187,7 +186,7 @@ Node + token) and shells out to a Node helper for the actual encrypted delivery.
 manifest format and adapter interface are host-specific — follow the conventions of the
 platform you're targeting.
 
-> **Tip:** deliver *files directly* via the SDK rather than piping the host's console
+> **Tip:** deliver _files directly_ via the SDK rather than piping the host's console
 > output. That way you can send HTML, PDFs, and images, not just text.
 
 ---
@@ -205,8 +204,8 @@ The pattern:
 
    ```typescript
    export const PLUGINS: Plugin[] = [
-     { id: 'email-review-relay', envFlag: 'EMAIL_REVIEW_RELAY_ENABLED' },
-     { id: 'your-plugin',        envFlag: 'YOUR_PLUGIN_ENABLED' },
+   	{ id: 'email-review-relay', envFlag: 'EMAIL_REVIEW_RELAY_ENABLED' },
+   	{ id: 'your-plugin', envFlag: 'YOUR_PLUGIN_ENABLED' }
    ];
    ```
 
@@ -216,8 +215,8 @@ The pattern:
    import { requirePlugin } from '$lib/plugins';
 
    export const POST: RequestHandler = async ({ locals, request }) => {
-     requirePlugin('your-plugin'); // 404 if YOUR_PLUGIN_ENABLED is not set
-     // ...
+   	requirePlugin('your-plugin'); // 404 if YOUR_PLUGIN_ENABLED is not set
+   	// ...
    };
    ```
 
@@ -243,25 +242,25 @@ directly. The full reference lives in the skill repo's
 [api-reference.md](https://github.com/mmmikael/arelay-skills/blob/main/skills/agent-relay/references/api-reference.md).
 Endpoints (all under `/api/agent`, `Authorization: Bearer <token>`):
 
-| Method & path | Purpose |
-| --- | --- |
-| `GET /e2ee/config` | Fetch the recipient public key (`428` if E2EE isn't set up) |
-| `POST /sessions` | Create a session (encrypted title/summary) |
-| `POST /sessions/{id}/artifacts` | Upload an encrypted file |
-| `GET /sessions` · `GET /sessions/{id}` | List / read sessions |
-| `POST /email-drafts` | Submit an email draft (Email Review Relay) |
-| `GET /email-drafts/{id}` | Poll draft status |
+| Method & path                          | Purpose                                                     |
+| -------------------------------------- | ----------------------------------------------------------- |
+| `GET /e2ee/config`                     | Fetch the recipient public key (`428` if E2EE isn't set up) |
+| `POST /sessions`                       | Create a session (encrypted title/summary)                  |
+| `POST /sessions/{id}/artifacts`        | Upload an encrypted file                                    |
+| `GET /sessions` · `GET /sessions/{id}` | List / read sessions                                        |
+| `POST /email-drafts`                   | Submit an email draft (Email Review Relay)                  |
+| `GET /email-drafts/{id}`               | Poll draft status                                           |
 
 All agent payloads must be end-to-end encrypted; plaintext is rejected (`400`). Each
 encrypted field is an envelope:
 
 ```json
 {
-  "v": 1,
-  "alg": "P-256-ECDH-A256GCM",
-  "epk": { "kty": "EC", "crv": "P-256", "x": "...", "y": "..." },
-  "iv": "base64url",
-  "ciphertext": "base64url"
+	"v": 1,
+	"alg": "P-256-ECDH-A256GCM",
+	"epk": { "kty": "EC", "crv": "P-256", "x": "...", "y": "..." },
+	"iv": "base64url",
+	"ciphertext": "base64url"
 }
 ```
 

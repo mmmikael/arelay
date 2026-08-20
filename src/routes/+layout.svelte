@@ -13,11 +13,7 @@
 
 <svelte:head>
 	{#if data.umami}
-		<script
-			defer
-			src={data.umami.scriptUrl}
-			data-website-id={data.umami.websiteId}
-		></script>
+		<script defer src={data.umami.scriptUrl} data-website-id={data.umami.websiteId}></script>
 	{/if}
 	{#if data.seo.canonicalUrl}
 		<link rel="canonical" href={data.seo.canonicalUrl} />

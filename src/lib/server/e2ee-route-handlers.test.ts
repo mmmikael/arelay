@@ -193,9 +193,7 @@ describe('E2EE route enforcement', () => {
 		} as unknown as Parameters<typeof postAgentArtifact>[0]);
 
 		expect(response.status).toBe(503);
-		expect(createArtifact).toHaveBeenCalledWith(
-			expect.objectContaining({ sizeBytes: 3 })
-		);
+		expect(createArtifact).toHaveBeenCalledWith(expect.objectContaining({ sizeBytes: 3 }));
 		expect(deleteArtifact).toHaveBeenCalledWith(expect.any(String), 'session-1');
 	});
 

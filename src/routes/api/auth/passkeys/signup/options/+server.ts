@@ -8,15 +8,8 @@ import {
 	getUserByEmail,
 	listCredentialsForUser
 } from '$lib/server/db';
-import {
-	hashSignupVerificationToken,
-	normalizeEmail
-} from '$lib/server/email-verification';
-import {
-	PRIVACY_VERSION,
-	TERMS_VERSION,
-	isCurrentLegalAcceptance
-} from '$lib/legal';
+import { hashSignupVerificationToken, normalizeEmail } from '$lib/server/email-verification';
+import { PRIVACY_VERSION, TERMS_VERSION, isCurrentLegalAcceptance } from '$lib/legal';
 import { routeJsonError } from '$lib/server/api-error';
 import {
 	challengeExpiresAt,

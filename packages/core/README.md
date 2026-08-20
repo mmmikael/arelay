@@ -20,13 +20,13 @@ const text = await decryptString(envelope, recipientPrivateKey); // recipient's 
 
 ## API
 
-| Export | Purpose |
-| --- | --- |
-| `encryptBytes` / `encryptString` | Encrypt to a recipient's public JWK → `EncryptedEnvelope` |
-| `decryptBytes` / `decryptString` | Decrypt an envelope with the recipient's private key |
-| `decryptPayloadBytes` | Decrypt from payload metadata + raw ciphertext bytes |
+| Export                                    | Purpose                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------- |
+| `encryptBytes` / `encryptString`          | Encrypt to a recipient's public JWK → `EncryptedEnvelope`         |
+| `decryptBytes` / `decryptString`          | Decrypt an envelope with the recipient's private key              |
+| `decryptPayloadBytes`                     | Decrypt from payload metadata + raw ciphertext bytes              |
 | `envelopeToPayload` / `payloadToEnvelope` | Split/recombine metadata and ciphertext (bytes travel separately) |
-| `bytesToBase64Url` / `base64UrlToBytes` | Unpadded base64url helpers |
+| `bytesToBase64Url` / `base64UrlToBytes`   | Unpadded base64url helpers                                        |
 
 Types: `EncryptedEnvelope`, `EncryptedPayload`, `JsonWebKeyEnvelope`, `JsonWebKey`, `CryptoKey`.
 

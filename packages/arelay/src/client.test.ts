@@ -4,7 +4,12 @@ import { guessContentType } from './content-type.js';
 
 const subtle = globalThis.crypto.subtle;
 
-type RecordedRequest = { url: string; method: string; headers: Record<string, string>; body: unknown };
+type RecordedRequest = {
+	url: string;
+	method: string;
+	headers: Record<string, string>;
+	body: unknown;
+};
 
 async function publicKeyJwk(): Promise<JsonWebKey> {
 	const keyPair = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
@@ -23,9 +28,7 @@ function mockFetch(
 		const request: RecordedRequest = {
 			url,
 			method: init?.method ?? 'GET',
-			headers: Object.fromEntries(
-				Object.entries((init?.headers ?? {}) as Record<string, string>)
-			),
+			headers: Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>)),
 			body: init?.body ? JSON.parse(String(init.body)) : null
 		};
 		recorded.push(request);
@@ -87,7 +90,9 @@ describe('ArelayClient', () => {
 			expect(req.headers.Authorization).toBe('Bearer ar_test');
 		}
 
-		const sessionReq = recorded.find((req) => req.method === 'POST' && req.url.endsWith('/sessions'));
+		const sessionReq = recorded.find(
+			(req) => req.method === 'POST' && req.url.endsWith('/sessions')
+		);
 		const sessionBody = sessionReq?.body as Record<string, unknown>;
 		expect(sessionBody.encrypted).toBe(true);
 		expect(sessionBody.encrypted_title).toMatchObject({ v: 1, alg: 'P-256-ECDH-A256GCM' });
@@ -128,7 +133,9 @@ describe('ArelayClient', () => {
 			files: [{ filename: 'a.txt', content: 'hello' }]
 		});
 
-		expect(recorded.some((req) => req.method === 'POST' && req.url.endsWith('/sessions'))).toBe(false);
+		expect(recorded.some((req) => req.method === 'POST' && req.url.endsWith('/sessions'))).toBe(
+			false
+		);
 	});
 
 	it('surfaces a setup hint when E2EE is not configured', async () => {
@@ -194,8 +201,10 @@ describe('ArelayClient', () => {
 		});
 
 		expect(result.draft.status).toBe('pending_review');
-		const draftBody = recorded.find((req) => req.url.endsWith('/email-drafts'))
-			?.body as Record<string, unknown>;
+		const draftBody = recorded.find((req) => req.url.endsWith('/email-drafts'))?.body as Record<
+			string,
+			unknown
+		>;
 		expect(draftBody.encrypted).toBe(true);
 		expect(draftBody.encrypted_to).toMatchObject({ v: 1 });
 		expect(draftBody.idempotency_key).toBe('weekly-1');
@@ -231,8 +240,10 @@ describe('ArelayClient', () => {
 			html: '<p>Done.</p>'
 		});
 
-		const draftBody = recorded.find((req) => req.url.endsWith('/email-drafts'))
-			?.body as Record<string, unknown>;
+		const draftBody = recorded.find((req) => req.url.endsWith('/email-drafts'))?.body as Record<
+			string,
+			unknown
+		>;
 		expect(draftBody.encrypted_bcc).toMatchObject({ v: 1 });
 		expect(draftBody).not.toHaveProperty('encrypted_cc');
 	});

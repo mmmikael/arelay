@@ -15,7 +15,12 @@ export function formatActivityTimestamp(iso: string | Date): string {
 	if (dayDiff === 0) return `Today ${time}`;
 	if (dayDiff === 1) return `Yesterday ${time}`;
 	if (dayDiff > 1 && dayDiff < 7) return `${dayDiff} days ago`;
-	return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+	return date.toLocaleDateString(undefined, {
+		month: 'short',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	});
 }
 
 export function buildSessionActivityLines(input: {

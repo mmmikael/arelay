@@ -1,10 +1,7 @@
 import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import type { ResolveOptions } from '@sveltejs/kit';
-import {
-	enforcePublicAuthIpRateLimit,
-	isPublicAuthPath
-} from '$lib/server/auth-rate-limit';
+import { enforcePublicAuthIpRateLimit, isPublicAuthPath } from '$lib/server/auth-rate-limit';
 import { readBearerToken, resolveAgentUser } from '$lib/server/agent-auth';
 import {
 	peekFailedAgentAuthIpRateLimit,
@@ -90,7 +87,10 @@ function rateLimitResponse(ctx: RequestContext, retryAfterSeconds: number): Resp
 async function handleHealthRequest(
 	ctx: RequestContext,
 	event: Parameters<Handle>[0]['event'],
-	resolve: (event: Parameters<Handle>[0]['event'], opts?: ResolveOptions) => Response | Promise<Response>
+	resolve: (
+		event: Parameters<Handle>[0]['event'],
+		opts?: ResolveOptions
+	) => Response | Promise<Response>
 ): Promise<Response> {
 	if (event.url.pathname === '/health/ready') {
 		const readyLimit = enforceHealthReadyIpRateLimit(getRequestClientIp(event));
@@ -118,8 +118,7 @@ async function rejectFailedAgentAuth(ctx: RequestContext, clientIp: string): Pro
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const secure =
-		event.url.protocol === 'https:' ||
-		event.request.headers.get('x-forwarded-proto') === 'https';
+		event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https';
 	const path = event.url.pathname;
 	const requestId = resolveRequestId(event.request);
 	const log = createRequestLogger(requestId, {
@@ -197,18 +196,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const needsLegalAcceptance =
 		event.locals.user !== null && !hasCurrentLegalVersions(event.locals.user);
-	if (
-		event.locals.authenticated &&
-		needsLegalAcceptance &&
-		path.startsWith('/portal')
-	) {
+	if (event.locals.authenticated && needsLegalAcceptance && path.startsWith('/portal')) {
 		return secureRedirect(ctx, '/legal/accept');
 	}
-	if (
-		event.locals.authenticated &&
-		!needsLegalAcceptance &&
-		path === '/legal/accept'
-	) {
+	if (event.locals.authenticated && !needsLegalAcceptance && path === '/legal/accept') {
 		return secureRedirect(ctx, '/portal');
 	}
 

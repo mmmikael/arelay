@@ -11,8 +11,7 @@ export type PreparedEmailInlineImages = {
 	attachments: EmailInlineAttachment[];
 };
 
-const DATA_IMAGE_PATTERN =
-	/^data:(image\/(?:png|jpeg|jpg|gif|webp));base64,([a-z0-9+/=\s]+)$/i;
+const DATA_IMAGE_PATTERN = /^data:(image\/(?:png|jpeg|jpg|gif|webp));base64,([a-z0-9+/=\s]+)$/i;
 const IMG_TAG_PATTERN = /<img\b[^>]*>/gi;
 const SRC_ATTRIBUTE_PATTERN = /\ssrc\s*=\s*(["'])(.*?)\1/i;
 const CID_SOURCE_PATTERN = /^cid:([a-z0-9._-]+)$/i;
@@ -38,7 +37,8 @@ export function extractInlineDataImages(html: string): PreparedEmailInlineImages
 		const dataImage = srcAttribute[2].match(DATA_IMAGE_PATTERN);
 		if (!dataImage) return tag;
 
-		const normalizedType = dataImage[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : dataImage[1].toLowerCase();
+		const normalizedType =
+			dataImage[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : dataImage[1].toLowerCase();
 		const content = dataImage[2].replace(/\s+/g, '');
 		const index = attachments.length + 1;
 		let contentId = `arelay-inline-${index}`;

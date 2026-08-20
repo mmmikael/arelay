@@ -17,10 +17,7 @@
 		shouldShowPasskeyStorageHint,
 		withPasskeyPrfFailureHint
 	} from '$lib/passkey-hints';
-	import {
-		loadE2eeConfigState,
-		persistMigratedPasskeyPrivateKey
-	} from '$lib/e2ee-config-client';
+	import { loadE2eeConfigState, persistMigratedPasskeyPrivateKey } from '$lib/e2ee-config-client';
 	import { saveE2eePasskeyHint } from '$lib/e2ee-passkey-hint';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -305,7 +302,9 @@
 {@render children?.()}
 
 {#if e2eeDialog}
-	<div class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+	<div
+		class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+	>
 		<div
 			class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900"
 		>
@@ -331,12 +330,16 @@
 			</div>
 
 			{#if e2eeError}
-				<p class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+				<p
+					class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+				>
 					{e2eeError}
 				</p>
 			{/if}
 			{#if e2eeNotice}
-				<p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+				<p
+					class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+				>
 					{e2eeNotice}
 				</p>
 			{/if}
@@ -344,7 +347,9 @@
 			{#if e2eeDialog === 'setup'}
 				{#if generatedRecoveryKey}
 					<div class="mt-4 space-y-3">
-						<p class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+						<p
+							class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"
+						>
 							{usedDedicatedEncryptionPasskey
 								? 'A separate encryption passkey unlocks encrypted deliveries in this browser. Your account passkey still signs you in.'
 								: 'Your account passkey unlocks encrypted deliveries in this browser.'}
@@ -355,8 +360,7 @@
 						<textarea
 							readonly
 							class="h-24 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-							value={generatedRecoveryKey}
-						></textarea>
+							value={generatedRecoveryKey}></textarea>
 						<div class="flex justify-end gap-2">
 							<Button
 								variant="outline"
@@ -373,8 +377,8 @@
 										await invalidate('account:e2ee');
 										await goto('/portal');
 									}
-								}}
-							>Done</Button>
+								}}>Done</Button
+							>
 						</div>
 					</div>
 				{:else}
@@ -387,11 +391,7 @@
 					{/if}
 					<div class="mt-5 flex flex-col gap-3">
 						{#if e2eeOfferDedicatedPasskey}
-							<Button
-								class="w-full"
-								onclick={setupE2eeWithDedicatedPasskey}
-								disabled={e2eeBusy}
-							>
+							<Button class="w-full" onclick={setupE2eeWithDedicatedPasskey} disabled={e2eeBusy}>
 								{e2eeBusy ? 'Creating…' : 'Create encryption passkey'}
 							</Button>
 						{/if}
@@ -424,7 +424,10 @@
 							<span class="h-px flex-1 bg-slate-200 dark:bg-slate-800"></span>
 						</div>
 					{/if}
-					<label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="recovery-key">
+					<label
+						class="block text-sm font-medium text-slate-700 dark:text-slate-300"
+						for="recovery-key"
+					>
 						Recovery key
 					</label>
 					<textarea
@@ -432,8 +435,7 @@
 						class="h-24 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 font-mono text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
 						bind:value={recoveryKeyInput}
 						placeholder="XXXX-XXXX-XXXX-..."
-						autocomplete="off"
-					></textarea>
+						autocomplete="off"></textarea>
 					<div class="flex justify-end gap-2">
 						<Button variant="outline" size="sm" onclick={closeE2eeDialog}>Cancel</Button>
 						<Button size="sm" onclick={unlockE2ee} disabled={e2eeBusy || !recoveryKeyInput.trim()}>

@@ -28,6 +28,11 @@ export const POST: RequestHandler = async ({ locals, url }) => {
 		});
 		return json({ url: session.url });
 	} catch (err) {
-		return routeLogAndJsonError(locals, 502, 'Could not open the billing portal. Try again shortly.', err);
+		return routeLogAndJsonError(
+			locals,
+			502,
+			'Could not open the billing portal. Try again shortly.',
+			err
+		);
 	}
 };

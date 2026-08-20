@@ -1,8 +1,4 @@
-import {
-	CHECKOUT_INTEGRATION_IDENTIFIER,
-	STRIPE_API_BASE,
-	STRIPE_API_VERSION
-} from './config';
+import { CHECKOUT_INTEGRATION_IDENTIFIER, STRIPE_API_BASE, STRIPE_API_VERSION } from './config';
 
 type StripeErrorBody = { error?: { message?: string } };
 

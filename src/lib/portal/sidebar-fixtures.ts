@@ -1,6 +1,10 @@
 import type { SidebarDecryptedMeta, SidebarSessionIcon } from '$lib/portal/sidebar-types';
 
-export type { SidebarDecryptedMeta, SidebarFilter, SidebarSessionIcon } from '$lib/portal/sidebar-types';
+export type {
+	SidebarDecryptedMeta,
+	SidebarFilter,
+	SidebarSessionIcon
+} from '$lib/portal/sidebar-types';
 export { EMAIL_DRAFT_SIDEBAR_DESCRIPTION } from '$lib/portal/sidebar-types';
 
 export type SidebarFixtureSession = {
@@ -131,7 +135,8 @@ export const DEV_SIDEBAR_FIXTURES: SidebarFixtureSession[] = [
 
 export function fixturesToSidebarProps(fixtures: SidebarFixtureSession[]) {
 	const sessions = fixtures.map(
-		({ title: _title, agentName: _agentName, summary: _summary, icon: _icon, ...session }) => session
+		({ title: _title, agentName: _agentName, summary: _summary, icon: _icon, ...session }) =>
+			session
 	);
 	const decryptedSessions: Record<string, SidebarDecryptedMeta> = Object.fromEntries(
 		fixtures.map((fixture) => [

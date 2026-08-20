@@ -46,19 +46,19 @@
 
 		<div class="glass-card p-6 sm:p-8">
 			<div class="text-center">
-				<h1 class="text-2xl font-semibold text-slate-950 dark:text-white">
-					One quick review
-				</h1>
+				<h1 class="text-2xl font-semibold text-slate-950 dark:text-white">One quick review</h1>
 				<p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
 					Before continuing as {data.email}, please review the hosted service terms.
 				</p>
 			</div>
 
-			<div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+			<div
+				class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+			>
 				<p>
-					Agent Relay requires end-to-end encryption for all agent deliveries. It is not a
-					backup service — keep independent copies of important content and safely store your
-					encryption recovery material.
+					Agent Relay requires end-to-end encryption for all agent deliveries. It is not a backup
+					service — keep independent copies of important content and safely store your encryption
+					recovery material.
 				</p>
 				<div class="mt-3 flex gap-4 font-semibold">
 					<a href="/terms" class="text-blue-600 underline underline-offset-2 dark:text-blue-300">

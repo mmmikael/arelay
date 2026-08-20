@@ -50,7 +50,9 @@ function clientFromFlags(values: { url?: string; token?: string }): ArelayClient
 		if (process.env.AGENT_API_TOKEN) {
 			fail('AGENT_API_TOKEN is no longer read. Rename it to ARELAY_TOKEN.');
 		}
-		fail('No agent API token. Set ARELAY_TOKEN (portal → Account → Agent API tokens) or pass --token.');
+		fail(
+			'No agent API token. Set ARELAY_TOKEN (portal → Account → Agent API tokens) or pass --token.'
+		);
 	}
 	// A stale AGENT_RELAY_URL would otherwise fall through to the hosted default, so a
 	// self-hosted setup would quietly aim at arelay.app. Warn on stderr, which keeps the
@@ -95,7 +97,12 @@ async function commandSend(args: string[]): Promise<void> {
 
 	const client = clientFromFlags(values);
 	const result = await client.deliver({
-		title: values.title ?? files.map((file) => file.filename).join(', ').slice(0, 120),
+		title:
+			values.title ??
+			files
+				.map((file) => file.filename)
+				.join(', ')
+				.slice(0, 120),
 		summary: values.summary,
 		sessionId: values.session,
 		files

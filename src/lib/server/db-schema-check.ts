@@ -63,9 +63,7 @@ export async function ensureSchema(): Promise<void> {
 	}
 
 	if (isBillingEnabled() && !row.billing_accounts_table) {
-		throw new Error(
-			'Billing is enabled but billing_accounts is missing. Run npm run db:migrate.'
-		);
+		throw new Error('Billing is enabled but billing_accounts is missing. Run npm run db:migrate.');
 	}
 
 	const pluginEnabled = isEmailReviewRelayEnabled();

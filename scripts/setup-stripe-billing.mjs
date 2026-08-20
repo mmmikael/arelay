@@ -179,10 +179,7 @@ async function ensurePortalConfiguration(siteOrigin) {
 		'unused',
 		'other'
 	].entries()) {
-		params.set(
-			`features[subscription_cancel][cancellation_reason][options][${index}]`,
-			reason
-		);
+		params.set(`features[subscription_cancel][cancellation_reason][options][${index}]`, reason);
 	}
 	// Deliberately not enabling features[subscription_update]: the API accepts
 	// features[subscription_update][products] but neither stores nor returns it,
@@ -283,7 +280,9 @@ if (webhookSecret) {
 } else {
 	console.log('STRIPE_WEBHOOK_SECRET=<signing secret of the /webhooks/stripe endpoint>');
 }
-console.log('\nOptional: STRIPE_AUTOMATIC_TAX=true (only after adding a tax registration in Stripe),');
+console.log(
+	'\nOptional: STRIPE_AUTOMATIC_TAX=true (only after adding a tax registration in Stripe),'
+);
 console.log('BILLING_FOUNDING_CAP=100 (default).');
 
 if (webhookSecret) {

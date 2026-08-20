@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	extractInlineDataImages,
-	restoreInlineDataImages
-} from './email-inline-images';
+import { extractInlineDataImages, restoreInlineDataImages } from './email-inline-images';
 
 describe('extractInlineDataImages', () => {
 	it('converts embedded data images to CID attachments', () => {
@@ -24,22 +21,20 @@ describe('extractInlineDataImages', () => {
 	});
 
 	it('leaves remote and malformed image sources unchanged', () => {
-		const html =
-			'<img src="https://example.com/image.png"><img src="data:text/plain;base64,aGk=">';
+		const html = '<img src="https://example.com/image.png"><img src="data:text/plain;base64,aGk=">';
 
 		expect(extractInlineDataImages(html)).toEqual({ html, attachments: [] });
 	});
 
 	it('does not treat data-src as the rendered image source', () => {
-		const html =
-			'<img data-src="data:image/png;base64,aGk=" src="https://example.com/image.png">';
+		const html = '<img data-src="data:image/png;base64,aGk=" src="https://example.com/image.png">';
 
 		expect(extractInlineDataImages(html)).toEqual({ html, attachments: [] });
 	});
 
 	it('assigns a distinct CID to each embedded image', () => {
 		const result = extractInlineDataImages(
-			"<img src='data:image/png;base64,aGk='><img src=\"data:image/webp;base64,aG8=\">"
+			'<img src=\'data:image/png;base64,aGk=\'><img src="data:image/webp;base64,aG8=">'
 		);
 
 		expect(result.html).toContain('cid:arelay-inline-1');
@@ -71,8 +66,7 @@ describe('restoreInlineDataImages', () => {
 				content_id: 'arelay-inline-1'
 			}
 		];
-		const html =
-			'<img src="cid:arelay-inline-1"><a href="cid:arelay-inline-1">link</a>';
+		const html = '<img src="cid:arelay-inline-1"><a href="cid:arelay-inline-1">link</a>';
 		const restored = restoreInlineDataImages(html, attachments);
 
 		expect(restored).toContain('src="data:image/jpeg;base64,aGVsbG8="');

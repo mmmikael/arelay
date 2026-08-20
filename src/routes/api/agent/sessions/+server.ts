@@ -1,10 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { toSessionView } from '$lib/session-view';
-import {
-	AGENT_SESSION_LIMIT_ERROR,
-	reserveAgentSessionCreate
-} from '$lib/server/agent-rate-limit';
+import { AGENT_SESSION_LIMIT_ERROR, reserveAgentSessionCreate } from '$lib/server/agent-rate-limit';
 import { routeRateLimitResponse } from '$lib/server/api-error';
 import { createEncryptedSession, listSessions, type JsonObject } from '$lib/server/db';
 import {
@@ -49,12 +46,19 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		body.encrypted_summary !== null &&
 		!isEncryptedEnvelope(body.encrypted_summary)
 	) {
-		return json({ error: 'encrypted_summary must be a valid envelope when provided' }, { status: 400 });
+		return json(
+			{ error: 'encrypted_summary must be a valid envelope when provided' },
+			{ status: 400 }
+		);
 	}
 
 	const sessionLimit = await reserveAgentSessionCreate(ownerUserId);
 	if (!sessionLimit.ok) {
-		return routeRateLimitResponse(locals, sessionLimit.retryAfterSeconds, AGENT_SESSION_LIMIT_ERROR);
+		return routeRateLimitResponse(
+			locals,
+			sessionLimit.retryAfterSeconds,
+			AGENT_SESSION_LIMIT_ERROR
+		);
 	}
 
 	const id = crypto.randomUUID();

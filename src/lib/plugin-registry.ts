@@ -14,9 +14,6 @@ export function isTruthyEnv(value: string | undefined): boolean {
 	return normalized === 'true' || normalized === '1' || normalized === 'yes';
 }
 
-export function getEnabledPluginsFromEnv(
-	env: Record<string, string | undefined>
-): Plugin[] {
+export function getEnabledPluginsFromEnv(env: Record<string, string | undefined>): Plugin[] {
 	return PLUGINS.filter((plugin) => isTruthyEnv(env[plugin.envFlag]));
 }
-

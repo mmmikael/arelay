@@ -314,19 +314,20 @@ export class ArelayClient {
 		draft: { id: string; status: string };
 	}> {
 		const publicKey = await this.#publicKey();
-		const [to, cc, bcc, fromEmail, fromName, subject, html, text, sessionSummary] = await Promise.all([
-			encryptString(input.to, publicKey),
-			input.cc ? encryptString(input.cc, publicKey) : Promise.resolve(null),
-			input.bcc ? encryptString(input.bcc, publicKey) : Promise.resolve(null),
-			encryptString(input.fromEmail, publicKey),
-			input.fromName ? encryptString(input.fromName, publicKey) : Promise.resolve(null),
-			encryptString(input.subject, publicKey),
-			encryptString(input.html, publicKey),
-			input.text ? encryptString(input.text, publicKey) : Promise.resolve(null),
-			input.sessionSummary
-				? encryptString(input.sessionSummary, publicKey)
-				: Promise.resolve(null)
-		]);
+		const [to, cc, bcc, fromEmail, fromName, subject, html, text, sessionSummary] =
+			await Promise.all([
+				encryptString(input.to, publicKey),
+				input.cc ? encryptString(input.cc, publicKey) : Promise.resolve(null),
+				input.bcc ? encryptString(input.bcc, publicKey) : Promise.resolve(null),
+				encryptString(input.fromEmail, publicKey),
+				input.fromName ? encryptString(input.fromName, publicKey) : Promise.resolve(null),
+				encryptString(input.subject, publicKey),
+				encryptString(input.html, publicKey),
+				input.text ? encryptString(input.text, publicKey) : Promise.resolve(null),
+				input.sessionSummary
+					? encryptString(input.sessionSummary, publicKey)
+					: Promise.resolve(null)
+			]);
 
 		const body: Record<string, unknown> = {
 			encrypted: true,
@@ -366,9 +367,7 @@ export class ArelayClient {
 			encryptString(String(input.amountMinor), publicKey),
 			encryptString(input.currency, publicKey),
 			encryptString(input.description, publicKey),
-			input.sessionSummary
-				? encryptString(input.sessionSummary, publicKey)
-				: Promise.resolve(null)
+			input.sessionSummary ? encryptString(input.sessionSummary, publicKey) : Promise.resolve(null)
 		]);
 
 		const body: Record<string, unknown> = {

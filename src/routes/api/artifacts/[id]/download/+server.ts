@@ -9,5 +9,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		return routeJsonError(locals, 404, 'Artifact not found');
 	}
 
-	return e2eeOnlyResponse('Artifact download requires client-side decrypt via /api/artifacts/{id}/ciphertext.');
+	return e2eeOnlyResponse(
+		'Artifact download requires client-side decrypt via /api/artifacts/{id}/ciphertext.'
+	);
 };

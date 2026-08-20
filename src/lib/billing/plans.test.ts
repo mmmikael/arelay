@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkArtifactStorageLimits } from '$lib/storage-limits';
-import {
-	FALLBACK_PRICE_DISPLAY,
-	PLAN_LIMITS,
-	isPaidPlan,
-	isPlanId,
-	planLimits
-} from './plans';
+import { FALLBACK_PRICE_DISPLAY, PLAN_LIMITS, isPaidPlan, isPlanId, planLimits } from './plans';
 
 describe('planLimits', () => {
 	it('keeps the free plan identical to the historical hard-coded limits', () => {

@@ -4,9 +4,7 @@ import type { SidebarSessionIcon } from '$lib/portal/sidebar-types';
 export function inferSidebarIconFromTitle(title: string): SidebarSessionIcon {
 	const normalized = title.toLowerCase();
 
-	if (
-		/\b(docker|server|monitor|deploy|staging|infra|host)\b/.test(normalized)
-	) {
+	if (/\b(docker|server|monitor|deploy|staging|infra|host)\b/.test(normalized)) {
 		return 'server';
 	}
 	if (/\b(warning|shutdown|alert|security|scan|vulnerab)\b/.test(normalized)) {

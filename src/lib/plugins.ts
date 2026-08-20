@@ -2,12 +2,7 @@ import { error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID } from '../plugins/email-review-relay';
 import { SPEND_REVIEW_RELAY_PLUGIN_ID } from '../plugins/spend-review-relay';
-import {
-	getEnabledPluginsFromEnv,
-	isTruthyEnv,
-	PLUGINS,
-	type Plugin
-} from './plugin-registry';
+import { getEnabledPluginsFromEnv, isTruthyEnv, PLUGINS, type Plugin } from './plugin-registry';
 
 export type { Plugin };
 export { EMAIL_REVIEW_RELAY_PLUGIN_ID, SPEND_REVIEW_RELAY_PLUGIN_ID, isTruthyEnv };

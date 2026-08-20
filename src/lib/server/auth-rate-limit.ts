@@ -1,5 +1,9 @@
 import { checkRateLimit } from '$lib/server/rate-limit-db';
-import { isRateLimitEnabled, type RateLimitConfig, type RateLimitResult } from '$lib/server/rate-limit';
+import {
+	isRateLimitEnabled,
+	type RateLimitConfig,
+	type RateLimitResult
+} from '$lib/server/rate-limit';
 
 export const PUBLIC_AUTH_IP_LIMIT: RateLimitConfig = {
 	limit: 30,
@@ -29,7 +33,9 @@ export async function enforcePublicAuthIpRateLimit(clientIp: string): Promise<Ra
 	return checkRateLimit(`auth-ip:${clientIp}`, PUBLIC_AUTH_IP_LIMIT);
 }
 
-export async function enforceEmailVerificationIpRateLimit(clientIp: string): Promise<RateLimitResult> {
+export async function enforceEmailVerificationIpRateLimit(
+	clientIp: string
+): Promise<RateLimitResult> {
 	if (!isRateLimitEnabled()) {
 		return { ok: true };
 	}

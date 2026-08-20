@@ -17,9 +17,7 @@ const agent = {
 
 describe('emailDraftBundle', () => {
 	it('merges partial review over agent fields', () => {
-		expect(
-			mergeEmailDraftBundle(agent, { subject: 'Updated', html: '<p>review</p>' })
-		).toEqual({
+		expect(mergeEmailDraftBundle(agent, { subject: 'Updated', html: '<p>review</p>' })).toEqual({
 			...agentFieldsToBundle(agent),
 			subject: 'Updated',
 			html: '<p>review</p>'
