@@ -52,10 +52,7 @@ export const POST: RequestHandler = async ({ locals, request, url, getClientAddr
 		const retryAfterSeconds = Math.max(
 			1,
 			Math.ceil(
-				(recentSendAt.getTime() +
-					EMAIL_VERIFICATION_PER_EMAIL_COOLDOWN_MS -
-					Date.now()) /
-					1000
+				(recentSendAt.getTime() + EMAIL_VERIFICATION_PER_EMAIL_COOLDOWN_MS - Date.now()) / 1000
 			)
 		);
 		return routeRateLimitResponse(
@@ -65,7 +62,9 @@ export const POST: RequestHandler = async ({ locals, request, url, getClientAddr
 		);
 	}
 
-	const ipLimit = await enforceEmailVerificationIpRateLimit(getRequestClientIp({ getClientAddress }));
+	const ipLimit = await enforceEmailVerificationIpRateLimit(
+		getRequestClientIp({ getClientAddress })
+	);
 	if (!ipLimit.ok) {
 		return routeRateLimitResponse(
 			locals,
@@ -109,11 +108,6 @@ export const POST: RequestHandler = async ({ locals, request, url, getClientAddr
 		});
 	} catch (err) {
 		await deleteEmailVerificationChallenge(challenge.id);
-		return routeLogAndJsonError(
-			locals,
-			500,
-			'Could not send verification email.',
-			err
-		);
+		return routeLogAndJsonError(locals, 500, 'Could not send verification email.', err);
 	}
 };

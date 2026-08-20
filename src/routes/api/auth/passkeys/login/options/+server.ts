@@ -8,11 +8,7 @@ import {
 	listPasskeysForUser
 } from '$lib/server/db';
 import { parsePasskeyEncryptedPrivateKey } from '$lib/server/e2ee-passkey-config';
-import {
-	challengeExpiresAt,
-	getWebAuthnSettings,
-	setLoginChallenge
-} from '$lib/server/webauthn';
+import { challengeExpiresAt, getWebAuthnSettings, setLoginChallenge } from '$lib/server/webauthn';
 import { DETERMINISTIC_PRF_SALT_B64URL } from '$lib/e2ee-passkey-salt';
 
 type LoginOptionsBody = {

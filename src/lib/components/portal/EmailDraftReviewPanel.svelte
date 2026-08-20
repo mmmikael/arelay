@@ -2,10 +2,7 @@
 	import { invalidate } from '$app/navigation';
 	import { encryptString } from '$lib/e2ee';
 	import { e2eeConfig } from '$lib/e2ee-store';
-	import {
-		emailDraftAgentFields,
-		emailDraftDisplayFields
-	} from '$lib/email-draft-decrypt';
+	import { emailDraftAgentFields, emailDraftDisplayFields } from '$lib/email-draft-decrypt';
 	import {
 		agentFieldsToBundle,
 		bundleMatchesAgent,
@@ -140,8 +137,7 @@
 			return;
 		}
 
-		const reviewOverlayRefreshed =
-			draftKey === loadedDraftKey && reviewKey !== loadedReviewKey;
+		const reviewOverlayRefreshed = draftKey === loadedDraftKey && reviewKey !== loadedReviewKey;
 
 		loadedDraftKey = draftKey;
 		loadedReviewKey = reviewKey;
@@ -380,7 +376,9 @@
 				{#if activeEmailDraft}
 					{#if canEditDraft}
 						<div class="grid gap-2 sm:grid-cols-[4rem_1fr] sm:items-center">
-							<label for="draft-to" class="font-semibold text-slate-900 dark:text-slate-100">To</label>
+							<label for="draft-to" class="font-semibold text-slate-900 dark:text-slate-100"
+								>To</label
+							>
 							<div class="flex min-w-0 items-center gap-1">
 								<Input
 									id="draft-to"
@@ -604,7 +602,12 @@
 							{editBodyLabel}
 						</Button>
 					{:else if bodyView === 'code'}
-						<Button variant="outline" size="sm" disabled={emailActionBusy} onclick={showBodyPreview}>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={emailActionBusy}
+							onclick={showBodyPreview}
+						>
 							Preview
 						</Button>
 					{:else}

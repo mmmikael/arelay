@@ -79,7 +79,18 @@ async function encryptString(plaintext, recipientPublicKeyJwk) {
 
 function envelopeToPayload(envelope) {
 	const { ciphertext, ...payload } = envelope;
-	return { payload, ciphertextBytes: Uint8Array.from(atob(ciphertext.replaceAll('-', '+').replaceAll('_', '/').padEnd(Math.ceil(ciphertext.length / 4) * 4, '=')), (c) => c.charCodeAt(0)) };
+	return {
+		payload,
+		ciphertextBytes: Uint8Array.from(
+			atob(
+				ciphertext
+					.replaceAll('-', '+')
+					.replaceAll('_', '/')
+					.padEnd(Math.ceil(ciphertext.length / 4) * 4, '=')
+			),
+			(c) => c.charCodeAt(0)
+		)
+	};
 }
 
 async function agentFetch(path, init = {}) {
@@ -98,7 +109,9 @@ async function agentFetch(path, init = {}) {
 		body = text;
 	}
 	if (!res.ok) {
-		throw new Error(`${init.method ?? 'GET'} ${path} failed (${res.status}): ${JSON.stringify(body)}`);
+		throw new Error(
+			`${init.method ?? 'GET'} ${path} failed (${res.status}): ${JSON.stringify(body)}`
+		);
 	}
 	return body;
 }
@@ -157,4 +170,6 @@ const { artifact } = await agentFetch(`/api/agent/sessions/${session.id}/artifac
 	})
 });
 
-console.log(JSON.stringify({ sessionId: session.id, artifactId: artifact.id, title, filename }, null, 2));
+console.log(
+	JSON.stringify({ sessionId: session.id, artifactId: artifact.id, title, filename }, null, 2)
+);

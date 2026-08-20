@@ -10,11 +10,11 @@ For switching a deployment from test mode to live, follow
 
 ## Plans
 
-| Plan | Price | Storage | Per artifact |
-| --- | --- | --- | --- |
-| Free | $0 | 500 MB | 25 MB |
-| Pro | $9/mo or $79/yr | 10 GB | 100 MB |
-| Founding | $149 once (first 100) | 10 GB | 100 MB |
+| Plan     | Price                 | Storage | Per artifact |
+| -------- | --------------------- | ------- | ------------ |
+| Free     | $0                    | 500 MB  | 25 MB        |
+| Pro      | $9/mo or $79/yr       | 10 GB   | 100 MB       |
+| Founding | $149 once (first 100) | 10 GB   | 100 MB       |
 
 Founding is a lifetime license: Pro entitlements with `plan_source = 'lifetime'`,
 never downgraded by subscription lifecycle events.
@@ -54,7 +54,7 @@ table, written only by the Stripe webhook handler.
 ## Customer Portal configuration
 
 "Manage billing" opens a Stripe Customer Portal session. When no configuration is
-passed, Stripe falls back to the account's *default* configuration — which does not
+passed, Stripe falls back to the account's _default_ configuration — which does not
 exist until it has been saved in the Dashboard. Test mode papers over this, so the
 failure shows up only against a live key.
 

@@ -5,9 +5,7 @@ describe('resolveRequestId', () => {
 	it('generates a UUID when no header is present', () => {
 		const request = new Request('https://example.com/');
 		const id = resolveRequestId(request);
-		expect(id).toMatch(
-			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-		);
+		expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 	});
 
 	it('reuses a valid incoming x-request-id', () => {

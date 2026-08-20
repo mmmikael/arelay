@@ -23,7 +23,9 @@
 	}
 
 	const proPrice = $derived(
-		interval === 'monthly' ? formatPrice(data.prices?.proMonthly ?? null) : formatPrice(data.prices?.proYearly ?? null)
+		interval === 'monthly'
+			? formatPrice(data.prices?.proMonthly ?? null)
+			: formatPrice(data.prices?.proYearly ?? null)
 	);
 	const foundingPrice = $derived(formatPrice(data.prices?.founding ?? null));
 	const foundingSoldOut = $derived(data.foundingRemaining !== null && data.foundingRemaining <= 0);
@@ -103,8 +105,7 @@
 		<div
 			class="mx-auto mt-10 max-w-xl rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
 		>
-			Paid plans are not enabled on this deployment. Every account runs on the free plan —
-			see <a
+			Paid plans are not enabled on this deployment. Every account runs on the free plan — see <a
 				href="https://github.com/mmmikael/arelay"
 				class="font-medium text-blue-600 underline dark:text-blue-300">the self-hosting guide</a
 			> to run your own instance.
@@ -296,8 +297,8 @@
 					What happens if I go over my storage limit?
 				</dt>
 				<dd class="mt-1 text-slate-500 dark:text-slate-400">
-					Nothing is deleted. New deliveries are rejected with a clear error until you free up
-					space or upgrade — your agents see the reason and can retry.
+					Nothing is deleted. New deliveries are rejected with a clear error until you free up space
+					or upgrade — your agents see the reason and can retry.
 				</dd>
 			</div>
 			<div>
@@ -321,14 +322,16 @@
 			<div>
 				<dt class="font-semibold text-slate-900 dark:text-slate-100">How are payments handled?</dt>
 				<dd class="mt-1 text-slate-500 dark:text-slate-400">
-					Through Stripe Checkout. Card details never touch Agent Relay servers, and you can
-					manage or cancel a subscription any time from your account page.
+					Through Stripe Checkout. Card details never touch Agent Relay servers, and you can manage
+					or cancel a subscription any time from your account page.
 				</dd>
 			</div>
 		</dl>
 	</section>
 
-	<footer class="mt-14 border-t border-slate-200 pt-6 text-center text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
+	<footer
+		class="mt-14 border-t border-slate-200 pt-6 text-center text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500"
+	>
 		<a href="/" class="hover:underline">Home</a>
 		·
 		<a href="/getting-started" class="hover:underline">Getting started</a>

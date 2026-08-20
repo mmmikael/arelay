@@ -27,8 +27,7 @@
 		try {
 			openTrustedHtmlInNewTab(sourceHtml);
 		} catch (err) {
-			openError =
-				err instanceof Error ? err.message : 'Could not open HTML in a new tab';
+			openError = err instanceof Error ? err.message : 'Could not open HTML in a new tab';
 			console.warn('[preview] trusted HTML open failed:', err);
 		}
 	}

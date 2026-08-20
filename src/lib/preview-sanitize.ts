@@ -1,9 +1,15 @@
-import {
-	extractInlineDataImages,
-	restoreInlineDataImages
-} from '$lib/email-inline-images';
+import { extractInlineDataImages, restoreInlineDataImages } from '$lib/email-inline-images';
 
-const BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'form', 'base', 'link', 'style'] as const;
+const BLOCKED_TAGS = [
+	'script',
+	'iframe',
+	'object',
+	'embed',
+	'form',
+	'base',
+	'link',
+	'style'
+] as const;
 
 /** Artifact iframe preview: allow author CSS; scripts stay blocked by tag strip + sandbox. */
 const ARTIFACT_BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'form', 'base'] as const;
@@ -107,11 +113,7 @@ function stripNonStylesheetLinks(html: string): string {
 
 export function isDangerousUrl(value: string): boolean {
 	const url = value.trim().toLowerCase();
-	return (
-		url.startsWith('javascript:') ||
-		url.startsWith('vbscript:') ||
-		url.startsWith('data:')
-	);
+	return url.startsWith('javascript:') || url.startsWith('vbscript:') || url.startsWith('data:');
 }
 
 function stripEventHandlers(html: string): string {

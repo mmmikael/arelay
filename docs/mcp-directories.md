@@ -5,15 +5,15 @@ main discovery channel for an MCP server, so this is worth keeping current.
 
 ## Status
 
-| Directory | State | Who can action it |
-| --- | --- | --- |
-| Official MCP registry | Listed (`io.github.mmmikael/arelay`) | Automated — see below |
-| GitHub topics | Done (`mcp`, `mcp-server`, `model-context-protocol`) | — |
-| Glama | **Not listed — blocking** | Needs a Glama account |
-| awesome-mcp-servers | PR [#7965](https://github.com/punkpeye/awesome-mcp-servers/pull/7965) open, **blocked on Glama** | Needs the Glama badge |
-| PulseMCP | Not submitted | Web form |
-| mcp.so | Not submitted | Web form |
-| Smithery | Not submitted | Needs a Smithery account |
+| Directory             | State                                                                                            | Who can action it        |
+| --------------------- | ------------------------------------------------------------------------------------------------ | ------------------------ |
+| Official MCP registry | Listed (`io.github.mmmikael/arelay`)                                                             | Automated — see below    |
+| GitHub topics         | Done (`mcp`, `mcp-server`, `model-context-protocol`)                                             | —                        |
+| Glama                 | **Not listed — blocking**                                                                        | Needs a Glama account    |
+| awesome-mcp-servers   | PR [#7965](https://github.com/punkpeye/awesome-mcp-servers/pull/7965) open, **blocked on Glama** | Needs the Glama badge    |
+| PulseMCP              | Not submitted                                                                                    | Web form                 |
+| mcp.so                | Not submitted                                                                                    | Web form                 |
+| Smithery              | Not submitted                                                                                    | Needs a Smithery account |
 
 ## The critical path is Glama
 
@@ -59,7 +59,7 @@ git tag cli-v0.1.6 && git push origin cli-v0.1.6
 ```
 
 The workflow skips npm versions already published, so re-runs are safe. Registry search
-matches on server *name* rather than description, so listing text mainly affects the
+matches on server _name_ rather than description, so listing text mainly affects the
 directories that mirror the registry.
 
 ## Listing copy
@@ -70,9 +70,11 @@ implemented.
 **Name:** Agent Relay
 
 **One line (under 100 chars, matches `server.json`):**
+
 > End-to-end encrypted inbox where AI agents deliver files and request human approval.
 
 **Short paragraph:**
+
 > Agent Relay is a private, end-to-end encrypted inbox for the work your AI agents
 > finish. Agents deliver reports, files and rendered artifacts over HTTP or MCP, and can
 > submit outbound email or spend for a human to approve before anything is sent or

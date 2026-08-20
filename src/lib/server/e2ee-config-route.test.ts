@@ -40,12 +40,17 @@ describe('POST /api/e2ee/config', () => {
 			request: new Request('http://localhost/api/e2ee/config', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ publicKeyJwk: testPublicKeyJwk, encryptedPrivateKey: testEncryptedPrivateKey })
+				body: JSON.stringify({
+					publicKeyJwk: testPublicKeyJwk,
+					encryptedPrivateKey: testEncryptedPrivateKey
+				})
 			})
 		} as Parameters<typeof postE2eeConfig>[0]);
 
 		expect(response.status).toBe(409);
-		expect(await response.json()).toMatchObject({ error: expect.stringContaining('confirmOverwrite') });
+		expect(await response.json()).toMatchObject({
+			error: expect.stringContaining('confirmOverwrite')
+		});
 		expect(upsertE2eeConfig).not.toHaveBeenCalled();
 	});
 
@@ -163,6 +168,8 @@ describe('POST /api/e2ee/config', () => {
 		} as Parameters<typeof postE2eeConfig>[0]);
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toMatchObject({ error: expect.stringContaining('passkeyCredentialId') });
+		expect(await response.json()).toMatchObject({
+			error: expect.stringContaining('passkeyCredentialId')
+		});
 	});
 });

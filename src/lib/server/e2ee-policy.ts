@@ -31,9 +31,7 @@ export function e2eeOnlyResponse(message = 'Use client-side decrypt.'): Response
 	return json({ error: E2EE_ONLY, message }, { status: 400 });
 }
 
-export async function requireOwnerE2eeForAgent(
-	userId: string
-): Promise<E2eeConfig | Response> {
+export async function requireOwnerE2eeForAgent(userId: string): Promise<E2eeConfig | Response> {
 	const config = await getE2eeConfig(userId);
 	if (!config) {
 		return e2eeRequiredResponse();

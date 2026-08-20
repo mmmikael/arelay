@@ -78,12 +78,20 @@ describe('ArelayReader', () => {
 
 		const sessions = await reader.listSessions();
 		expect(sessions).toHaveLength(1);
-		expect(sessions[0]).toMatchObject({ id: 'sess-1', title: 'Quarterly report', summary: 'Q2 numbers', isRead: false });
+		expect(sessions[0]).toMatchObject({
+			id: 'sess-1',
+			title: 'Quarterly report',
+			summary: 'Q2 numbers',
+			isRead: false
+		});
 
 		const detail = await reader.getSession('sess-1');
 		expect(detail.session.title).toBe('Quarterly report');
 		expect(detail.artifacts).toHaveLength(1);
-		expect(detail.artifacts[0]).toMatchObject({ filename: 'report.md', contentType: 'text/markdown' });
+		expect(detail.artifacts[0]).toMatchObject({
+			filename: 'report.md',
+			contentType: 'text/markdown'
+		});
 
 		const bytes = await reader.getArtifactBytes(detail.artifacts[0]!);
 		expect(new TextDecoder().decode(bytes)).toBe('# Hello\n\nBody');

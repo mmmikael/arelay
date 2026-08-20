@@ -3,8 +3,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 // svelte.config.js is evaluated before Vite sets NODE_ENV during `vite dev`, so do not
 // gate dev-only CSP on NODE_ENV here — dev CSP fixes live in hooks.server.ts instead.
-const isProductionBuild =
-	process.env.NODE_ENV === 'production' || process.argv.includes('preview');
+const isProductionBuild = process.env.NODE_ENV === 'production' || process.argv.includes('preview');
 
 const config = {
 	preprocess: vitePreprocess(),

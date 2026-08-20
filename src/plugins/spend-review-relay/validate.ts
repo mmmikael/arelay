@@ -58,9 +58,9 @@ function optionalEncryptedField(
 	return { ok: true, value };
 }
 
-export function parseEncryptedSpendRequestPayload(body: unknown):
-	| { ok: true; value: ParsedEncryptedSpendRequestPayload }
-	| { ok: false; error: string } {
+export function parseEncryptedSpendRequestPayload(
+	body: unknown
+): { ok: true; value: ParsedEncryptedSpendRequestPayload } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
@@ -101,9 +101,9 @@ export function parseEncryptedSpendRequestPayload(body: unknown):
 	};
 }
 
-export function parseSpendRequestBody(body: unknown):
-	| { ok: true; value: ParsedEncryptedSpendRequestPayload }
-	| { ok: false; error: string } {
+export function parseSpendRequestBody(
+	body: unknown
+): { ok: true; value: ParsedEncryptedSpendRequestPayload } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
@@ -157,18 +157,18 @@ function parsePlaintextChargeFields(
 	};
 }
 
-export function parseSpendRequestChargeFields(body: unknown):
-	| { ok: true; value: SpendRequestChargeFields }
-	| { ok: false; error: string } {
+export function parseSpendRequestChargeFields(
+	body: unknown
+): { ok: true; value: SpendRequestChargeFields } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}
 	return parsePlaintextChargeFields(body as Record<string, unknown>);
 }
 
-export function parseSpendRequestApproveFields(body: unknown):
-	| { ok: true; value: SpendRequestApproveFields }
-	| { ok: false; error: string } {
+export function parseSpendRequestApproveFields(
+	body: unknown
+): { ok: true; value: SpendRequestApproveFields } | { ok: false; error: string } {
 	if (!body || typeof body !== 'object') {
 		return { ok: false, error: 'JSON body required' };
 	}

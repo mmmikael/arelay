@@ -28,7 +28,10 @@
 		role="status"
 		class="relative flex shrink-0 items-start gap-2.5 border-b border-amber-200/80 bg-amber-50 px-4 py-3 pr-10 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
 	>
-		<ShieldAlert class="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+		<ShieldAlert
+			class="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
+			aria-hidden="true"
+		/>
 		<div class="min-w-0 space-y-1">
 			<p class="font-medium">
 				{#if hasRestrictedContent}
@@ -42,8 +45,8 @@
 					Scripts and other active content are blocked here for security. Use the open-in-new-tab
 					icon if you trust this file.
 				{:else}
-					Interactive behavior may differ from the original file. Use the open-in-new-tab icon if you
-					trust this file and need full browser behavior.
+					Interactive behavior may differ from the original file. Use the open-in-new-tab icon if
+					you trust this file and need full browser behavior.
 				{/if}
 			</p>
 		</div>

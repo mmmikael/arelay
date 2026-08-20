@@ -7,8 +7,8 @@
 // passkey PRF unlock v1"); changing them would invalidate every deterministic
 // passkey-wrapped private key, so the value is locked by a test.
 const DETERMINISTIC_PRF_SALT = new Uint8Array([
-	48, 215, 167, 94, 31, 193, 173, 125, 129, 211, 139, 120, 206, 194, 156, 250, 28,
-	165, 40, 248, 104, 129, 119, 247, 74, 228, 115, 128, 227, 125, 87, 94
+	48, 215, 167, 94, 31, 193, 173, 125, 129, 211, 139, 120, 206, 194, 156, 250, 28, 165, 40, 248,
+	104, 129, 119, 247, 74, 228, 115, 128, 227, 125, 87, 94
 ]);
 
 function bytesToBase64Url(bytes: Uint8Array): string {

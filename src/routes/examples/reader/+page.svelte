@@ -3,11 +3,7 @@
 	// Everything below runs in the browser — unlock the private key, then fetch
 	// and decrypt. Decryption never touches the server. Same-origin only: it
 	// relies on the portal session cookie, so sign in to the portal first.
-	import {
-		ArelayReader,
-		type DecryptedArtifact,
-		type DecryptedSession
-	} from '@arelay/client';
+	import { ArelayReader, type DecryptedArtifact, type DecryptedSession } from '@arelay/client';
 
 	const reader = new ArelayReader(); // same-origin (baseUrl: '')
 
@@ -67,7 +63,9 @@
 
 <main style="max-width: 52rem; margin: 2rem auto; font-family: system-ui; line-height: 1.5;">
 	<h1>@arelay/client reader — example</h1>
-	<p>Dev-only demo of building a custom inbox frontend. Sign in to the portal first (same-origin).</p>
+	<p>
+		Dev-only demo of building a custom inbox frontend. Sign in to the portal first (same-origin).
+	</p>
 
 	{#if !unlocked}
 		<section>

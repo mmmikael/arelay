@@ -19,7 +19,11 @@ export function computeWindowStart(nowMs: number, windowMs: number): number {
 	return Math.floor(nowMs / windowMs) * windowMs;
 }
 
-export function retryAfterSeconds(windowStartMs: number, windowMs: number, nowMs = Date.now()): number {
+export function retryAfterSeconds(
+	windowStartMs: number,
+	windowMs: number,
+	nowMs = Date.now()
+): number {
 	const windowEndMs = windowStartMs + windowMs;
 	return Math.max(1, Math.ceil((windowEndMs - nowMs) / 1000));
 }

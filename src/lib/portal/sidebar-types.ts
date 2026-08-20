@@ -1,13 +1,7 @@
 export type SidebarFilter = 'all' | 'unread' | 'email' | 'files' | 'archived';
 
 export type SidebarSessionIcon =
-	| 'server'
-	| 'warning'
-	| 'document'
-	| 'chart'
-	| 'email'
-	| 'payment'
-	| 'default';
+	'server' | 'warning' | 'document' | 'chart' | 'email' | 'payment' | 'default';
 
 export const EMAIL_DRAFT_SIDEBAR_DESCRIPTION = 'Outbound email draft for your review';
 

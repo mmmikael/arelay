@@ -87,7 +87,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
 	const artifactLimit = await reserveAgentArtifactCreate(locals.agentUser!.id);
 	if (!artifactLimit.ok) {
-		return routeRateLimitResponse(locals, artifactLimit.retryAfterSeconds, AGENT_ARTIFACT_LIMIT_ERROR);
+		return routeRateLimitResponse(
+			locals,
+			artifactLimit.retryAfterSeconds,
+			AGENT_ARTIFACT_LIMIT_ERROR
+		);
 	}
 
 	const quota = await validateArtifactStorageUpload(locals.agentUser!.id, sizeBytes, storageLimits);

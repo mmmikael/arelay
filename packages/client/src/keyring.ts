@@ -83,7 +83,10 @@ export function generateRecoveryKey(): string {
 }
 
 function normalizeRecoveryKey(recoveryKey: string): string {
-	return recoveryKey.trim().replaceAll(/[\s-]+/g, '').toUpperCase();
+	return recoveryKey
+		.trim()
+		.replaceAll(/[\s-]+/g, '')
+		.toUpperCase();
 }
 
 async function deriveWrappingKey(
@@ -146,12 +149,13 @@ async function derivePasskeyWrappingKey(prfOutput: Uint8Array): Promise<CryptoKe
 }
 
 export async function createE2eeKeyring(recoveryKey = generateRecoveryKey()): Promise<E2eeKeyring> {
-	const keyPair = await crypto.subtle.generateKey(
-		{ name: 'ECDH', namedCurve: 'P-256' },
-		true,
-		['deriveKey']
-	);
-	const publicKeyJwk = (await crypto.subtle.exportKey('jwk', keyPair.publicKey)) as JsonWebKeyEnvelope;
+	const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+		'deriveKey'
+	]);
+	const publicKeyJwk = (await crypto.subtle.exportKey(
+		'jwk',
+		keyPair.publicKey
+	)) as JsonWebKeyEnvelope;
 	const salt = randomBytes(16);
 	const iv = randomBytes(12);
 	const wrappingKey = await deriveWrappingKey(recoveryKey, salt);

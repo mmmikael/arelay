@@ -12,12 +12,17 @@ const fileInput = z
 		filename: z
 			.string()
 			.optional()
-			.describe('Filename shown in the inbox. Required for inline content; defaults to the basename of path.'),
+			.describe(
+				'Filename shown in the inbox. Required for inline content; defaults to the basename of path.'
+			),
 		content: z
 			.string()
 			.optional()
 			.describe('Inline file content (UTF-8 text). Use path for binary files.'),
-		content_type: z.string().optional().describe('MIME type; guessed from the filename when omitted.')
+		content_type: z
+			.string()
+			.optional()
+			.describe('MIME type; guessed from the filename when omitted.')
 	})
 	.describe('A file to deliver: either {path} or {filename, content}.');
 
@@ -124,12 +129,18 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 		{
 			title: 'Deliver files to the Agent Relay inbox',
 			description:
-				'Deliver finished work (reports, files, artifacts) to the human\'s end-to-end encrypted Agent Relay inbox. ' +
+				"Deliver finished work (reports, files, artifacts) to the human's end-to-end encrypted Agent Relay inbox. " +
 				'Creates a new session unless session_id is given. Use this when work is complete and a human should receive the result.',
 			inputSchema: {
 				title: z.string().describe('Short human-readable title for the delivery session.'),
-				summary: z.string().optional().describe('One or two sentences on what was delivered and why.'),
-				session_id: z.string().optional().describe('Existing session id to add files to instead of creating a new session.'),
+				summary: z
+					.string()
+					.optional()
+					.describe('One or two sentences on what was delivered and why.'),
+				session_id: z
+					.string()
+					.optional()
+					.describe('Existing session id to add files to instead of creating a new session.'),
 				files: z.array(fileInput).min(1).describe('Files to deliver.')
 			}
 		},
@@ -191,8 +202,13 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 			inputSchema: {
 				to: z.string().describe('Recipient email address.'),
 				cc: z.string().optional().describe('CC email address.'),
-				bcc: z.string().optional().describe('BCC email address (e.g. to keep a copy for the sender).'),
-				from_email: z.string().describe('Sender email address (must be one the account can send from).'),
+				bcc: z
+					.string()
+					.optional()
+					.describe('BCC email address (e.g. to keep a copy for the sender).'),
+				from_email: z
+					.string()
+					.describe('Sender email address (must be one the account can send from).'),
 				from_name: z.string().optional().describe('Sender display name.'),
 				subject: z.string().describe('Email subject.'),
 				html: z.string().describe('HTML body of the email.'),
@@ -200,7 +216,9 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 				idempotency_key: z
 					.string()
 					.optional()
-					.describe('Stable key so retries return the existing draft instead of creating duplicates.'),
+					.describe(
+						'Stable key so retries return the existing draft instead of creating duplicates.'
+					),
 				inline_images: z
 					.array(inlineImageInput)
 					.optional()
@@ -244,9 +262,9 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 		{
 			title: 'Submit a spend request for human approval',
 			description:
-				'Propose a payment or purchase to the human\'s Agent Relay inbox for approval before any money moves ' +
+				"Propose a payment or purchase to the human's Agent Relay inbox for approval before any money moves " +
 				'(requires the Spend Review Relay plugin). Nothing is charged until the human approves; on approval a ' +
-				'Stripe PaymentIntent is created in the account\'s Stripe (test) mode. Use this whenever an autonomous ' +
+				"Stripe PaymentIntent is created in the account's Stripe (test) mode. Use this whenever an autonomous " +
 				'action would spend money.',
 			inputSchema: {
 				payee: z
@@ -258,9 +276,7 @@ export async function runMcpServer(env: NodeJS.ProcessEnv = process.env): Promis
 					.positive()
 					.describe('Amount in the smallest currency unit (cents for USD). $49.00 = 4900.'),
 				currency: z.string().describe('Three-letter ISO currency code, e.g. "usd".'),
-				description: z
-					.string()
-					.describe('Why this spend is needed — shown to the human reviewer.'),
+				description: z.string().describe('Why this spend is needed — shown to the human reviewer.'),
 				idempotency_key: z
 					.string()
 					.optional()

@@ -48,7 +48,10 @@ describe('e2ee roundtrip', () => {
 
 	it('decrypts directly from payload metadata and raw ciphertext bytes', async () => {
 		const keyring = await createE2eeKeyring('ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567');
-		const envelope = await encryptBytes(new TextEncoder().encode('raw bytes'), keyring.publicKeyJwk);
+		const envelope = await encryptBytes(
+			new TextEncoder().encode('raw bytes'),
+			keyring.publicKeyJwk
+		);
 		const { payload, ciphertextBytes } = envelopeToPayload(envelope);
 
 		const plaintext = await decryptPayloadBytes(payload, ciphertextBytes, keyring.privateKey);

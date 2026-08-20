@@ -67,12 +67,7 @@ export const POST: RequestHandler = async ({ cookies, locals, request, url }) =>
 				privacyVersion: challenge.privacyVersion
 			});
 		} catch (err) {
-			return routeLogAndJsonError(
-				locals,
-				409,
-				'Could not create account. Try signing in.',
-				err
-			);
+			return routeLogAndJsonError(locals, 409, 'Could not create account. Try signing in.', err);
 		}
 	} else {
 		user =

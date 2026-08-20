@@ -50,9 +50,9 @@ describe('emailDraftDisplayFields', () => {
 	});
 
 	it('falls back to agent fields', () => {
-		expect(
-			emailDraftDisplayFields({ ...fields, review: null, sent: null }, 'pending').html
-		).toBe('<p>agent</p>');
+		expect(emailDraftDisplayFields({ ...fields, review: null, sent: null }, 'pending').html).toBe(
+			'<p>agent</p>'
+		);
 	});
 });
 

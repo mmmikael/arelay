@@ -1,10 +1,6 @@
 import { createHmac } from 'crypto';
 import { describe, expect, it } from 'vitest';
-import {
-	parseStripeEvent,
-	planUpdateFromEvent,
-	verifyStripeWebhookSignature
-} from './webhook';
+import { parseStripeEvent, planUpdateFromEvent, verifyStripeWebhookSignature } from './webhook';
 
 const SECRET = 'whsec_test_secret';
 
@@ -19,38 +15,30 @@ describe('verifyStripeWebhookSignature', () => {
 
 	it('accepts a valid signature within tolerance', () => {
 		const header = signPayload(payload, SECRET, now - 10);
-		expect(
-			verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })
-		).toBe(true);
+		expect(verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })).toBe(true);
 	});
 
 	it('accepts when one of several v1 signatures matches', () => {
 		const valid = signPayload(payload, SECRET, now).split('v1=')[1];
 		const header = `t=${now},v1=${'0'.repeat(64)},v1=${valid}`;
-		expect(
-			verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })
-		).toBe(true);
+		expect(verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })).toBe(true);
 	});
 
 	it('rejects a signature made with a different secret', () => {
 		const header = signPayload(payload, 'whsec_other', now);
-		expect(
-			verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })
-		).toBe(false);
+		expect(verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })).toBe(false);
 	});
 
 	it('rejects a tampered payload', () => {
 		const header = signPayload(payload, SECRET, now);
-		expect(
-			verifyStripeWebhookSignature(payload + 'x', header, SECRET, { nowSeconds: now })
-		).toBe(false);
+		expect(verifyStripeWebhookSignature(payload + 'x', header, SECRET, { nowSeconds: now })).toBe(
+			false
+		);
 	});
 
 	it('rejects timestamps outside the replay tolerance', () => {
 		const header = signPayload(payload, SECRET, now - 10_000);
-		expect(
-			verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })
-		).toBe(false);
+		expect(verifyStripeWebhookSignature(payload, header, SECRET, { nowSeconds: now })).toBe(false);
 	});
 
 	it('rejects missing or malformed headers', () => {

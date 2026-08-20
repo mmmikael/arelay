@@ -2,11 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { recordLegalAcceptance } from '$lib/server/db';
 import { routeJsonError } from '$lib/server/api-error';
-import {
-	PRIVACY_VERSION,
-	TERMS_VERSION,
-	hasCurrentLegalVersions
-} from '$lib/legal';
+import { PRIVACY_VERSION, TERMS_VERSION, hasCurrentLegalVersions } from '$lib/legal';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	if (!locals.authenticated || !locals.user) {

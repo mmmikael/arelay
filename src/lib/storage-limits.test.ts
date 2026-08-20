@@ -11,9 +11,9 @@ describe('checkArtifactStorageLimits', () => {
 	it('allows uploads within per-artifact and account limits', () => {
 		expect(checkArtifactStorageLimits(1024, 0)).toEqual({ ok: true });
 		expect(checkArtifactStorageLimits(MAX_ARTIFACT_BYTES, 0)).toEqual({ ok: true });
-		expect(
-			checkArtifactStorageLimits(1024, MAX_ACCOUNT_STORAGE_BYTES - 1024)
-		).toEqual({ ok: true });
+		expect(checkArtifactStorageLimits(1024, MAX_ACCOUNT_STORAGE_BYTES - 1024)).toEqual({
+			ok: true
+		});
 	});
 
 	it('rejects artifacts larger than 25 MB', () => {

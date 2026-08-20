@@ -12,11 +12,7 @@ export {
 	transitionSpendRequestStatus,
 	upsertUserStripeCredentials
 } from './db';
-export {
-	decryptStripeSecretKey,
-	isStripeTestKey,
-	isUserStripeConfigured
-} from './credentials';
+export { decryptStripeSecretKey, isStripeTestKey, isUserStripeConfigured } from './credentials';
 export { executeApprovedSpendRequest, validateStripeSecretKey } from './send';
 export type {
 	EncryptedSpendRequestPayload,

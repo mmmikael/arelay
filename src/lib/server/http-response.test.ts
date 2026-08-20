@@ -1,10 +1,6 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import {
-	applySecurityHeaders,
-	hookJsonError,
-	type RequestContext
-} from './http-response';
+import { applySecurityHeaders, hookJsonError, type RequestContext } from './http-response';
 
 const log = pino({ level: 'silent' });
 const ctx: RequestContext = { requestId: 'req-test-1', isHttps: false, log };

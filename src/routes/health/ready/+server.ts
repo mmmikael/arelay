@@ -7,10 +7,7 @@ import { publicErrorMessage, PUBLIC_SERVICE_UNAVAILABLE } from '$lib/server/http
 export const GET: RequestHandler = async ({ locals }) => {
 	const result = await checkReadiness();
 	if (!result.ok) {
-		locals.log.warn(
-			{ checks: result.checks, err: result.internalError },
-			'readiness check failed'
-		);
+		locals.log.warn({ checks: result.checks, err: result.internalError }, 'readiness check failed');
 		return json(
 			{
 				status: 'error',

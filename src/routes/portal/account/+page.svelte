@@ -93,7 +93,9 @@
 
 	async function sha256Hex(value: string): Promise<string> {
 		const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-		return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+		return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(
+			''
+		);
 	}
 
 	function suggestedAgentTokenName(): string {
@@ -111,7 +113,8 @@
 	}
 
 	function passkeyTitle(passkey: LayoutData['passkeys'][number], index: number): string {
-		if (passkey.backedUp || passkey.deviceType === 'multiDevice') return `Synced passkey ${index + 1}`;
+		if (passkey.backedUp || passkey.deviceType === 'multiDevice')
+			return `Synced passkey ${index + 1}`;
 		if (passkey.transports?.includes('internal')) return `Device passkey ${index + 1}`;
 		return `Security key ${index + 1}`;
 	}
@@ -143,8 +146,8 @@
 	const canSaveCloudflare = $derived(
 		Boolean(
 			data.plugins.emailReviewRelay &&
-				cloudflareAccountIdInput.trim() &&
-				cloudflareApiTokenInput.trim()
+			cloudflareAccountIdInput.trim() &&
+			cloudflareApiTokenInput.trim()
 		)
 	);
 
@@ -212,9 +215,7 @@
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Could not save Stripe key');
 			stripeSecretKeyInput = '';
-			notice = result.testMode
-				? 'Stripe test-mode key saved.'
-				: 'Stripe key saved.';
+			notice = result.testMode ? 'Stripe test-mode key saved.' : 'Stripe key saved.';
 			await invalidate('account:stripe-credentials');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Could not save Stripe key';
@@ -382,8 +383,9 @@
 			<p
 				class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
 			>
-				Complete <a href="/portal/setup" class="font-semibold underline underline-offset-2">encryption
-					setup</a> before creating agent tokens or receiving deliveries.
+				Complete <a href="/portal/setup" class="font-semibold underline underline-offset-2"
+					>encryption setup</a
+				> before creating agent tokens or receiving deliveries.
 			</p>
 		{/if}
 
@@ -447,8 +449,7 @@
 						></div>
 					</div>
 					<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-						Up to {formatBytes(data.storage.artifactLimitBytes)} per file. Deleting sessions frees
-						space.
+						Up to {formatBytes(data.storage.artifactLimitBytes)} per file. Deleting sessions frees space.
 					</p>
 				</div>
 			</div>
@@ -485,15 +486,15 @@
 						<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
 							{#if currentPlan === 'free'}
 								Free plan: {formatBytes(data.storage.limitBytes)} storage,
-								{formatBytes(data.storage.artifactLimitBytes)} per file. Upgrading funds the
-								open-source project.
+								{formatBytes(data.storage.artifactLimitBytes)} per file. Upgrading funds the open-source
+								project.
 							{:else if currentPlan === 'founding'}
 								Founding license — every Pro feature, no subscription, forever. Thank you for
 								backing the project early.
 							{:else}
 								Pro plan: {formatBytes(data.storage.limitBytes)} storage,
-								{formatBytes(data.storage.artifactLimitBytes)} per file. Thank you for supporting
-								the project.
+								{formatBytes(data.storage.artifactLimitBytes)} per file. Thank you for supporting the
+								project.
 							{/if}
 						</p>
 						<div class="mt-3 flex flex-wrap gap-2">
@@ -607,7 +608,8 @@
 				<div class="min-w-0 flex-1">
 					<h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Agent API tokens</h2>
 					<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-						Create one token per agent or integration. Revoke a single token without affecting others.
+						Create one token per agent or integration. Revoke a single token without affecting
+						others.
 					</p>
 
 					<div class="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -740,7 +742,9 @@
 					</span>
 					<div class="min-w-0 flex-1">
 						<div class="flex flex-wrap items-center justify-between gap-2">
-							<h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Email sending</h2>
+							<h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+								Email sending
+							</h2>
 							{#if data.cloudflareEmail.configured}
 								<span
 									class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
@@ -758,9 +762,9 @@
 						</div>
 
 						<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-							Optional. Add your Cloudflare Account ID and an API token with Email Sending permission.
-							Used only when you approve an email draft. Agent send-from addresses must use a domain
-							onboarded for Email Sending in that Cloudflare account.
+							Optional. Add your Cloudflare Account ID and an API token with Email Sending
+							permission. Used only when you approve an email draft. Agent send-from addresses must
+							use a domain onboarded for Email Sending in that Cloudflare account.
 							<a
 								href="https://developers.cloudflare.com/email-service/"
 								target="_blank"
@@ -856,8 +860,8 @@
 
 						<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
 							Optional. Add a Stripe secret key (use a <strong>test-mode</strong> key,
-							<code>sk_test_…</code>). Used only when you approve a spend request, to create a Stripe
-							PaymentIntent. Stored encrypted; never shown again after saving.
+							<code>sk_test_…</code>). Used only when you approve a spend request, to create a
+							Stripe PaymentIntent. Stored encrypted; never shown again after saving.
 							<a
 								href="https://dashboard.stripe.com/test/apikeys"
 								target="_blank"

@@ -43,5 +43,9 @@ export function isEncryptedEnvelope(
 /** File envelope metadata without inline ciphertext (bytes sent separately as ciphertext_base64). */
 export function isEncryptedArtifactPayload(value: unknown): value is JsonObject {
 	if (!isJsonObject(value)) return false;
-	return isEncryptedEnvelopeCore(value as Record<string, unknown>, false, MAX_ENCRYPTED_FIELD_LENGTH);
+	return isEncryptedEnvelopeCore(
+		value as Record<string, unknown>,
+		false,
+		MAX_ENCRYPTED_FIELD_LENGTH
+	);
 }

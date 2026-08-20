@@ -37,7 +37,7 @@ printf 'rk_live key: '; read -rs STRIPE_SECRET_KEY; echo; export STRIPE_SECRET_K
 
 **Run that line by itself and wait for the prompt before pasting anything else.**
 `read` takes the next line it receives as its input, so pasting this command
-together with the one below makes the *command* become the key.
+together with the one below makes the _command_ become the key.
 
 Check it took the key and not something else. This prints only the first 8
 characters, which is just the key type:
@@ -80,15 +80,15 @@ unset STRIPE_SECRET_KEY
 
 Railway → your service → **Variables**. Add:
 
-| Variable | Value |
-| --- | --- |
-| `STRIPE_SECRET_KEY` | your `rk_live_…` key |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_…` from step 2 |
-| `STRIPE_PRICE_PRO_MONTHLY` | `price_…` from step 2 |
-| `STRIPE_PRICE_PRO_YEARLY` | `price_…` from step 2 |
-| `STRIPE_PRICE_FOUNDING` | `price_…` from step 2 |
-| `STRIPE_PORTAL_CONFIGURATION` | `bpc_…` from step 2 |
-| `BILLING_FOUNDING_CAP` | `100` (optional; this is the default) |
+| Variable                      | Value                                 |
+| ----------------------------- | ------------------------------------- |
+| `STRIPE_SECRET_KEY`           | your `rk_live_…` key                  |
+| `STRIPE_WEBHOOK_SECRET`       | `whsec_…` from step 2                 |
+| `STRIPE_PRICE_PRO_MONTHLY`    | `price_…` from step 2                 |
+| `STRIPE_PRICE_PRO_YEARLY`     | `price_…` from step 2                 |
+| `STRIPE_PRICE_FOUNDING`       | `price_…` from step 2                 |
+| `STRIPE_PORTAL_CONFIGURATION` | `bpc_…` from step 2                   |
+| `BILLING_FOUNDING_CAP`        | `100` (optional; this is the default) |
 
 Leave `STRIPE_AUTOMATIC_TAX` unset — see step 6.
 

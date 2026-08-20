@@ -17,10 +17,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 
 	return {
 		requestId: locals.requestId,
-		umami:
-			scriptUrl && websiteId
-				? { scriptUrl, websiteId }
-				: null,
+		umami: scriptUrl && websiteId ? { scriptUrl, websiteId } : null,
 		seo: {
 			title: DEFAULT_SITE_TITLE,
 			description: DEFAULT_SITE_DESCRIPTION,

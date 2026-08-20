@@ -25,9 +25,6 @@ describe('prioritizeBySessionIds', () => {
 
 	it('deduplicates repeated priority ids', () => {
 		const items = [{ id: 'a' }, { id: 'b' }];
-		expect(prioritizeBySessionIds(items, ['b', 'b', 'a'])).toEqual([
-			{ id: 'b' },
-			{ id: 'a' }
-		]);
+		expect(prioritizeBySessionIds(items, ['b', 'b', 'a'])).toEqual([{ id: 'b' }, { id: 'a' }]);
 	});
 });

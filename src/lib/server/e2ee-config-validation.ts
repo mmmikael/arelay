@@ -10,7 +10,12 @@ function isJsonObject(value: unknown): value is JsonObject {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function normalizePublicKeyJwk(value: JsonObject): { kty: string; crv: string; x: string; y: string } {
+function normalizePublicKeyJwk(value: JsonObject): {
+	kty: string;
+	crv: string;
+	x: string;
+	y: string;
+} {
 	const record = value as Record<string, unknown>;
 	return {
 		kty: String(record.kty),

@@ -1,9 +1,6 @@
 import type { EmailDraftBundle } from '$lib/email-draft-bundle';
 import type { encryptString } from '$lib/e2ee';
-import {
-	extractInlineDataImages,
-	type EmailInlineAttachment
-} from '$lib/email-inline-images';
+import { extractInlineDataImages, type EmailInlineAttachment } from '$lib/email-inline-images';
 import { prepareHtmlBodyForEmail } from '$lib/preview-doc';
 
 type RecipientPublicKey = Parameters<typeof encryptString>[1];
@@ -55,7 +52,10 @@ export async function persistEmailDraftReview(input: {
 			? { encrypted: true, encrypted_review: null }
 			: {
 					encrypted: true,
-					encrypted_review: await input.encryptString(JSON.stringify(input.payload), input.publicKeyJwk)
+					encrypted_review: await input.encryptString(
+						JSON.stringify(input.payload),
+						input.publicKeyJwk
+					)
 				};
 
 	const res = await fetch(`/api/sessions/${input.sessionId}/email/review`, {

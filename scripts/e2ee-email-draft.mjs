@@ -121,14 +121,18 @@ async function agentFetch(path, init = {}) {
 		body = text;
 	}
 	if (!res.ok) {
-		throw new Error(`${init.method ?? 'GET'} ${path} failed (${res.status}): ${JSON.stringify(body)}`);
+		throw new Error(
+			`${init.method ?? 'GET'} ${path} failed (${res.status}): ${JSON.stringify(body)}`
+		);
 	}
 	return body;
 }
 
 const config = await agentFetch('/api/agent/e2ee/config');
 if (!config?.configured || !config.publicKeyJwk) {
-	throw new Error('E2EE is not configured for this account. Enable encryption in the portal first.');
+	throw new Error(
+		'E2EE is not configured for this account. Enable encryption in the portal first.'
+	);
 }
 
 const publicKeyJwk = config.publicKeyJwk;

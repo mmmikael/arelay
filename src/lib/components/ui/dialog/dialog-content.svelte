@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { Dialog as DialogPrimitive } from "bits-ui";
-	import X from "@lucide/svelte/icons/x";
-	import * as Dialog from "./index.js";
-	import { cn, flyAndScale } from "$lib/utils.js";
+	import { Dialog as DialogPrimitive } from 'bits-ui';
+	import X from '@lucide/svelte/icons/x';
+	import * as Dialog from './index.js';
+	import { cn, flyAndScale } from '$lib/utils.js';
 
 	type $$Props = DialogPrimitive.ContentProps;
 
-	let className: $$Props["class"] = undefined;
-	export let transition: $$Props["transition"] = flyAndScale;
-	export let transitionConfig: $$Props["transitionConfig"] = { duration: 200 };
+	let className: $$Props['class'] = undefined;
+	export let transition: $$Props['transition'] = flyAndScale;
+	export let transitionConfig: $$Props['transitionConfig'] = { duration: 200 };
 	export { className as class };
 </script>
 
@@ -18,7 +18,7 @@
 		{transition}
 		{transitionConfig}
 		class={cn(
-			"bg-white fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-slate-200 p-4 sm:p-6 shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto",
+			'bg-white fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-slate-200 p-4 sm:p-6 shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto',
 			className
 		)}
 		{...$$restProps}

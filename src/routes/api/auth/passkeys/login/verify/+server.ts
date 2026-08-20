@@ -13,7 +13,9 @@ import { createSession, getSessionCookieName, getSessionMaxAge } from '$lib/serv
 import { consumeLoginChallenge, getWebAuthnSettings } from '$lib/server/webauthn';
 import { routeJsonError } from '$lib/server/api-error';
 
-function toSimpleWebAuthnCredential(row: Awaited<ReturnType<typeof getWebAuthnCredential>>): WebAuthnCredential {
+function toSimpleWebAuthnCredential(
+	row: Awaited<ReturnType<typeof getWebAuthnCredential>>
+): WebAuthnCredential {
 	if (!row) throw new Error('Credential not found');
 	return {
 		id: row.id,
@@ -54,10 +56,7 @@ export const POST: RequestHandler = async ({ locals, cookies, request, url }) =>
 		return routeJsonError(locals, 404, 'Passkey user no longer exists.');
 	}
 
-	await updateWebAuthnCredentialCounter(
-		credential.id,
-		verification.authenticationInfo.newCounter
-	);
+	await updateWebAuthnCredentialCounter(credential.id, verification.authenticationInfo.newCounter);
 
 	const { cookieValue } = createSession(user.id, credential.id);
 	cookies.set(getSessionCookieName(), cookieValue, {

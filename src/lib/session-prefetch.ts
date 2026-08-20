@@ -44,10 +44,7 @@ type PrefetchPageData = {
 	emailDraft?: EmailDraftRecord | null;
 };
 
-type EmailDraftSummaryLookup = Record<
-	string,
-	{ updated_at?: string | Date | null } | undefined
->;
+type EmailDraftSummaryLookup = Record<string, { updated_at?: string | Date | null } | undefined>;
 
 const prefetchedVersions = new Map<string, string>();
 const inflight = new Map<string, Promise<void>>();
@@ -209,8 +206,7 @@ async function warmSessionPageData(
 
 	const warmTargets = pageData.artifacts.filter(
 		(artifact) =>
-			artifact.encrypted_payload &&
-			Number(artifact.size_bytes) <= MAX_ARTIFACT_PREFETCH_BYTES
+			artifact.encrypted_payload && Number(artifact.size_bytes) <= MAX_ARTIFACT_PREFETCH_BYTES
 	);
 
 	let index = 0;

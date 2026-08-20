@@ -122,7 +122,10 @@ export function injectPreviewFontHints(html: string): string {
 		return html.replace(/<head(\s[^>]*)?>/i, (match) => `${match}${FONT_PREVIEW_HEAD}`);
 	}
 	if (/<html[\s>]/i.test(html)) {
-		return html.replace(/<html(\s[^>]*)?>/i, (match) => `${match}<head>${FONT_PREVIEW_HEAD}</head>`);
+		return html.replace(
+			/<html(\s[^>]*)?>/i,
+			(match) => `${match}<head>${FONT_PREVIEW_HEAD}</head>`
+		);
 	}
 	return html;
 }

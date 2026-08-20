@@ -47,7 +47,8 @@
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import { PRIVACY_VERSION, TERMS_VERSION } from '$lib/legal';
 
-	const CONNECT_COMMAND = 'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
+	const CONNECT_COMMAND =
+		'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
 	let connectCopied = $state(false);
 
 	async function copyConnectCommand() {
@@ -61,10 +62,34 @@
 	}
 
 	const deliveries = [
-		{ icon: FileText, title: 'Weekly sales report', files: 'report.md · metrics.csv', status: 'Delivered', tone: 'ok' },
-		{ icon: FileCode, title: 'Overnight repo audit', files: 'audit.md · 2 findings', status: 'Delivered', tone: 'ok' },
-		{ icon: Mail, title: 'Intro email to investor', files: 'draft.html', status: 'Awaiting approval', tone: 'review' },
-		{ icon: Activity, title: 'Server health check', files: 'status.html', status: 'Delivered', tone: 'ok' }
+		{
+			icon: FileText,
+			title: 'Weekly sales report',
+			files: 'report.md · metrics.csv',
+			status: 'Delivered',
+			tone: 'ok'
+		},
+		{
+			icon: FileCode,
+			title: 'Overnight repo audit',
+			files: 'audit.md · 2 findings',
+			status: 'Delivered',
+			tone: 'ok'
+		},
+		{
+			icon: Mail,
+			title: 'Intro email to investor',
+			files: 'draft.html',
+			status: 'Awaiting approval',
+			tone: 'review'
+		},
+		{
+			icon: Activity,
+			title: 'Server health check',
+			files: 'status.html',
+			status: 'Delivered',
+			tone: 'ok'
+		}
 	];
 	let deliveryIndex = $state(0);
 
@@ -433,10 +458,14 @@
 										I agree to the <a
 											href="/terms"
 											class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
-										>Terms of Service</a> and acknowledge the <a
+											>Terms of Service</a
+										>
+										and acknowledge the
+										<a
 											href="/privacy"
 											class="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300"
-										>Privacy Policy</a>.
+											>Privacy Policy</a
+										>.
 									</span>
 								</label>
 								{#if emailVerificationSent}
@@ -575,8 +604,8 @@
 			</p>
 			<h2>Works with Claude Code, Cursor, Codex — and anything that speaks HTTP.</h2>
 			<p>
-				Create an agent token, run one command, and your agent can deliver encrypted reports,
-				files, and finished work straight to your inbox.
+				Create an agent token, run one command, and your agent can deliver encrypted reports, files,
+				and finished work straight to your inbox.
 			</p>
 		</div>
 		<div class="connect-action">

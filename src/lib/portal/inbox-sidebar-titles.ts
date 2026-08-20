@@ -16,10 +16,7 @@ type SidebarSession = {
 	encrypted_summary?: EncryptedEnvelope | Record<string, unknown> | null;
 };
 
-type EmailDraftSummaryLookup = Record<
-	string,
-	{ updated_at?: string | Date | null } | undefined
->;
+type EmailDraftSummaryLookup = Record<string, { updated_at?: string | Date | null } | undefined>;
 
 export type SidebarSessionMeta = { title: string; summary: string | null };
 

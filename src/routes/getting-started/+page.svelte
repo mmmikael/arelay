@@ -34,7 +34,8 @@
 
 	let activePath = $state<(typeof PATHS)[number]['id']>('claude-code');
 
-	const CLAUDE_CODE_MCP = 'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
+	const CLAUDE_CODE_MCP =
+		'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
 
 	const MCP_JSON = `{
   "mcpServers": {
@@ -97,8 +98,8 @@ hermes gateway start
 			Getting started
 		</h1>
 		<p class="mt-3 text-base text-slate-500 dark:text-slate-400">
-			Four steps from zero to your first encrypted delivery. No passwords, no SDKs to learn —
-			one token and one command.
+			Four steps from zero to your first encrypted delivery. No passwords, no SDKs to learn — one
+			token and one command.
 		</p>
 
 		<div class="guide-copy mt-8 sm:mt-10">
@@ -114,8 +115,8 @@ hermes gateway start
 						protects the encryption key, and you get a recovery key to store somewhere safe.
 					</p>
 					<p>
-						All agent deliveries are end-to-end encrypted; they are decrypted in your browser,
-						never on the server.
+						All agent deliveries are end-to-end encrypted; they are decrypted in your browser, never
+						on the server.
 					</p>
 				</div>
 			</section>
@@ -127,11 +128,14 @@ hermes gateway start
 				</div>
 				<div class="step-body">
 					<p>
-						In the portal, open <strong>Account → Agent tokens</strong> and create a named token
-						for each agent (for example, “Claude Code”).
+						In the portal, open <strong>Account → Agent tokens</strong> and create a named token for each
+						agent (for example, “Claude Code”).
 					</p>
 					<ul>
-						<li>The token (<code>ar_...</code>) is shown <strong>once</strong>, at creation time — copy it then.</li>
+						<li>
+							The token (<code>ar_...</code>) is shown <strong>once</strong>, at creation time —
+							copy it then.
+						</li>
 						<li>Tokens can be revoked individually at any time.</li>
 						<li>Never commit tokens to a repository; set them where your agent runs.</li>
 					</ul>
@@ -168,13 +172,13 @@ hermes gateway start
 							{@render codeBlock('claude-code', CLAUDE_CODE_MCP)}
 							<p>
 								Done — your agent now has three tools: <code>deliver_to_inbox</code>,
-								<code>list_inbox_sessions</code>, and <code>submit_email_draft</code>.
-								Encryption is handled automatically.
+								<code>list_inbox_sessions</code>, and <code>submit_email_draft</code>. Encryption is
+								handled automatically.
 							</p>
 						{:else if activePath === 'mcp'}
 							<p>
-								Any MCP-capable client (Cursor, Claude Desktop, …) works with the standard
-								server configuration:
+								Any MCP-capable client (Cursor, Claude Desktop, …) works with the standard server
+								configuration:
 							</p>
 							{@render codeBlock('mcp-json', MCP_JSON)}
 							<p>
@@ -187,20 +191,21 @@ hermes gateway start
 									href="https://www.npmjs.com/package/@arelay/cli"
 									target="_blank"
 									rel="noreferrer"><code>@arelay/cli</code></a
-								> package wraps the API and all envelope encryption — deliver from scripts, CI, or
-								your terminal:
+								> package wraps the API and all envelope encryption — deliver from scripts, CI, or your
+								terminal:
 							</p>
 							{@render codeBlock('cli-send', CLI_SEND)}
 							<p>
-								It also exports a typed SDK
-								(<code>import {'{ ArelayClient }'} from '@arelay/cli'</code>) for custom
-								integrations.
+								It also exports a typed SDK (<code
+									>import {'{ ArelayClient }'} from '@arelay/cli'</code
+								>) for custom integrations.
 							</p>
 						{:else if activePath === 'skill'}
 							<p>
 								For <a href="https://agentskills.io/specification" target="_blank" rel="noreferrer"
 									>Agent Skills</a
-								> hosts (Cursor, Codex, Claude Code, …), install the
+								>
+								hosts (Cursor, Codex, Claude Code, …), install the
 								<a
 									href="https://github.com/mmmikael/arelay-skills/tree/main/skills/agent-relay"
 									target="_blank"
@@ -245,9 +250,11 @@ hermes gateway start
 					<p>Verify the token and encryption setup:</p>
 					{@render codeBlock('cli-check', CLI_CHECK)}
 					<p>
-						Then ask your agent for something like <em>“Send a test markdown file to my Agent
-						Relay inbox”</em> — the delivery appears in your <a href="/portal">portal</a> within
-						seconds, ready to preview and download.
+						Then ask your agent for something like <em
+							>“Send a test markdown file to my Agent Relay inbox”</em
+						>
+						— the delivery appears in your <a href="/portal">portal</a> within seconds, ready to preview
+						and download.
 					</p>
 				</div>
 			</section>
@@ -268,7 +275,8 @@ hermes gateway start
 					see the
 					<a href="https://github.com/mmmikael/arelay#self-hosting" target="_blank" rel="noreferrer"
 						>self-hosting guide</a
-					> — then point agents at your deployment with <code>ARELAY_URL</code>.
+					>
+					— then point agents at your deployment with <code>ARELAY_URL</code>.
 				</p>
 			</section>
 		</div>

@@ -31,10 +31,7 @@ export function applySecurityHeaders(response: Response, ctx: RequestContext): R
 		response.headers.set(name, value);
 	}
 	if (ctx.isHttps) {
-		response.headers.set(
-			'Strict-Transport-Security',
-			'max-age=31536000; includeSubDomains'
-		);
+		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 	}
 	return response;
 }

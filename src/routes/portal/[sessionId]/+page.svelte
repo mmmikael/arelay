@@ -10,7 +10,10 @@
 		sessionDetailCacheKey
 	} from '$lib/session-detail-cache';
 	import { isSessionPagePrefetched } from '$lib/session-prefetch';
-	import { decryptEmailDraftFields, type DecryptedEmailDraftFields } from '$lib/email-draft-decrypt';
+	import {
+		decryptEmailDraftFields,
+		type DecryptedEmailDraftFields
+	} from '$lib/email-draft-decrypt';
 	import {
 		emailDraftForActiveSession,
 		emptySessionDetailViewState,
@@ -22,7 +25,12 @@
 	import HtmlArtifactPreview from '$lib/components/portal/HtmlArtifactPreview.svelte';
 	import HtmlPreviewOpenInTabButton from '$lib/components/portal/HtmlPreviewOpenInTabButton.svelte';
 	import { e2eeConfig, e2eePrivateKey } from '$lib/e2ee-store';
-	import { ENSURE_E2EE_UNLOCK_KEY, SESSION_UPDATED_AT_LOOKUP_KEY, type EnsureE2eeUnlock, type SessionUpdatedAtLookup } from '$lib/portal-context';
+	import {
+		ENSURE_E2EE_UNLOCK_KEY,
+		SESSION_UPDATED_AT_LOOKUP_KEY,
+		type EnsureE2eeUnlock,
+		type SessionUpdatedAtLookup
+	} from '$lib/portal-context';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
@@ -392,7 +400,9 @@
 		return new Date(iso).toLocaleString();
 	}
 
-	async function decryptArtifactBytes(artifact: PageData['artifacts'][number]): Promise<Uint8Array> {
+	async function decryptArtifactBytes(
+		artifact: PageData['artifacts'][number]
+	): Promise<Uint8Array> {
 		const privateKey = $e2eePrivateKey;
 		if (!privateKey) throw new Error('Unlock encryption first');
 		return fetchAndDecryptArtifactBytes(artifact, privateKey);
@@ -410,7 +420,9 @@
 			const filename = meta.filename;
 			const contentType = meta.contentType;
 			const plaintext = await decryptArtifactBytes(artifact);
-			const url = URL.createObjectURL(new Blob([plaintext as Uint8Array<ArrayBuffer>], { type: contentType }));
+			const url = URL.createObjectURL(
+				new Blob([plaintext as Uint8Array<ArrayBuffer>], { type: contentType })
+			);
 			const link = document.createElement('a');
 			link.href = url;
 			link.download = filename;
@@ -486,7 +498,9 @@
 				previewSourceDoc = content;
 				previewDoc = buildPreviewContent(kind, content, darkMode);
 			} else {
-				previewObjectUrl = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: contentType }));
+				previewObjectUrl = URL.createObjectURL(
+					new Blob([bytes as Uint8Array<ArrayBuffer>], { type: contentType })
+				);
 				previewUrl = previewObjectUrl;
 			}
 		} catch (err) {
@@ -582,7 +596,9 @@
 	class="min-h-full w-full bg-white transition-opacity duration-150 dark:bg-slate-950 sm:bg-transparent"
 	class:opacity-50={isSwitchingSession}
 >
-	<div class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-100 bg-white px-2 dark:border-slate-800 dark:bg-slate-950 sm:hidden">
+	<div
+		class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-100 bg-white px-2 dark:border-slate-800 dark:bg-slate-950 sm:hidden"
+	>
 		<a
 			href="/portal"
 			class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -591,7 +607,9 @@
 			<ArrowLeft class="h-5 w-5" />
 		</a>
 		<div class="min-w-0">
-			<p class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{sessionTitle}</p>
+			<p class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+				{sessionTitle}
+			</p>
 			<p class="text-xs text-slate-500 dark:text-slate-400">Sessions</p>
 		</div>
 	</div>
@@ -599,12 +617,16 @@
 	<div
 		class="border-b border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:mb-6 sm:rounded-xl sm:border sm:p-6 sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] sm:dark:shadow-none"
 	>
-		<h1 class="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100">{sessionTitle}</h1>
+		<h1 class="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100">
+			{sessionTitle}
+		</h1>
 		<p class="text-xs sm:text-sm text-slate-500 mt-1 dark:text-slate-400">
 			Updated {formatDate(data.session.updated_at)}
 		</p>
 		{#if sessionSummary}
-			<p class="text-sm text-slate-700 mt-3 whitespace-pre-wrap dark:text-slate-300">{sessionSummary}</p>
+			<p class="text-sm text-slate-700 mt-3 whitespace-pre-wrap dark:text-slate-300">
+				{sessionSummary}
+			</p>
 		{/if}
 	</div>
 
@@ -658,9 +680,7 @@
 							{@const isSelected = activeArtifactId === artifact.id}
 							<li>
 								<div
-									class="flex items-center gap-2 {isSelected
-										? 'bg-white dark:bg-slate-900'
-										: ''}"
+									class="flex items-center gap-2 {isSelected ? 'bg-white dark:bg-slate-900' : ''}"
 								>
 									<button
 										type="button"
@@ -699,7 +719,9 @@
 									</Button>
 								</div>
 								{#if isSelected}
-									<p class="border-t border-slate-100 px-3 py-1 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+									<p
+										class="border-t border-slate-100 px-3 py-1 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500"
+									>
 										{formatBytes(Number(artifact.size_bytes))} · {contentType}
 									</p>
 								{/if}
@@ -709,7 +731,9 @@
 				</section>
 
 				{#if previewOpen}
-					{@const activeArtifact = data.artifacts.find((artifact) => artifact.id === activeArtifactId)}
+					{@const activeArtifact = data.artifacts.find(
+						(artifact) => artifact.id === activeArtifactId
+					)}
 					<section class="mt-6" aria-labelledby="file-preview-heading">
 						<div class="mb-3 flex items-start justify-between gap-3">
 							<div class="min-w-0">
@@ -813,7 +837,9 @@
 					<HtmlPreviewOpenInTabButton sourceHtml={previewSourceDoc} />
 				{/if}
 				{#if !previewLoading && !previewError}
-					{@const activeArtifact = data.artifacts.find((artifact) => artifact.id === activeArtifactId)}
+					{@const activeArtifact = data.artifacts.find(
+						(artifact) => artifact.id === activeArtifactId
+					)}
 					{#if activeArtifact}
 						<Button
 							variant="ghost"

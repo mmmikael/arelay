@@ -6,8 +6,7 @@ import {
 } from '$lib/server/rate-limit';
 
 export const AGENT_SESSION_LIMIT_ERROR = 'Hourly session limit reached. Try again later.';
-export const AGENT_ARTIFACT_LIMIT_ERROR =
-	'Hourly artifact upload limit reached. Try again later.';
+export const AGENT_ARTIFACT_LIMIT_ERROR = 'Hourly artifact upload limit reached. Try again later.';
 
 export const FAILED_AGENT_AUTH_IP_LIMIT: RateLimitConfig = {
 	limit: 60,

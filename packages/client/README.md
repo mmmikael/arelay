@@ -6,7 +6,7 @@ private key in the browser and fetches + decrypts what arrived — so you can bu
 inbox frontend instead of using the stock portal.
 
 All decryption happens in memory in the browser. The server only ever returns ciphertext and
-the *encrypted* private key, so a custom frontend is exactly as trustworthy as the official one.
+the _encrypted_ private key, so a custom frontend is exactly as trustworthy as the official one.
 
 ## Install
 
@@ -22,7 +22,7 @@ import { ArelayReader } from '@arelay/client';
 const reader = new ArelayReader({ baseUrl: window.location.origin });
 
 // 1. Unlock the private key (one of)
-await reader.unlockWithPasskey();                  // WebAuthn PRF — one tap
+await reader.unlockWithPasskey(); // WebAuthn PRF — one tap
 await reader.unlockWithRecoveryKey('ABCD-EFGH-…'); // PBKDF2
 
 reader.unlocked; // boolean
@@ -54,9 +54,14 @@ directly — envelope crypto (re-exported from [`@arelay/core`](../core)) plus k
 
 ```ts
 import {
-  unlockPrivateKeyWithPasskey, unlockPrivateKey,
-  decryptString, decryptBytes, decryptPayloadBytes,
-  generateRecoveryKey, createE2eeKeyring, canAttemptPasskeyPrf,
+	unlockPrivateKeyWithPasskey,
+	unlockPrivateKey,
+	decryptString,
+	decryptBytes,
+	decryptPayloadBytes,
+	generateRecoveryKey,
+	createE2eeKeyring,
+	canAttemptPasskeyPrf
 } from '@arelay/client';
 
 const privateKey = await unlockPrivateKey(encryptedPrivateKey, recoveryKey);

@@ -82,10 +82,10 @@ Lower-level methods: `createSession`, `updateSession`, `uploadArtifact`, `listSe
 
 ## Environment
 
-| Variable | Meaning |
-| --- | --- |
-| `ARELAY_TOKEN` | Agent API token (`ar_...`) from the portal |
-| `ARELAY_URL` | Relay base URL; defaults to `https://arelay.app` |
+| Variable       | Meaning                                          |
+| -------------- | ------------------------------------------------ |
+| `ARELAY_TOKEN` | Agent API token (`ar_...`) from the portal       |
+| `ARELAY_URL`   | Relay base URL; defaults to `https://arelay.app` |
 
 Limits: 25 MB per file, 500 MB per account.
 

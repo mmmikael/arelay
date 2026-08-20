@@ -66,10 +66,7 @@ export async function getEffectivePlan(userId: string): Promise<PlanId> {
 	return account && isPlanId(account.plan) ? account.plan : 'free';
 }
 
-export async function setStripeCustomerId(
-	userId: string,
-	stripeCustomerId: string
-): Promise<void> {
+export async function setStripeCustomerId(userId: string, stripeCustomerId: string): Promise<void> {
 	await ensureSchema();
 	const db = getDb();
 	await db`

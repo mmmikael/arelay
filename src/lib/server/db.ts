@@ -5,7 +5,8 @@ import { ensureSchema } from './db-schema-check';
 export { getDb } from './db-connection';
 export { ensureSchema } from './db-schema-check';
 
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+	string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
 
 export type InboxSession = {
@@ -405,7 +406,10 @@ export async function deleteSession(id: string, ownerUserId: string): Promise<bo
 	return rows.length > 0;
 }
 
-export async function listArtifacts(sessionId: string, ownerUserId?: string): Promise<InboxArtifact[]> {
+export async function listArtifacts(
+	sessionId: string,
+	ownerUserId?: string
+): Promise<InboxArtifact[]> {
 	await ensureSchema();
 	const db = getDb();
 	if (ownerUserId) {
@@ -626,13 +630,16 @@ export async function getE2eeConfig(userId: string): Promise<E2eeConfig | null> 
 	return rows[0] ?? null;
 }
 
-export async function upsertE2eeConfig(userId: string, input: {
-	publicKeyJwk: JsonObject;
-	encryptedPrivateKey: JsonObject;
-	passkeyCredentialId?: string | null;
-	passkeyEncryptedPrivateKey?: JsonObject | null;
-	recoveryHint?: string | null;
-}): Promise<E2eeConfig> {
+export async function upsertE2eeConfig(
+	userId: string,
+	input: {
+		publicKeyJwk: JsonObject;
+		encryptedPrivateKey: JsonObject;
+		passkeyCredentialId?: string | null;
+		passkeyEncryptedPrivateKey?: JsonObject | null;
+		recoveryHint?: string | null;
+	}
+): Promise<E2eeConfig> {
 	await ensureSchema();
 	const db = getDb();
 	const passkeyEncryptedPrivateKey = input.passkeyEncryptedPrivateKey ?? null;
@@ -679,7 +686,10 @@ export async function upsertE2eeConfig(userId: string, input: {
 	return rows[0];
 }
 
-export async function listArtifactStorageKeys(sessionId: string, ownerUserId: string): Promise<string[]> {
+export async function listArtifactStorageKeys(
+	sessionId: string,
+	ownerUserId: string
+): Promise<string[]> {
 	await ensureSchema();
 	const db = getDb();
 	const rows = await db<{ storage_key: string }[]>`

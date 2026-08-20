@@ -23,8 +23,7 @@ export function artifactUploadBodyTooLarge(
 export type StorageLimitErrorCode = 'artifact_too_large' | 'account_quota_exceeded';
 
 export type StorageLimitCheckResult =
-	| { ok: true }
-	| { ok: false; code: StorageLimitErrorCode; message: string };
+	{ ok: true } | { ok: false; code: StorageLimitErrorCode; message: string };
 
 export function checkArtifactStorageLimits(
 	incomingBytes: number,

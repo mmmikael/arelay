@@ -168,7 +168,9 @@ async function mintSharedPaymentToken(ctx: ChargeContext): Promise<StripeChargeR
 		console.error(
 			`[spend-send] Stripe SPT mint failed: status=${response.status} body=${rawBody.slice(0, 2000)}`
 		);
-		throw new Error(result?.error?.message || `Shared Payment Token mint failed (${response.status})`);
+		throw new Error(
+			result?.error?.message || `Shared Payment Token mint failed (${response.status})`
+		);
 	}
 
 	const status = typeof result?.status === 'string' ? result.status : 'active';

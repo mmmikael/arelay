@@ -100,7 +100,9 @@ async function migrateLegacyCloudflareAccountIds(db) {
 	}
 
 	if (rows.length > 0) {
-		console.log(`Migrated ${rows.length} legacy Cloudflare account_id value(s) to account_id_ciphertext.`);
+		console.log(
+			`Migrated ${rows.length} legacy Cloudflare account_id value(s) to account_id_ciphertext.`
+		);
 	}
 
 	await db`ALTER TABLE user_cloudflare_email DROP COLUMN IF EXISTS account_id`;
