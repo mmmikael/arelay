@@ -34,13 +34,11 @@
 	let newAgentTokenName = $state('');
 	let revealedAgentTokens = $state<Record<string, string>>({});
 	let tokenActionId = $state<string | null>(null);
-	let cloudflareAccountIdInput = $state('');
+	// Writable $derived: prefilled from server data and reset whenever that data
+	// reloads, but still assignable while the user is editing the field.
+	let cloudflareAccountIdInput = $derived(data.cloudflareEmail.accountId ?? '');
 	let cloudflareApiTokenInput = $state('');
 	let stripeSecretKeyInput = $state('');
-
-	$effect(() => {
-		cloudflareAccountIdInput = data.cloudflareEmail.accountId ?? '';
-	});
 
 	const analyticsEnabled = $derived(Boolean($page.data.umami));
 
