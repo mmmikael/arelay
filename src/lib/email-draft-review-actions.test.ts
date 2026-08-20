@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bundleMatchesAgent, type EmailDraftBundle } from '$lib/email-draft-bundle';
 import {
 	buildApproveRequestInit,

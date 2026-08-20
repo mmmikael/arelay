@@ -27,10 +27,6 @@ const CONTENT_ID_PATTERN = /^[a-z0-9._-]{1,200}$/i;
 
 export type ParsedEncryptedEmailDraftPayload = EncryptedEmailDraftPayload;
 
-function isJsonObject(value: unknown): value is JsonObject {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 export { isEncryptedEnvelope };
 
 function parseIdempotencyKey(record: Record<string, unknown>):

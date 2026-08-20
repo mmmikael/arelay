@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
-import { decryptSecret, encryptSecret } from '$lib/server/secret-crypto';
+import { encryptSecret } from '$lib/server/secret-crypto';
 import { validateCloudflareEmailCredentials } from '$lib/server/email-send';
 import { routeJsonError } from '$lib/server/api-error';
 import {

@@ -218,7 +218,7 @@ async function createMultiArtifactSession({ title, summary, files }) {
 	return { sessionId: session.id, title, artifacts };
 }
 
-async function submitEmailDraft({ to, subject, htmlAsset, text, summary }) {
+async function submitEmailDraft({ to, subject, htmlAsset, text }) {
 	const html = readDemo(htmlAsset);
 	const childArgs = [
 		join(rootDir, 'scripts', 'e2ee-email-draft.mjs'),

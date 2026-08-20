@@ -3,8 +3,7 @@ import type { RequestHandler } from './$types';
 import {
 	createAgentApiToken,
 	listAgentApiTokensForUser,
-	type AgentApiToken,
-	type JsonObject
+	type AgentApiToken
 } from '$lib/server/db';
 import { routeJsonError } from '$lib/server/api-error';
 import {
@@ -15,10 +14,6 @@ import {
 
 const TOKEN_HASH_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_TOKEN_NAME_LENGTH = 80;
-
-function isJsonObject(value: unknown): value is JsonObject {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function cleanTokenName(value: unknown): string {
 	if (typeof value !== 'string') return 'Agent token';

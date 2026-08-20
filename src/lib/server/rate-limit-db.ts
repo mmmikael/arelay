@@ -48,7 +48,6 @@ export async function peekRateLimit(
 	nowMs = Date.now()
 ): Promise<RateLimitResult> {
 	const windowStartMs = computeWindowStart(nowMs, config.windowMs);
-	const windowStart = new Date(windowStartMs);
 	const db = getDb();
 
 	const rows = await db<Array<{ count: number; window_start: Date }>>`

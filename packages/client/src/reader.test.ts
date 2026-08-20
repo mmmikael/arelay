@@ -97,7 +97,6 @@ describe('ArelayReader', () => {
 	});
 
 	it('surfaces HTTP failures as ArelayReaderError', async () => {
-		const keyring = await createE2eeKeyring();
 		const reader = new ArelayReader({
 			baseUrl: 'https://inbox.example',
 			fetch: async () => new Response('nope', { status: 401 })
