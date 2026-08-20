@@ -79,6 +79,9 @@
 	let previewSourceDoc = $state('');
 	let previewObjectUrl = '';
 	let darkMode = $state(false);
+	// Bumped whenever a preview is opened or closed. An in-flight decrypt captures
+	// the current value and discards its result if the token moved on, so a slow
+	// artifact can never paint over the preview the user has since switched to.
 	let previewToken = 0;
 	let decryptedSession = $state<{ title: string; summary: string | null } | null>(null);
 	let decryptedArtifacts = $state<Record<string, { filename: string; contentType: string }>>({});
@@ -458,6 +461,7 @@
 		}
 
 		previewToken++;
+		const token = previewToken;
 		activeArtifactId = artifact.id;
 		previewExpanded = false;
 		previewFilename = filename;
@@ -470,6 +474,7 @@
 
 		try {
 			const bytes = await decryptArtifactBytes(artifact);
+			if (token !== previewToken) return;
 			if (kind === 'markdown' || kind === 'text' || kind === 'html') {
 				const text = new TextDecoder().decode(bytes);
 				const content =
@@ -485,9 +490,10 @@
 				previewUrl = previewObjectUrl;
 			}
 		} catch (err) {
+			if (token !== previewToken) return;
 			previewError = err instanceof Error ? err.message : 'Could not decrypt preview';
 		} finally {
-			previewLoading = false;
+			if (token === previewToken) previewLoading = false;
 		}
 	}
 
