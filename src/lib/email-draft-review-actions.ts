@@ -1,5 +1,5 @@
 import type { EmailDraftBundle } from '$lib/email-draft-bundle';
-import type { EncryptedEnvelope, encryptString } from '$lib/e2ee';
+import type { encryptString } from '$lib/e2ee';
 import {
 	extractInlineDataImages,
 	type EmailInlineAttachment

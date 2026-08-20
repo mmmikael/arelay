@@ -1,6 +1,5 @@
 import { decryptString, type EncryptedEnvelope } from '$lib/e2ee';
 import {
-	agentFieldsToBundle,
 	emailDraftDisplayBundle,
 	parseEmailDraftBundleJson,
 	type EmailDraftAgentFields,

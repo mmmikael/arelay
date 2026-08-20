@@ -27,8 +27,7 @@
 	import {
 		ENSURE_E2EE_UNLOCK_KEY,
 		OPEN_E2EE_DIALOG_KEY,
-		type EnsureE2eeUnlock,
-		type OpenE2eeDialog
+		type EnsureE2eeUnlock
 	} from '$lib/portal-context';
 	import { setContext } from 'svelte';
 

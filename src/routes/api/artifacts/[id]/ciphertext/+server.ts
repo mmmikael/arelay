@@ -1,4 +1,3 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getArtifact } from '$lib/server/db';
 import { getObjectBytes } from '$lib/server/s3';

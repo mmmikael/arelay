@@ -87,16 +87,6 @@ function evictArtifactPlaintextUntilWithinBudget(): void {
 	}
 }
 
-function emptyEntry(version: string): SessionDetailEntry {
-	return {
-		version,
-		session: null,
-		artifacts: {},
-		artifactIds: [],
-		emailDraft: undefined
-	};
-}
-
 function applyPatchForNewVersion(
 	patch: SessionDetailCachePatch
 ): Omit<SessionDetailEntry, 'version'> {

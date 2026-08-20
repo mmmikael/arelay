@@ -13,6 +13,9 @@
 	let openError = $state('');
 
 	$effect(() => {
+		// Read sourceHtml so the effect re-runs and drops a stale error when the
+		// previewed document changes.
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		sourceHtml;
 		openError = '';
 	});
