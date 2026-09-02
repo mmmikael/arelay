@@ -245,9 +245,7 @@
 						<span
 							class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-amber-800 dark:bg-amber-300/15 dark:text-amber-200"
 						>
-							{foundingSoldOut
-								? 'Sold out'
-								: `${data.foundingRemaining} of ${data.foundingCap} left`}
+							{foundingSoldOut ? 'Sold out' : `${data.foundingRemaining} left`}
 						</span>
 					{/if}
 				</div>
@@ -357,8 +355,8 @@
 				</dt>
 				<dd class="mt-1 text-slate-500 dark:text-slate-400">
 					Pro for one member on the hosted service, for the lifetime of the service, with no
-					recurring payment. Limited to the first {data.foundingCap ?? 100} accounts. It is a thank-you
-					for backing the project early, not a discount code.
+					recurring payment. A limited run for early backers; the badge above shows how many are
+					left. It is a thank-you for backing the project early, not a discount code.
 				</dd>
 			</div>
 			<div>
