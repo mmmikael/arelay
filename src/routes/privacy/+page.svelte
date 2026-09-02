@@ -85,7 +85,8 @@
 					recipient's mail provider receives the same content. Cloudflare Account ID and API tokens
 					you save in Account are encrypted at rest on the server with a server-held key (separate
 					from end-to-end encryption), so the service could technically use them to send mail from
-					your configured address; nothing does so except your explicit approval.
+					your configured address; nothing does so except your explicit approval. The
+					<a href="/security">security page</a> describes these boundaries in detail.
 				</p>
 			</section>
 
@@ -153,5 +154,6 @@
 		<a href="/terms" class="text-slate-600 hover:underline dark:text-slate-300">
 			Terms of Service
 		</a>
+		<a href="/security" class="text-slate-600 hover:underline dark:text-slate-300">Security</a>
 	</nav>
 </main>

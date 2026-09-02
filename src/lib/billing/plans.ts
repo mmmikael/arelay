@@ -41,10 +41,17 @@ export const PLAN_LABELS: Record<PlanId, string> = {
  * charge. Update them in the same change as any reprice.
  */
 export const FALLBACK_PRICE_DISPLAY = {
-	proMonthly: '$9',
-	proYearly: '$79',
+	proMonthly: '$15',
+	proYearly: '$144',
 	founding: '$149'
 } as const;
+
+/**
+ * Pro is priced per member. Today every account has exactly one member, so checkout
+ * always bills one seat; the number is shared here so /pricing and the account page
+ * describe the same unit.
+ */
+export const PRO_SEAT_QUANTITY = 1;
 
 export function isPlanId(value: unknown): value is PlanId {
 	return value === 'free' || value === 'pro' || value === 'founding';

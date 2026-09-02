@@ -45,11 +45,15 @@
 	import Rocket from '@lucide/svelte/icons/rocket';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
+	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import { PRIVACY_VERSION, TERMS_VERSION } from '$lib/legal';
+	import { buildAgentSetupInstructions } from '$lib/agent-instructions';
 
 	const CONNECT_COMMAND =
 		'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
 	let connectCopied = $state(false);
+	let instructionsCopied = $state(false);
 
 	async function copyConnectCommand() {
 		try {
@@ -61,7 +65,29 @@
 		}
 	}
 
+	// The agent is the installer: the payload tells Claude Code / Cursor how to register
+	// the MCP server, verify the token, and send a first delivery. The token is a
+	// placeholder here; the account page produces the same text with a real one.
+	async function copyAgentInstructions() {
+		try {
+			await navigator.clipboard.writeText(
+				buildAgentSetupInstructions({ relayUrl: window.location.origin })
+			);
+			instructionsCopied = true;
+			setTimeout(() => (instructionsCopied = false), 2500);
+		} catch {
+			// Clipboard unavailable; the guide has the same text.
+		}
+	}
+
 	const deliveries = [
+		{
+			icon: Mail,
+			title: 'Intro email to investor',
+			files: 'draft.html · to: sam@fund.vc',
+			status: 'Awaiting approval',
+			tone: 'review'
+		},
 		{
 			icon: FileText,
 			title: 'Weekly sales report',
@@ -70,18 +96,18 @@
 			tone: 'ok'
 		},
 		{
+			icon: CreditCard,
+			title: 'Renew domain registration',
+			files: 'spend request · $12.99',
+			status: 'Awaiting approval',
+			tone: 'review'
+		},
+		{
 			icon: FileCode,
 			title: 'Overnight repo audit',
 			files: 'audit.md · 2 findings',
 			status: 'Delivered',
 			tone: 'ok'
-		},
-		{
-			icon: Mail,
-			title: 'Intro email to investor',
-			files: 'draft.html',
-			status: 'Awaiting approval',
-			tone: 'review'
 		},
 		{
 			icon: Activity,
@@ -314,9 +340,9 @@
 </script>
 
 <svelte:head>
-	<title>Agent Relay — Where your AI's work lands</title>
-	<meta property="og:title" content="Agent Relay — Where your AI's work lands" />
-	<meta name="twitter:title" content="Agent Relay — Where your AI's work lands" />
+	<title>Agent Relay — Where your AI agents ask permission</title>
+	<meta property="og:title" content="Agent Relay — Where your AI agents ask permission" />
+	<meta name="twitter:title" content="Agent Relay — Where your AI agents ask permission" />
 </svelte:head>
 
 <div class="login-page">
@@ -332,6 +358,7 @@
 		<div class="header-actions">
 			<a href="/getting-started" class="header-link">Getting started</a>
 			<a href="/pricing" class="header-link">Pricing</a>
+			<a href="/security" class="header-link">Security</a>
 			<ThemeToggle />
 			<a
 				href="https://github.com/mmmikael/arelay"
@@ -350,18 +377,18 @@
 		<section class="login-story">
 			<p class="login-eyebrow">
 				<span aria-hidden="true"></span>
-				Built for AI agents
+				The approval layer for AI agents
 			</p>
-			<h1>Where your AI's work lands.</h1>
+			<h1>Where your AI agents ask permission.</h1>
 			<p class="login-intro">
-				When a script, an AI assistant, or an automation finishes a job — a report, a file, a draft
-				email — it lands in a private inbox you control. Your AI never gets access to your email,
-				and only you can open what arrives.
+				Agents draft emails, request spend, and deliver finished work into a private encrypted
+				inbox. Nothing leaves, sends, or charges until you approve it. Your agent never gets your
+				email account or your card.
 			</p>
 			<ul class="login-proof" aria-label="Agent Relay features">
-				<li><KeyRound class="h-4 w-4 text-blue-600" />Passkey access</li>
-				<li><ShieldCheck class="h-4 w-4 text-emerald-600" />End-to-end encrypted</li>
-				<li><Github class="h-4 w-4 text-violet-600" />Self-hostable</li>
+				<li><ShieldCheck class="h-4 w-4 text-emerald-600" />You approve every send</li>
+				<li><LockKeyhole class="h-4 w-4 text-blue-600" />End-to-end encrypted inbox</li>
+				<li><Github class="h-4 w-4 text-violet-600" />MIT, self-hostable</li>
 			</ul>
 		</section>
 
@@ -553,7 +580,7 @@
 		<div
 			class="relay-visual"
 			role="img"
-			aria-label="A delivery moving securely from an AI agent to Agent Relay sessions"
+			aria-label="An agent's request travelling encrypted to your inbox, where you approve it"
 		>
 			<div class="relay-visual-inner" aria-hidden="true">
 				<div class="relay-status">
@@ -574,7 +601,7 @@
 					<div class="relay-connection"><span></span></div>
 					<div class="relay-node relay-node-inbox">
 						<div class="relay-node-icon"><Inbox class="h-5 w-5" /></div>
-						<span>Sessions</span>
+						<span>You approve</span>
 					</div>
 				</div>
 
@@ -604,18 +631,30 @@
 			</p>
 			<h2>Works with Claude Code, Cursor, Codex — and anything that speaks HTTP.</h2>
 			<p>
-				Create an agent token, run one command, and your agent can deliver encrypted reports, files,
-				and finished work straight to your inbox.
+				Your agent is the installer. Copy the instructions, paste them into your agent, and it
+				registers the MCP server, checks the connection, and sends a first delivery. Add your token
+				and you are done.
 			</p>
 		</div>
 		<div class="connect-action">
+			<button
+				type="button"
+				class="connect-link connect-link-primary"
+				onclick={copyAgentInstructions}
+			>
+				<ClipboardCopy class="h-4 w-4" />
+				{instructionsCopied
+					? 'Copied — paste it into your agent'
+					: 'Copy instructions for my agent'}
+			</button>
+			<p class="connect-or">Or do it by hand:</p>
 			<div class="connect-command">
 				<code>{CONNECT_COMMAND}</code>
 				<button type="button" class="connect-copy-btn" onclick={copyConnectCommand}>
 					{connectCopied ? 'Copied ✓' : 'Copy'}
 				</button>
 			</div>
-			<a href="/getting-started" class="connect-link">
+			<a href="/getting-started" class="connect-link connect-link-secondary">
 				<Rocket class="h-4 w-4" />
 				Getting started guide
 			</a>
@@ -635,6 +674,7 @@
 		<nav aria-label="Site">
 			<a href="/getting-started">Getting started</a>
 			<a href="/pricing">Pricing</a>
+			<a href="/security">Security</a>
 			<a href="/terms">Terms</a>
 			<a href="/privacy">Privacy</a>
 		</nav>
@@ -708,6 +748,17 @@
 	}
 
 	@media (max-width: 520px) {
+		/* Brand plus links do not fit one row on phones: let the actions drop to a
+		   second row rather than clipping the theme toggle at the viewport edge. */
+		.login-header {
+			flex-wrap: wrap;
+			row-gap: 0.75rem;
+		}
+
+		.header-actions {
+			margin-left: auto;
+		}
+
 		.header-actions .source-badge {
 			display: none;
 		}
@@ -797,7 +848,7 @@
 		letter-spacing: 0;
 		line-height: 1.02;
 		margin-top: 1rem;
-		max-width: 11ch;
+		max-width: 13ch;
 	}
 
 	.login-intro {
@@ -1200,6 +1251,39 @@
 		background: #1d4ed8;
 	}
 
+	.connect-link-primary {
+		font-size: 0.9rem;
+		padding: 0.85rem 1.25rem;
+		width: 100%;
+	}
+
+	.connect-link-secondary {
+		background: transparent;
+		border: 1px solid #cbd5e1;
+		color: #334155;
+	}
+
+	.connect-link-secondary:hover {
+		background: #f1f5f9;
+	}
+
+	:global(.dark) .connect-link-secondary {
+		border-color: #334155;
+		color: #cbd5e1;
+	}
+
+	:global(.dark) .connect-link-secondary:hover {
+		background: #1e293b;
+	}
+
+	.connect-or {
+		color: #64748b;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
 	.login-footer {
 		align-items: center;
 		color: #64748b;
@@ -1312,8 +1396,8 @@
 		}
 
 		.login-story h1 {
-			font-size: 2.55rem;
-			max-width: 10ch;
+			font-size: 2.4rem;
+			max-width: 12ch;
 		}
 
 		.login-access {

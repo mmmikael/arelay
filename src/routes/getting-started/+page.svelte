@@ -8,8 +8,19 @@
 	import Blocks from '@lucide/svelte/icons/blocks';
 	import Globe from '@lucide/svelte/icons/globe';
 	import Clock from '@lucide/svelte/icons/clock';
+	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
+	import { buildAgentSetupInstructions } from '$lib/agent-instructions';
 
 	let copiedId = $state('');
+
+	// Same payload as the landing page and the account page, with a placeholder token:
+	// the agent performs the integration and asks the user for the real token.
+	async function copyAgentInstructions() {
+		await copy(
+			'agent-instructions',
+			buildAgentSetupInstructions({ relayUrl: window.location.origin })
+		);
+	}
 
 	async function copy(id: string, text: string) {
 		try {
@@ -24,15 +35,15 @@
 	}
 
 	const PATHS = [
+		{ id: 'skill', label: 'Agent skill', icon: KeyRound },
 		{ id: 'claude-code', label: 'Claude Code', icon: Bot },
 		{ id: 'mcp', label: 'Cursor & other MCP', icon: Blocks },
 		{ id: 'cli', label: 'Terminal / CLI', icon: SquareTerminal },
-		{ id: 'skill', label: 'Agent skill', icon: KeyRound },
 		{ id: 'api', label: 'HTTP API', icon: Globe },
 		{ id: 'cron', label: 'Hermes cron', icon: Clock }
 	] as const;
 
-	let activePath = $state<(typeof PATHS)[number]['id']>('claude-code');
+	let activePath = $state<(typeof PATHS)[number]['id']>('skill');
 
 	const CLAUDE_CODE_MCP =
 		'claude mcp add arelay --env ARELAY_TOKEN=ar_... -- npx -y @arelay/cli mcp';
@@ -68,7 +79,7 @@ hermes gateway start
 	<title>Getting started — Agent Relay</title>
 	<meta
 		name="description"
-		content="Set up Agent Relay in minutes: create an account, generate an agent token, and connect Claude Code, Cursor, Codex, or any HTTP client via MCP, CLI, or agent skill."
+		content="Set up Agent Relay in minutes: create an account, generate an agent token, then let your agent wire itself up — or connect Claude Code, Cursor, Codex, or any HTTP client via skill, MCP, or CLI."
 	/>
 	<meta property="og:title" content="Getting started — Agent Relay" />
 	<meta name="twitter:title" content="Getting started — Agent Relay" />
@@ -98,9 +109,32 @@ hermes gateway start
 			Getting started
 		</h1>
 		<p class="mt-3 text-base text-slate-500 dark:text-slate-400">
-			Four steps from zero to your first encrypted delivery. No passwords, no SDKs to learn — one
-			token and one command.
+			Four steps from zero to your first approval request. No passwords, no SDKs to learn — one
+			token and one command. Or skip the commands and let your agent do the work:
 		</p>
+
+		<div
+			class="mt-5 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center dark:border-blue-900/60 dark:bg-blue-950/30"
+		>
+			<div class="flex-1 text-sm text-slate-700 dark:text-slate-200">
+				<p class="font-semibold text-slate-900 dark:text-white">
+					Fastest path: your agent installs it
+				</p>
+				<p class="mt-1">
+					Copy the instructions, paste them into Claude Code, Cursor, or any agent that can run
+					commands. It registers the MCP server, checks the connection, and sends a first delivery.
+					It will ask you for the token from step 2.
+				</p>
+			</div>
+			<button
+				type="button"
+				class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500"
+				onclick={copyAgentInstructions}
+			>
+				<ClipboardCopy class="h-4 w-4" />
+				{copiedId === 'agent-instructions' ? 'Copied ✓' : 'Copy instructions for my agent'}
+			</button>
+		</div>
 
 		<div class="guide-copy mt-8 sm:mt-10">
 			<section class="step">
@@ -298,6 +332,7 @@ hermes gateway start
 			<Github class="h-3.5 w-3.5" />
 			GitHub
 		</a>
+		<a href="/security" class="text-slate-600 hover:underline dark:text-slate-300">Security</a>
 		<a href="/terms" class="text-slate-600 hover:underline dark:text-slate-300">Terms</a>
 		<a href="/privacy" class="text-slate-600 hover:underline dark:text-slate-300">Privacy</a>
 	</nav>

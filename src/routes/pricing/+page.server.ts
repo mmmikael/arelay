@@ -8,6 +8,7 @@ import {
 } from '$lib/server/billing/config';
 import { countFoundingAccounts } from '$lib/server/billing/db';
 import { getStripePrice } from '$lib/server/billing/stripe-api';
+import { isSpendReviewRelayEnabled } from '$lib/plugins';
 
 export type PriceDisplay = { amountCents: number; currency: string };
 export type PricingPrices = {
@@ -73,9 +74,12 @@ async function loadPrices(log: Logger): Promise<PricingPrices> {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const billingEnabled = isBillingEnabled();
+	// Only advertise the spend gate where the plugin is actually on for this deployment.
+	const spendApprovals = isSpendReviewRelayEnabled();
 	if (!billingEnabled) {
 		return {
 			billingEnabled,
+			spendApprovals,
 			authenticated: locals.authenticated,
 			prices: null,
 			foundingRemaining: null,
@@ -86,6 +90,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [prices, sold] = await Promise.all([loadPrices(locals.log), countFoundingAccounts()]);
 	return {
 		billingEnabled,
+		spendApprovals,
 		authenticated: locals.authenticated,
 		prices,
 		foundingRemaining: Math.max(0, cap - sold),

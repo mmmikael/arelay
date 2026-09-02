@@ -2,7 +2,7 @@
 	"name": "@arelay/app",
 	"version": "0.1.0",
 	"private": true,
-	"description": "End-to-end encrypted inbox for AI agents — deliver artifacts to humans via HTTP API.",
+	"description": "Where your AI agents ask permission: a human approval gate and end-to-end encrypted inbox for agent output.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

@@ -161,6 +161,50 @@ describe('planUpdateFromEvent', () => {
 		expect(action?.update.subscriptionStatus).toBe('canceled');
 	});
 
+	it('revokes the plan when a one-time payment is fully refunded', () => {
+		const action = planUpdateFromEvent({
+			type: 'charge.refunded',
+			data: {
+				object: {
+					id: 'ch_1',
+					customer: 'cus_1',
+					refunded: true,
+					invoice: null,
+					metadata: { arelay_user_id: 'user-1' }
+				}
+			}
+		});
+		expect(action).toEqual({
+			userId: 'user-1',
+			stripeCustomerId: 'cus_1',
+			update: { plan: 'free', planSource: null, revokeLifetime: true }
+		});
+	});
+
+	it('falls back to the customer when a refunded charge carries no user metadata', () => {
+		const action = planUpdateFromEvent({
+			type: 'charge.refunded',
+			data: { object: { id: 'ch_1', customer: 'cus_1', refunded: true } }
+		});
+		expect(action?.userId).toBeNull();
+		expect(action?.stripeCustomerId).toBe('cus_1');
+	});
+
+	it('ignores partial refunds and refunds of subscription invoices', () => {
+		expect(
+			planUpdateFromEvent({
+				type: 'charge.refunded',
+				data: { object: { id: 'ch_1', customer: 'cus_1', refunded: false, amount_refunded: 500 } }
+			})
+		).toBeNull();
+		expect(
+			planUpdateFromEvent({
+				type: 'charge.refunded',
+				data: { object: { id: 'ch_1', customer: 'cus_1', refunded: true, invoice: 'in_1' } }
+			})
+		).toBeNull();
+	});
+
 	it('returns null for unhandled event types', () => {
 		expect(
 			planUpdateFromEvent({ type: 'invoice.payment_failed', data: { object: { id: 'in_1' } } })

@@ -10,14 +10,21 @@ For switching a deployment from test mode to live, follow
 
 ## Plans
 
-| Plan     | Price                 | Storage | Per artifact |
-| -------- | --------------------- | ------- | ------------ |
-| Free     | $0                    | 500 MB  | 25 MB        |
-| Pro      | $9/mo or $79/yr       | 10 GB   | 100 MB       |
-| Founding | $149 once (first 100) | 10 GB   | 100 MB       |
+| Plan              | Price                             | Storage | Per artifact |
+| ----------------- | --------------------------------- | ------- | ------------ |
+| Personal (`free`) | $0                                | 500 MB  | 25 MB        |
+| Pro (`pro`)       | $15 per member/mo or $144/yr      | 10 GB   | 100 MB       |
+| Founding          | $149 once (first 100), one member | 10 GB   | 100 MB       |
+
+Pro is priced per member. Every account currently has exactly one member, so checkout
+bills a quantity of one; the per-member unit is what shared inboxes will scale on.
+Subscribers who bought at an earlier price stay on that price — Stripe subscriptions
+keep the price object they were created with, and the setup script never deletes old
+prices, only moves the lookup key.
 
 Founding is a lifetime license: Pro entitlements with `plan_source = 'lifetime'`,
-never downgraded by subscription lifecycle events.
+never downgraded by subscription lifecycle events. A full refund of the founding
+payment (`charge.refunded` with `refunded: true` and no invoice) revokes it.
 
 Entitlements are enforced server-side in `src/lib/billing/plans.ts` (limits) and
 `src/lib/server/storage-quota.ts` (checks). The plan lives in the `billing_accounts`
@@ -81,8 +88,11 @@ change interval by cancelling and re-subscribing.
   mode for Founding).
 - `POST /webhooks/stripe` (signature-verified, outside `/api` so it skips session
   auth) maps events to plan changes: `checkout.session.completed`,
-  `customer.subscription.created/updated/deleted`. `past_due` keeps Pro during
-  dunning; `canceled`/`unpaid` downgrade to free. Lifetime plans never downgrade.
+  `customer.subscription.created/updated/deleted`, and `charge.refunded`. `past_due`
+  keeps Pro during dunning; `canceled`/`unpaid` downgrade to free. Lifetime plans are
+  downgraded only by a full refund of the one-time payment; refunding a subscription
+  invoice changes nothing by itself — cancel the subscription in the Dashboard and the
+  lifecycle events do the rest.
 - `POST /api/billing/portal` opens the Stripe Customer Portal for upgrades,
   cancellation, invoices, and payment-method changes.
 
