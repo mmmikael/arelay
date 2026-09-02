@@ -166,5 +166,18 @@ export function planUpdateFromEvent(event: StripeEvent): BillingEventAction | nu
 		};
 	}
 
+	if (type === 'charge.refunded') {
+		// Only a *full* refund revokes anything, and only for one-time payments (no
+		// invoice) — i.e. the founding license. Refunding a subscription invoice leaves
+		// the subscription active in Stripe; cancel it there and the normal
+		// subscription lifecycle events downgrade the plan.
+		if (object.refunded !== true || asString(object.invoice)) return null;
+		return {
+			userId: metadataValue(object, 'arelay_user_id'),
+			stripeCustomerId: asString(object.customer),
+			update: { plan: 'free', planSource: null, revokeLifetime: true }
+		};
+	}
+
 	return null;
 }

@@ -43,8 +43,8 @@ describe('FALLBACK_PRICE_DISPLAY', () => {
 	// stay in step with the amounts the setup script creates.
 	it('matches the amounts scripts/setup-stripe-billing.mjs defaults to', () => {
 		expect(FALLBACK_PRICE_DISPLAY).toEqual({
-			proMonthly: '$9',
-			proYearly: '$79',
+			proMonthly: '$15',
+			proYearly: '$144',
 			founding: '$149'
 		});
 	});
@@ -53,6 +53,13 @@ describe('FALLBACK_PRICE_DISPLAY', () => {
 		const cents = (display: string) => Number(display.replace('$', '')) * 100;
 		expect(cents(FALLBACK_PRICE_DISPLAY.founding)).toBeGreaterThan(
 			cents(FALLBACK_PRICE_DISPLAY.proYearly)
+		);
+	});
+
+	it('discounts the annual rate against twelve monthly payments', () => {
+		const cents = (display: string) => Number(display.replace('$', '')) * 100;
+		expect(cents(FALLBACK_PRICE_DISPLAY.proYearly)).toBeLessThan(
+			12 * cents(FALLBACK_PRICE_DISPLAY.proMonthly)
 		);
 	});
 });

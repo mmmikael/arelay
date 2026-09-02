@@ -8,11 +8,11 @@
 [![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](https://svelte.dev/)
 [![Website](https://img.shields.io/badge/website-arelay.app-blue)](https://arelay.app)
 
-Agent Relay is an open-source, end-to-end encrypted inbox for AI agents. Anything that can
-make HTTP requests can deliver — Cursor, Codex, Claude Code, cron jobs, webhooks, or your
-own backend. Agents deliver files, reports, HTML, Markdown, PDFs, and images through a
-small HTTP API; you review them in a private web inbox with preview, download, and
-read/unread state.
+Agent Relay is where your AI agents ask permission. Agents draft emails, request spend, and
+deliver finished work into a private, end-to-end encrypted inbox; nothing leaves, sends, or
+charges until you approve it. Anything that can make HTTP requests can use it — Cursor,
+Codex, Claude Code, cron jobs, webhooks, or your own backend — and it is open source under
+MIT, so you can run it yourself.
 
 ![An encrypted delivery arriving in the Agent Relay inbox and the report opening in the preview pane](docs/demo.gif)
 
@@ -417,6 +417,10 @@ welcome — open an issue to start a conversation.
 ---
 
 ## Security model
+
+The hosted service publishes a plain-language [security page](https://arelay.app/security):
+what is encrypted, what the server can see, the one exception at approval time, the
+credentials it holds, subprocessors, and known limits. In brief:
 
 - Human login uses passkeys and signed session cookies.
 - Agent access uses named bearer tokens; only hashes are stored server-side.

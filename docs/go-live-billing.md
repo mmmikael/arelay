@@ -66,9 +66,10 @@ pasted somewhere it should not be, roll it: Dashboard → Developers → Webhook
 the endpoint → **Roll secret**, then update the variable.
 
 Also check the amounts in Dashboard → Product catalogue before announcing anything:
-$9.00/month, $79.00/year, $149.00 one-time. Stripe prices are immutable, so a wrong
-amount is fixed by creating a new price and repointing the variable, not by editing —
-re-running the script with a changed `*_CENTS` does exactly that.
+$15.00/month and $144.00/year per member, $149.00 one-time. Stripe prices are
+immutable, so a wrong amount is fixed by creating a new price and repointing the
+variable, not by editing — re-running the script with a changed `*_CENTS` does exactly
+that.
 
 Then drop the key from your shell:
 
@@ -140,14 +141,30 @@ live webhook path, and it is worth the fee.
    `checkout.session.completed` delivered **200**.
 4. Click **Manage billing** and confirm the portal opens (this is what
    `STRIPE_PORTAL_CONFIGURATION` fixes).
-5. Refund yourself in the Dashboard if you want the money back. A refund does not
-   revoke the plan — the code does not handle `charge.refunded` — so also clear the
-   row by hand if you want to reset:
-   `DELETE FROM billing_accounts WHERE user_id = '<your-user-id>';`
+5. Refund yourself in the Dashboard if you want the money back. A **full** refund
+   sends `charge.refunded`, which revokes the founding license and returns the account
+   to Personal (check the webhook delivered 200). A partial refund changes nothing.
 
 If the webhook shows a non-200, check that `STRIPE_WEBHOOK_SECRET` matches the
 endpoint's signing secret exactly. A mismatch returns 400 and the plan never
 upgrades even though the payment succeeded.
+
+## 5b. Repricing an existing live catalog
+
+Re-run step 2 with the new one-seat amounts. The script creates new prices, moves the
+lookup keys onto them, and prints new `STRIPE_PRICE_PRO_MONTHLY` /
+`STRIPE_PRICE_PRO_YEARLY` ids; existing subscribers keep the price they signed up on.
+It also subscribes an existing webhook endpoint to any event types added since it was
+created (currently `charge.refunded`) without touching the signing secret.
+
+```bash
+PRO_MONTHLY_CENTS=1500 PRO_YEARLY_CENTS=14400 BILLING_WEBHOOK_URL=https://arelay.app/webhooks/stripe SITE_URL=https://arelay.app node scripts/setup-stripe-billing.mjs
+```
+
+Then update the two price variables on Railway (step 3) and redeploy. Until you do,
+`/pricing` keeps quoting the old live amounts because it reads them from Stripe, and
+checkout keeps charging them — consistent, just not repriced. `FALLBACK_PRICE_DISPLAY`
+in `src/lib/billing/plans.ts` must match the new amounts in the same change.
 
 ## 6. Tax — decide before volume, not after
 

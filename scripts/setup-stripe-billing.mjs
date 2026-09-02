@@ -13,7 +13,8 @@
  * webhook URL's origin.
  *
  * Amounts (USD cents) are set with:
- *   PRO_MONTHLY_CENTS=900 PRO_YEARLY_CENTS=7900 FOUNDING_CENTS=14900
+ *   PRO_MONTHLY_CENTS=1500 PRO_YEARLY_CENTS=14400 FOUNDING_CENTS=14900
+ * Pro is billed per member; these are the one-seat amounts.
  * Changing one and re-running creates a new price and moves the lookup key to it,
  * because Stripe prices are immutable. Existing subscribers stay on the old price.
  * The printed price ids change, so update the deployment's env vars afterwards.
@@ -29,7 +30,9 @@ const WEBHOOK_EVENTS = [
 	'checkout.session.completed',
 	'customer.subscription.created',
 	'customer.subscription.updated',
-	'customer.subscription.deleted'
+	'customer.subscription.deleted',
+	// A fully refunded one-time payment revokes the founding license.
+	'charge.refunded'
 ];
 
 const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
@@ -58,8 +61,8 @@ if (!/^(sk|rk)_(test|live)_/.test(secretKey)) {
 const liveMode = /_live_/.test(secretKey);
 
 const amounts = {
-	proMonthly: Number(process.env.PRO_MONTHLY_CENTS ?? 900),
-	proYearly: Number(process.env.PRO_YEARLY_CENTS ?? 7900),
+	proMonthly: Number(process.env.PRO_MONTHLY_CENTS ?? 1500),
+	proYearly: Number(process.env.PRO_YEARLY_CENTS ?? 14400),
 	founding: Number(process.env.FOUNDING_CENTS ?? 14900)
 };
 
@@ -204,6 +207,19 @@ async function ensureWebhookEndpoint(url) {
 		console.log(
 			'  (its signing secret is only shown at creation — read it in the Dashboard if you lost it)'
 		);
+		// Endpoints created by an older version of this script subscribe to fewer
+		// events. Bring the list up to date so new handlers actually receive traffic;
+		// the signing secret is unaffected.
+		const enabled = new Set(match.enabled_events ?? []);
+		const missing = WEBHOOK_EVENTS.filter((eventType) => !enabled.has(eventType));
+		if (missing.length > 0 && !enabled.has('*')) {
+			const params = new URLSearchParams();
+			WEBHOOK_EVENTS.forEach((eventType, index) => {
+				params.set(`enabled_events[${index}]`, eventType);
+			});
+			await stripe('POST', `/v1/webhook_endpoints/${match.id}`, params);
+			console.log(`~ subscribed webhook endpoint to: ${missing.join(', ')}`);
+		}
 		return null;
 	}
 	const params = new URLSearchParams();
@@ -221,7 +237,7 @@ console.log(`Setting up Stripe billing catalog (${liveMode ? 'LIVE' : 'test'} mo
 const proProduct = await ensureProduct(
 	'arelay_pro',
 	'Agent Relay Pro',
-	'Hosted Agent Relay Pro plan: 10 GB encrypted inbox storage and 100 MB artifacts.'
+	'Hosted Agent Relay Pro plan, billed per member: 10 GB encrypted storage, 100 MB artifacts, and every team capability as it ships.'
 );
 const foundingProduct = await ensureProduct(
 	'arelay_founding',

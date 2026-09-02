@@ -1,13 +1,20 @@
 export const DEFAULT_SITE_TITLE = 'Agent Relay';
 
 export const DEFAULT_SITE_DESCRIPTION =
-	'Reports, files, and finished work arrive encrypted in secure agent sessions, ready when you are.';
+	'Agent Relay is where your AI agents ask permission. Agents draft emails, request spend, and deliver work into a private encrypted inbox. Nothing sends or charges until you approve it.';
 
 export const OG_IMAGE_PATH = '/og-image.jpg';
 export const OG_IMAGE_WIDTH = 1024;
 export const OG_IMAGE_HEIGHT = 537;
 
-export const PUBLIC_INDEXABLE_PATHS = ['/', '/pricing', '/terms', '/privacy'] as const;
+export const PUBLIC_INDEXABLE_PATHS = [
+	'/',
+	'/pricing',
+	'/getting-started',
+	'/security',
+	'/terms',
+	'/privacy'
+] as const;
 
 export const ROBOTS_DISALLOW_PATHS = [
 	'/portal/',

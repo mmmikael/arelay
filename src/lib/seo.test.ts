@@ -25,6 +25,8 @@ describe('isPublicIndexablePath', () => {
 		expect(isPublicIndexablePath('/pricing')).toBe(true);
 		expect(isPublicIndexablePath('/terms')).toBe(true);
 		expect(isPublicIndexablePath('/privacy')).toBe(true);
+		expect(isPublicIndexablePath('/security')).toBe(true);
+		expect(isPublicIndexablePath('/getting-started')).toBe(true);
 		expect(isPublicIndexablePath('/portal')).toBe(false);
 		expect(isPublicIndexablePath('/portal/session-1')).toBe(false);
 	});
@@ -55,6 +57,7 @@ describe('buildSitemapXml', () => {
 		expect(body).toContain('<loc>https://arelay.app/pricing</loc>');
 		expect(body).toContain('<loc>https://arelay.app/terms</loc>');
 		expect(body).toContain('<loc>https://arelay.app/privacy</loc>');
+		expect(body).toContain('<loc>https://arelay.app/security</loc>');
 		expect(body).not.toContain('/portal');
 	});
 });

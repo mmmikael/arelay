@@ -85,12 +85,15 @@ export type PlanUpdate = {
 	stripeSubscriptionId?: string | null;
 	subscriptionStatus?: string | null;
 	currentPeriodEnd?: Date | null;
+	/** Set when the lifetime purchase itself was refunded, so the lifetime guard must not apply. */
+	revokeLifetime?: boolean;
 };
 
 /**
  * Apply a webhook-derived plan change. A lifetime (founding) plan is never
  * downgraded by subscription lifecycle events — subscription fields still
- * update so the record reflects Stripe, but the plan stays lifetime.
+ * update so the record reflects Stripe, but the plan stays lifetime. The one
+ * exception is a full refund of the lifetime payment (`revokeLifetime`).
  */
 export async function applyPlanUpdate(
 	userId: string,
@@ -99,6 +102,7 @@ export async function applyPlanUpdate(
 ): Promise<void> {
 	await ensureSchema();
 	const db = getDb();
+	const keepLifetime = !update.revokeLifetime;
 	await db`
 		INSERT INTO billing_accounts (
 			user_id,
@@ -122,12 +126,16 @@ export async function applyPlanUpdate(
 		DO UPDATE SET
 			stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, billing_accounts.stripe_customer_id),
 			plan = CASE
-				WHEN billing_accounts.plan_source = 'lifetime' AND EXCLUDED.plan_source IS DISTINCT FROM 'lifetime'
+				WHEN ${keepLifetime}::boolean
+					AND billing_accounts.plan_source = 'lifetime'
+					AND EXCLUDED.plan_source IS DISTINCT FROM 'lifetime'
 					THEN billing_accounts.plan
 				ELSE EXCLUDED.plan
 			END,
 			plan_source = CASE
-				WHEN billing_accounts.plan_source = 'lifetime' AND EXCLUDED.plan_source IS DISTINCT FROM 'lifetime'
+				WHEN ${keepLifetime}::boolean
+					AND billing_accounts.plan_source = 'lifetime'
+					AND EXCLUDED.plan_source IS DISTINCT FROM 'lifetime'
 					THEN billing_accounts.plan_source
 				ELSE EXCLUDED.plan_source
 			END,

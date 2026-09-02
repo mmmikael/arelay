@@ -130,5 +130,6 @@
 		<a href="/privacy" class="text-slate-600 hover:underline dark:text-slate-300">
 			Privacy Policy
 		</a>
+		<a href="/security" class="text-slate-600 hover:underline dark:text-slate-300">Security</a>
 	</nav>
 </main>

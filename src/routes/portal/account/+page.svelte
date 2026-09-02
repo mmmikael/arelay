@@ -14,7 +14,9 @@
 	import HardDrive from '@lucide/svelte/icons/hard-drive';
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Mail from '@lucide/svelte/icons/mail';
+	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
 	import { formatBytes } from '$lib/artifacts';
+	import { buildAgentSetupInstructions } from '$lib/agent-instructions';
 	import { PLAN_LABELS, isPaidPlan, isPlanId } from '$lib/billing/plans';
 	import { onMount } from 'svelte';
 	import type { LayoutData } from '../$types';
@@ -34,6 +36,24 @@
 	let newAgentTokenName = $state('');
 	let revealedAgentTokens = $state<Record<string, string>>({});
 	let tokenActionId = $state<string | null>(null);
+	// Which token's "instructions for your agent" was copied last, for button feedback.
+	let instructionsCopiedFor = $state<string | null>(null);
+
+	// The agent does the integration: this payload (with the real token embedded) is
+	// pasted into Claude Code, Cursor, or any agent that can run shell commands.
+	async function copyAgentInstructions(tokenId: string, token: string) {
+		try {
+			await navigator.clipboard.writeText(
+				buildAgentSetupInstructions({ token, relayUrl: $page.url.origin })
+			);
+			instructionsCopiedFor = tokenId;
+			setTimeout(() => {
+				if (instructionsCopiedFor === tokenId) instructionsCopiedFor = null;
+			}, 2500);
+		} catch {
+			error = 'Clipboard unavailable. Copy the token and follow the getting-started guide instead.';
+		}
+	}
 	// Writable $derived: prefilled from server data and reset whenever that data
 	// reloads, but still assignable while the user is editing the field.
 	let cloudflareAccountIdInput = $derived(data.cloudflareEmail.accountId ?? '');
@@ -485,14 +505,14 @@
 						{/if}
 						<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
 							{#if currentPlan === 'free'}
-								Free plan: {formatBytes(data.storage.limitBytes)} storage,
-								{formatBytes(data.storage.artifactLimitBytes)} per file. Upgrading funds the open-source
-								project.
+								Personal plan, free: {formatBytes(data.storage.limitBytes)} storage,
+								{formatBytes(data.storage.artifactLimitBytes)} per file, every approval gate. Pro adds
+								room and, as it ships, the team capabilities.
 							{:else if currentPlan === 'founding'}
-								Founding license — every Pro feature, no subscription, forever. Thank you for
+								Founding license — Pro for one member, no subscription, forever. Thank you for
 								backing the project early.
 							{:else}
-								Pro plan: {formatBytes(data.storage.limitBytes)} storage,
+								Pro plan, one member: {formatBytes(data.storage.limitBytes)} storage,
 								{formatBytes(data.storage.artifactLimitBytes)} per file. Thank you for supporting the
 								project.
 							{/if}
@@ -646,14 +666,33 @@
 								value={generatedAgentToken.token}
 								class="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
 							/>
-							<Button
-								variant="outline"
-								size="sm"
-								class="w-full sm:w-auto"
-								onclick={() => navigator.clipboard?.writeText(generatedAgentToken?.token ?? '')}
-							>
-								Copy token
-							</Button>
+							<div class="flex flex-col gap-2 sm:flex-row">
+								<Button
+									size="sm"
+									class="w-full sm:w-auto"
+									onclick={() =>
+										generatedAgentToken &&
+										copyAgentInstructions(generatedAgentToken.id, generatedAgentToken.token)}
+								>
+									<ClipboardCopy class="mr-1.5 h-3.5 w-3.5" />
+									{instructionsCopiedFor === generatedAgentToken.id
+										? 'Copied — paste into your agent'
+										: 'Copy instructions for your agent'}
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									class="w-full sm:w-auto"
+									onclick={() => navigator.clipboard?.writeText(generatedAgentToken?.token ?? '')}
+								>
+									Copy token only
+								</Button>
+							</div>
+							<p class="text-xs text-slate-500 dark:text-slate-400">
+								The instructions include this token. Paste them into Claude Code, Cursor, or any
+								agent that can run commands, and it will register itself, check the connection, and
+								send a first delivery.
+							</p>
 						</div>
 					{/if}
 
@@ -711,15 +750,28 @@
 												value={revealedAgentTokens[token.id]}
 												class="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
 											/>
-											<Button
-												variant="outline"
-												size="sm"
-												class="w-full sm:w-auto"
-												onclick={() =>
-													navigator.clipboard?.writeText(revealedAgentTokens[token.id])}
-											>
-												Copy token
-											</Button>
+											<div class="flex flex-col gap-2 sm:flex-row">
+												<Button
+													size="sm"
+													class="w-full sm:w-auto"
+													onclick={() =>
+														copyAgentInstructions(token.id, revealedAgentTokens[token.id])}
+												>
+													<ClipboardCopy class="mr-1.5 h-3.5 w-3.5" />
+													{instructionsCopiedFor === token.id
+														? 'Copied — paste into your agent'
+														: 'Copy instructions for your agent'}
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													class="w-full sm:w-auto"
+													onclick={() =>
+														navigator.clipboard?.writeText(revealedAgentTokens[token.id])}
+												>
+													Copy token only
+												</Button>
+											</div>
 										</div>
 									{/if}
 								</div>
