@@ -81,8 +81,11 @@
 					usage and storage totals, timestamps, network logs, and operational metadata may remain
 					visible to the service. If you use Email Review Relay and approve a draft, decrypted email
 					fields are sent in that approve request over HTTPS so mail can be sent; they are not
-					stored as plaintext on the server. Cloudflare Account ID and API tokens you save in
-					Account are encrypted at rest on the server (separate from end-to-end encryption).
+					stored as plaintext on the server. Email is not end-to-end encrypted once sent: the
+					recipient's mail provider receives the same content. Cloudflare Account ID and API tokens
+					you save in Account are encrypted at rest on the server with a server-held key (separate
+					from end-to-end encryption), so the service could technically use them to send mail from
+					your configured address; nothing does so except your explicit approval.
 				</p>
 			</section>
 
