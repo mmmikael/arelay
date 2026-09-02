@@ -257,6 +257,12 @@
 						that neither we nor anyone holding our database can forge.
 					</li>
 					<li>Server-side policy at approval time: secret detection and external-domain flags.</li>
+					<li>
+						Real spending through single-use virtual cards (Stripe Issuing): approving a request
+						mints a card capped at the approved amount and locked to the merchant where possible, so
+						the approval itself is the spending limit. Today's spend path confirms against Stripe's
+						test card and moves no real money.
+					</li>
 				</ul>
 				<p>We will update this page as each ships, and the change history is in the repository.</p>
 			</section>
