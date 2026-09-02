@@ -59,7 +59,10 @@ is sent. It is enabled on [arelay.app](https://arelay.app); self-hosters can tur
 
 The hosted service at [arelay.app](https://arelay.app) handles deployment, database,
 storage, backups, TLS, and updates. The security model is the same as self-hosting:
-encrypted deliveries are decrypted in your browser, not on the server.
+encrypted deliveries are decrypted in your browser, not on the server. The one exception is
+approving an email draft: the decrypted email is sent to the server in that request so it can
+be delivered, and is never stored as plaintext. Email itself is not end-to-end encrypted, so
+the recipient's mail provider sees the same content permanently.
 
 ### Get started
 
