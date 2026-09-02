@@ -914,6 +914,9 @@
 							Optional. Add a Stripe secret key (use a <strong>test-mode</strong> key,
 							<code>sk_test_…</code>). Used only when you approve a spend request, to create a
 							Stripe PaymentIntent. Stored encrypted; never shown again after saving.
+							<strong>No real money moves yet:</strong> every approved request is charged to
+							Stripe's built-in test card, so this is a preview of the spend gate. A live key is
+							accepted but its charges fail, because that test card does not exist in live mode.
 							<a
 								href="https://dashboard.stripe.com/test/apikeys"
 								target="_blank"
