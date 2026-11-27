@@ -71,6 +71,40 @@ describe('sendViaCloudflare', () => {
 		});
 	});
 
+	it('logs the Ray ID, draft and user on failure without the token', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue({
+				ok: false,
+				status: 401,
+				headers: new Headers({ 'cf-ray': '8f1a2b3c4d5e6f70-SJC' }),
+				text: async () =>
+					JSON.stringify({
+						success: false,
+						errors: [{ code: 10000, message: 'Authentication error' }]
+					})
+			})
+		);
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		await expect(
+			sendViaCloudflare({
+				accountId: 'acct-1',
+				apiToken: 'secret-token',
+				to: 'user@example.com',
+				from: { email: 'noreply@yourdomain.com' },
+				subject: 'Hello',
+				html: '<p>Hi</p>',
+				logContext: { draftId: 'draft-1', userId: 'user-1' }
+			})
+		).rejects.toThrow('Authentication error');
+
+		const line = String(errorSpy.mock.calls[0]?.[0]);
+		expect(line).toContain('status=401 ray=8f1a2b3c4d5e6f70-SJC draft=draft-1 user=user-1');
+		expect(line).not.toContain('secret-token');
+		errorSpy.mockRestore();
+	});
+
 	it('throws with Cloudflare error message on failure', async () => {
 		vi.stubGlobal(
 			'fetch',
