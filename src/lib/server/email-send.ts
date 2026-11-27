@@ -21,6 +21,8 @@ export type SendEmailInput = {
 		content_id?: string;
 	}>;
 	headers?: Record<string, string>;
+	/** Identifiers added to the failure log line so a send can be traced later. */
+	logContext?: { draftId?: string; userId?: string };
 };
 
 export type CloudflareSendResult = {
@@ -65,8 +67,11 @@ export async function sendViaCloudflare(input: SendEmailInput): Promise<Cloudfla
 	if (!response.ok || !result?.success) {
 		// Log the raw Cloudflare response so send failures are diagnosable (the
 		// caller turns this into an error the reviewer can see; never logs the token).
+		const rayId = response.headers?.get?.('cf-ray') ?? 'none';
+		const draftId = input.logContext?.draftId ?? 'unknown';
+		const userId = input.logContext?.userId ?? 'unknown';
 		console.error(
-			`[email-send] Cloudflare send failed: status=${response.status} body=${rawBody.slice(0, 2000)}`
+			`[email-send] Cloudflare send failed: status=${response.status} ray=${rayId} draft=${draftId} user=${userId} body=${rawBody.slice(0, 2000)}`
 		);
 		const message =
 			result?.errors?.[0]?.message || `Cloudflare email send failed (${response.status})`;

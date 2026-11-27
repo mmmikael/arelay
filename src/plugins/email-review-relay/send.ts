@@ -51,6 +51,7 @@ export async function sendApprovedEmailDraft(input: {
 		headers: {
 			'X-Agent-Relay-Origin': input.origin,
 			'X-Agent-Relay-Draft-Id': input.draft.id
-		}
+		},
+		logContext: { draftId: input.draft.id, userId: input.userId }
 	});
 }
