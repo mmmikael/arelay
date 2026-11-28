@@ -97,7 +97,7 @@ describe('sendViaCloudflare', () => {
 				html: '<p>Hi</p>',
 				logContext: { draftId: 'draft-1', userId: 'user-1' }
 			})
-		).rejects.toThrow('Authentication error');
+		).rejects.toThrow('Cloudflare rejected the saved API token (code 10000)');
 
 		const line = String(errorSpy.mock.calls[0]?.[0]);
 		expect(line).toContain('status=401 ray=8f1a2b3c4d5e6f70-SJC draft=draft-1 user=user-1');
@@ -138,6 +138,7 @@ describe('validateCloudflareEmailCredentials', () => {
 		return { ok: status >= 200 && status < 300, status, json: async () => body };
 	}
 
+	// Stand-in for the sender/domain error a send-capable token gets for the reserved address.
 	const schemaError = reply(400, {
 		success: false,
 		errors: [{ code: 10001, message: 'email.sending.error.invalid_request_schema' }]
@@ -163,8 +164,47 @@ describe('validateCloudflareEmailCredentials', () => {
 		expect((init.headers as Record<string, string>).Authorization).toBe('Bearer cfat_token');
 	});
 
-	it('accepts any non-auth 4xx from the probe, since auth is checked first', async () => {
+	it('probes with a complete email on a reserved, undeliverable domain', async () => {
+		// An empty body let a real token without send permission pass (issue #88):
+		// Cloudflare reported the body error before checking the permission.
+		const fetchMock = vi.fn().mockResolvedValueOnce(schemaError);
+		vi.stubGlobal('fetch', fetchMock);
+
+		await validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'token-1' });
+
+		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		const body = JSON.parse(String(init.body));
+		expect(body).toMatchObject({
+			to: 'relay-credential-check@example.invalid',
+			from: 'relay-credential-check@example.invalid',
+			subject: expect.any(String),
+			text: expect.any(String),
+			html: expect.any(String)
+		});
+	});
+
+	it('rejects a token Cloudflare says lacks send permission (403 / 10102)', async () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(
+					reply(403, {
+						success: false,
+						errors: [{ code: 10102, message: 'Token lacks permission to send' }]
+					})
+				)
+				.mockResolvedValueOnce(reply(200, { success: true }))
+		);
+
+		await expect(
+			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'token-1' })
+		).rejects.toThrow('active but cannot send email for this Account ID');
+	});
+
+	it('accepts a sender/domain error, since the permission check comes first', async () => {
+		vi.spyOn(console, 'info').mockImplementation(() => {});
 		vi.stubGlobal(
 			'fetch',
 			vi

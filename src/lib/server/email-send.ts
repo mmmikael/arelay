@@ -57,7 +57,7 @@ export async function sendViaCloudflare(input: SendEmailInput): Promise<Cloudfla
 	);
 
 	const rawBody = await response.text();
-	let result: { success?: boolean; errors?: Array<{ message?: string }> } | null = null;
+	let result: CloudflareApiResult | null = null;
 	try {
 		result = rawBody ? JSON.parse(rawBody) : null;
 	} catch {
@@ -73,6 +73,12 @@ export async function sendViaCloudflare(input: SendEmailInput): Promise<Cloudfla
 		console.error(
 			`[email-send] Cloudflare send failed: status=${response.status} ray=${rayId} draft=${draftId} user=${userId} body=${rawBody.slice(0, 2000)}`
 		);
+		if (isCloudflareAuthFailure(response.status, result)) {
+			const code = result?.errors?.[0]?.code ?? response.status;
+			throw new Error(
+				`Cloudflare rejected the saved API token (code ${code}). In Cloudflare, check that the token is active and has the Email Sending: Edit permission for this account, then save it again in Account settings.`
+			);
+		}
 		const message =
 			result?.errors?.[0]?.message || `Cloudflare email send failed (${response.status})`;
 		throw new Error(message);
@@ -90,8 +96,12 @@ async function readCloudflareApiResult(response: Response): Promise<CloudflareAp
 	return (await response.json().catch(() => null)) as CloudflareApiResult | null;
 }
 
-/** Cloudflare's generic "this token can't do that here" code (bad, expired or unscoped token). */
-const CLOUDFLARE_AUTH_ERROR_CODE = 10000;
+/**
+ * Codes Cloudflare returns when the token can't send here: 10000 is the generic
+ * "Authentication error" (bad, expired, or missing permission for this account);
+ * 10101/10102 are the Email Sending API's own missing-token / lacks-permission codes.
+ */
+const CLOUDFLARE_AUTH_ERROR_CODES = new Set([10000, 10101, 10102]);
 /** Cloudflare rejected the Authorization header itself (stray characters in the token). */
 const CLOUDFLARE_BAD_HEADER_CODES = new Set([6003, 6111]);
 
@@ -100,7 +110,7 @@ function isCloudflareAuthFailure(status: number, result: CloudflareApiResult | n
 	const message = (first?.message ?? '').toLowerCase();
 	return (
 		status === 401 ||
-		first?.code === CLOUDFLARE_AUTH_ERROR_CODE ||
+		(first?.code !== undefined && CLOUDFLARE_AUTH_ERROR_CODES.has(first.code)) ||
 		message.includes('authentication error') ||
 		message.includes('unable to authenticate request')
 	);
@@ -145,12 +155,22 @@ function cloudflareErrorSummary(status: number, result: CloudflareApiResult | nu
 }
 
 /**
- * Check that the token can call the Email Sending API for this account.
+ * Address used for the credential probe. `.invalid` is reserved (RFC 2606), so no account
+ * can have it as a verified sending domain and nothing can be delivered.
+ */
+const PROBE_ADDRESS = 'relay-credential-check@example.invalid';
+
+/**
+ * Check that the token can send email for this account.
  *
- * The send endpoint itself is the test: Cloudflare checks auth before it validates the body,
- * so an empty body gets an auth error (code 10000) for a token that can't send here, and a
- * body-validation error for one that can. We don't gate on /user/tokens/verify, because it
- * rejects valid account-owned tokens; the verify endpoints are only used to explain a failure.
+ * We send a complete, well-formed email from an address on a reserved domain. Cloudflare has
+ * to check the token's Email Sending permission for the account before it can object to the
+ * sender, so a token that can't send gets an auth error (10000/10101/10102) and a token that
+ * can gets a sender/domain error. An empty body is not enough: a real token that lacks the
+ * permission gets a body-validation error first, which looked like success (issue #88).
+ *
+ * We don't gate on /user/tokens/verify, because it rejects valid account-owned tokens; the
+ * verify endpoints are only used to explain a rejection.
  */
 export async function validateCloudflareEmailCredentials(input: {
 	accountId: string;
@@ -167,11 +187,18 @@ export async function validateCloudflareEmailCredentials(input: {
 				Authorization: `Bearer ${apiToken}`,
 				'Content-Type': 'application/json'
 			},
-			body: '{}'
+			body: JSON.stringify({
+				to: PROBE_ADDRESS,
+				from: PROBE_ADDRESS,
+				subject: 'Agent Relay credential check',
+				text: 'Agent Relay credential check. This message cannot be delivered.',
+				html: '<p>Agent Relay credential check. This message cannot be delivered.</p>'
+			})
 		}
 	);
 	const probeResult = await readCloudflareApiResult(probeResponse);
 	if (probeResult?.success) {
+		console.warn('[email-send] credential check probe was accepted by Cloudflare');
 		return;
 	}
 
@@ -202,12 +229,10 @@ export async function validateCloudflareEmailCredentials(input: {
 		);
 	}
 
-	// Any other 4xx means Cloudflare got past auth and objected to the empty probe body,
-	// so the token can send for this account.
-	const message = probeResult.errors?.[0]?.message ?? '';
-	if (!message.includes('invalid_request_schema')) {
-		console.warn(`[email-send] credential check accepted on unexpected probe reply: ${summary}`);
-	}
+	// Any other 4xx means Cloudflare got past the permission check and objected to the
+	// reserved sender, so the token can send for this account. Log the reply so we can see
+	// which code Cloudflare uses for that.
+	console.info(`[email-send] credential check passed: ${summary}`);
 }
 
 export function parseFromAddress(value: string): EmailFromAddress {
