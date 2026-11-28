@@ -131,25 +131,47 @@ describe('sendViaCloudflare', () => {
 describe('validateCloudflareEmailCredentials', () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
 	});
 
-	it('passes when token verify and send probe succeed', async () => {
+	function reply(status: number, body: unknown) {
+		return { ok: status >= 200 && status < 300, status, json: async () => body };
+	}
+
+	const schemaError = reply(400, {
+		success: false,
+		errors: [{ code: 10001, message: 'email.sending.error.invalid_request_schema' }]
+	});
+	const authError = reply(401, {
+		success: false,
+		errors: [{ code: 10000, message: 'Authentication error' }]
+	});
+
+	it('accepts an account-owned token without calling /user/tokens/verify', async () => {
+		// Account-owned tokens fail /user/tokens/verify with "Invalid API Token" even when valid,
+		// which is what blocked a user from re-saving credentials (issue #88).
+		const fetchMock = vi.fn().mockResolvedValueOnce(schemaError);
+		vi.stubGlobal('fetch', fetchMock);
+
+		await expect(
+			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'cfat_token' })
+		).resolves.toBeUndefined();
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		expect(url).toBe('https://api.cloudflare.com/client/v4/accounts/acct-1/email/sending/send');
+		expect((init.headers as Record<string, string>).Authorization).toBe('Bearer cfat_token');
+	});
+
+	it('accepts any non-auth 4xx from the probe, since auth is checked first', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		vi.stubGlobal(
 			'fetch',
 			vi
 				.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ success: true })
-				})
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 400,
-					json: async () => ({
-						success: false,
-						errors: [{ message: 'email.sending.error.invalid_request_schema' }]
-					})
-				})
+				.mockResolvedValueOnce(
+					reply(400, { success: false, errors: [{ code: 10202, message: 'some.new.wording' }] })
+				)
 		);
 
 		await expect(
@@ -157,39 +179,79 @@ describe('validateCloudflareEmailCredentials', () => {
 		).resolves.toBeUndefined();
 	});
 
-	it('throws when token verify fails', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockResolvedValue({
-				ok: false,
-				status: 401,
-				json: async () => ({ success: false, errors: [{ message: 'Invalid token' }] })
-			})
-		);
+	it('normalizes a pasted token and account ID before probing', async () => {
+		const fetchMock = vi.fn().mockResolvedValueOnce(schemaError);
+		vi.stubGlobal('fetch', fetchMock);
 
-		await expect(
-			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'bad' })
-		).rejects.toThrow('Invalid token');
+		await validateCloudflareEmailCredentials({
+			accountId: ' acct-1 \n',
+			apiToken: 'Bearer tok\nen-1 '
+		});
+
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		expect(url).toContain('/accounts/acct-1/');
+		expect((init.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
 	});
 
-	it('throws when send probe is unauthorized', async () => {
+	it('says the token is not accepted when no verify endpoint knows it', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		vi.stubGlobal(
 			'fetch',
 			vi
 				.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({ success: true })
-				})
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 401,
-					json: async () => ({ success: false, errors: [{ message: 'Authentication error' }] })
-				})
+				.mockResolvedValueOnce(authError)
+				.mockResolvedValue(
+					reply(401, { success: false, errors: [{ code: 1000, message: 'Invalid API Token' }] })
+				)
 		);
 
 		await expect(
+			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'bad' })
+		).rejects.toThrow('Cloudflare does not accept this API token');
+	});
+
+	it('says the token lacks permission when it is active but cannot send', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(authError)
+			.mockResolvedValueOnce(reply(200, { success: true, result: { status: 'active' } }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		await expect(
 			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'token-1' })
-		).rejects.toThrow('API token cannot send email for this Account ID');
+		).rejects.toThrow('active but cannot send email for this Account ID');
+		expect(fetchMock.mock.calls[1]?.[0]).toBe(
+			'https://api.cloudflare.com/client/v4/accounts/acct-1/tokens/verify'
+		);
+	});
+
+	it('logs the Cloudflare code on rejection without the token', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(authError)
+				.mockResolvedValue(reply(401, { success: false, errors: [{ code: 1000 }] }))
+		);
+
+		await expect(
+			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'secret-token' })
+		).rejects.toThrow();
+
+		const line = String(warn.mock.calls[0]?.[0]);
+		expect(line).toContain('status=401 code=10000');
+		expect(line).toContain('tokenActive=false');
+		expect(line).not.toContain('secret-token');
+	});
+
+	it('asks to retry when Cloudflare returns a server error', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(reply(503, null)));
+
+		await expect(
+			validateCloudflareEmailCredentials({ accountId: 'acct-1', apiToken: 'token-1' })
+		).rejects.toThrow('Try again in a minute');
 	});
 });

@@ -2,7 +2,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { EMAIL_REVIEW_RELAY_PLUGIN_ID, requirePlugin } from '$lib/plugins';
 import { encryptSecret } from '$lib/server/secret-crypto';
-import { validateCloudflareEmailCredentials } from '$lib/server/email-send';
+import {
+	normalizeCloudflareAccountId,
+	normalizeCloudflareApiToken,
+	validateCloudflareEmailCredentials
+} from '$lib/server/email-send';
 import { routeJsonError } from '$lib/server/api-error';
 import {
 	decryptCloudflareAccountId,
@@ -32,8 +36,8 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 		return routeJsonError(locals, 400, 'Invalid JSON body');
 	}
 
-	const accountId = body.accountId?.trim();
-	const apiToken = body.apiToken?.trim();
+	const accountId = body.accountId ? normalizeCloudflareAccountId(body.accountId) : '';
+	const apiToken = body.apiToken ? normalizeCloudflareApiToken(body.apiToken) : '';
 	if (!accountId || !apiToken) {
 		return routeJsonError(locals, 400, 'accountId and apiToken are required');
 	}
