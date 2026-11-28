@@ -90,36 +90,75 @@ async function readCloudflareApiResult(response: Response): Promise<CloudflareAp
 	return (await response.json().catch(() => null)) as CloudflareApiResult | null;
 }
 
-function isCloudflareAuthFailure(status: number, message: string): boolean {
-	const normalized = message.toLowerCase();
+/** Cloudflare's generic "this token can't do that here" code (bad, expired or unscoped token). */
+const CLOUDFLARE_AUTH_ERROR_CODE = 10000;
+/** Cloudflare rejected the Authorization header itself (stray characters in the token). */
+const CLOUDFLARE_BAD_HEADER_CODES = new Set([6003, 6111]);
+
+function isCloudflareAuthFailure(status: number, result: CloudflareApiResult | null): boolean {
+	const first = result?.errors?.[0];
+	const message = (first?.message ?? '').toLowerCase();
 	return (
 		status === 401 ||
-		status === 403 ||
-		normalized.includes('authentication error') ||
-		normalized.includes('unable to authenticate request')
+		first?.code === CLOUDFLARE_AUTH_ERROR_CODE ||
+		message.includes('authentication error') ||
+		message.includes('unable to authenticate request')
 	);
 }
 
+/**
+ * Normalize a pasted token: drop a copied "Bearer " prefix and any whitespace or line breaks
+ * (Cloudflare tokens never contain whitespace).
+ */
+export function normalizeCloudflareApiToken(value: string): string {
+	return value
+		.trim()
+		.replace(/^bearer\s+/i, '')
+		.replace(/\s+/g, '');
+}
+
+export function normalizeCloudflareAccountId(value: string): string {
+	return value.replace(/\s+/g, '');
+}
+
+/** Ask Cloudflare whether the token itself is active, trying account-owned then user-owned. */
+async function isCloudflareTokenActive(accountId: string, apiToken: string): Promise<boolean> {
+	const urls = [
+		`https://api.cloudflare.com/client/v4/accounts/${accountId}/tokens/verify`,
+		'https://api.cloudflare.com/client/v4/user/tokens/verify'
+	];
+	for (const url of urls) {
+		try {
+			const response = await fetch(url, { headers: { Authorization: `Bearer ${apiToken}` } });
+			const result = await readCloudflareApiResult(response);
+			if (response.ok && result?.success) return true;
+		} catch {
+			// Diagnostic only; fall through to the next endpoint.
+		}
+	}
+	return false;
+}
+
+function cloudflareErrorSummary(status: number, result: CloudflareApiResult | null): string {
+	const first = result?.errors?.[0];
+	return `status=${status} code=${first?.code ?? 'none'} message=${first?.message ?? 'none'}`;
+}
+
+/**
+ * Check that the token can call the Email Sending API for this account.
+ *
+ * The send endpoint itself is the test: Cloudflare checks auth before it validates the body,
+ * so an empty body gets an auth error (code 10000) for a token that can't send here, and a
+ * body-validation error for one that can. We don't gate on /user/tokens/verify, because it
+ * rejects valid account-owned tokens; the verify endpoints are only used to explain a failure.
+ */
 export async function validateCloudflareEmailCredentials(input: {
 	accountId: string;
 	apiToken: string;
 }): Promise<void> {
-	const accountId = input.accountId.trim();
-	const apiToken = input.apiToken.trim();
+	const accountId = normalizeCloudflareAccountId(input.accountId);
+	const apiToken = normalizeCloudflareApiToken(input.apiToken);
 
-	const verifyResponse = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
-		headers: { Authorization: `Bearer ${apiToken}` }
-	});
-	const verifyResult = await readCloudflareApiResult(verifyResponse);
-	if (!verifyResponse.ok || !verifyResult?.success) {
-		throw new Error(
-			verifyResult?.errors?.[0]?.message || 'Cloudflare API token is invalid or inactive.'
-		);
-	}
-
-	// List-domains often requires broader read scopes than send. Probe the send API with an
-	// intentionally invalid body: auth failures return 401, while send-capable tokens get
-	// a schema validation error instead.
 	const probeResponse = await fetch(
 		`https://api.cloudflare.com/client/v4/accounts/${accountId}/email/sending/send`,
 		{
@@ -136,20 +175,39 @@ export async function validateCloudflareEmailCredentials(input: {
 		return;
 	}
 
-	const probeMessage = probeResult?.errors?.[0]?.message ?? '';
-	if (probeMessage.includes('invalid_request_schema')) {
-		return;
-	}
+	const summary = cloudflareErrorSummary(probeResponse.status, probeResult);
+	const firstCode = probeResult?.errors?.[0]?.code;
 
-	if (isCloudflareAuthFailure(probeResponse.status, probeMessage)) {
+	if (firstCode !== undefined && CLOUDFLARE_BAD_HEADER_CODES.has(firstCode)) {
+		console.warn(`[email-send] credential check rejected: ${summary}`);
 		throw new Error(
-			'API token cannot send email for this Account ID. Confirm the Account ID, Email Sending permission on the token, and that the token is scoped to this account.'
+			'Cloudflare could not read this API token. Copy the token value again, without extra characters, and save it.'
 		);
 	}
 
-	throw new Error(
-		probeMessage || `Cloudflare credentials could not be validated (${probeResponse.status})`
-	);
+	if (isCloudflareAuthFailure(probeResponse.status, probeResult)) {
+		const tokenActive = await isCloudflareTokenActive(accountId, apiToken);
+		console.warn(`[email-send] credential check rejected: ${summary} tokenActive=${tokenActive}`);
+		throw new Error(
+			tokenActive
+				? 'This API token is active but cannot send email for this Account ID. Check that the token has the Email Sending permission and is scoped to this account, and that the Account ID is correct.'
+				: 'Cloudflare does not accept this API token. It may be mistyped, expired or revoked. Create a new token with the Email Sending permission and save it here.'
+		);
+	}
+
+	if (probeResponse.status >= 500 || !probeResult) {
+		console.warn(`[email-send] credential check could not reach Cloudflare: ${summary}`);
+		throw new Error(
+			`Cloudflare could not be reached to check these credentials (${probeResponse.status}). Try again in a minute.`
+		);
+	}
+
+	// Any other 4xx means Cloudflare got past auth and objected to the empty probe body,
+	// so the token can send for this account.
+	const message = probeResult.errors?.[0]?.message ?? '';
+	if (!message.includes('invalid_request_schema')) {
+		console.warn(`[email-send] credential check accepted on unexpected probe reply: ${summary}`);
+	}
 }
 
 export function parseFromAddress(value: string): EmailFromAddress {
